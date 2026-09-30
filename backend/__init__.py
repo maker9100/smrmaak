@@ -1,1 +1,1 @@
-
+"""Cheat FPS server package."""
