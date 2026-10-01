@@ -16,14 +16,15 @@ ROOT = Path(__file__).resolve().parent.parent / 'frontend'
 async def simulation():
     loop = asyncio.get_running_loop()
     last = loop.time()
-    frame = 0
+    accumulator = 0
     while True:
-        await asyncio.sleep(1/30)
+        await asyncio.sleep(1/60)
         now = loop.time()
         dt,last = min(.1,now-last),now
-        frame += 1
         for room in list(rooms.values()): room.tick(dt)
-        if frame % 2 == 0:
+        accumulator += dt
+        if accumulator >= 1/30:
+            accumulator %= 1/30
             snapshots = {code:room.snapshot() for code,room in rooms.items()}
             for ws,peer in list(peers.items()):
                 q = peer['queue']
@@ -42,7 +43,7 @@ app = FastAPI(lifespan=lifespan)
 app.mount('/static', StaticFiles(directory=ROOT), name='static')
 
 @app.get('/')
-async def index(): return FileResponse(ROOT / 'index.html')
+async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Control':'no-cache'})
 
 @app.get('/health')
 async def health(): return {'status':'ok','rooms':len(rooms)}
@@ -77,8 +78,18 @@ async def socket(ws:WebSocket):
         if count > free: raise ValueError('요청한 인원만큼 빈 자리가 없습니다.')
         for i in range(count):
             p = room.add(str(hello.get('name','치터'))+(f' P{i+1}' if count>1 else ''),i if count>1 else 0)
+            skins = hello.get('skins',[])
+            if isinstance(skins,list) and i < len(skins) and skins[i] in ('scout','warden','rogue'): p.skin = skins[i]
+            loadouts = hello.get('cheats',[])
+            if isinstance(loadouts,list) and i < len(loadouts) and isinstance(loadouts[i],dict):
+                p.cheats = {key:loadouts[i].get(key) is True for key in p.cheats}
             owned.append(p.id)
-        await ws.send_json({'type':'welcome','ids':owned,'map':MAP,'code':code})
+        # AI quick play still has a private server match; there is no room UI.
+        if room.mode == 'ai' and hello.get('quick') is True and not hello.get('code'):
+            room.quick = True
+            for pid in owned: room.players[pid].ready = True
+            room.start()
+        await ws.send_json({'type':'welcome','ids':owned,'map':MAP,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))
@@ -93,6 +104,9 @@ async def socket(ws:WebSocket):
             try:
                 data = json.loads(raw)
                 if not isinstance(data,dict): continue
+                if data.get('type') == 'ping':
+                    if not queue.full(): queue.put_nowait({'type':'pong','sent':data.get('sent')})
+                    continue
                 pid = data.get('id',owned[0])
                 if pid in owned and pid in room.players: room.command(room.players[pid],data)
             except (ValueError,TypeError) as e:

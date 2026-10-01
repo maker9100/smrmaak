@@ -1,4 +1,4 @@
-"""Authoritative 30 Hz arena simulation. No client damage or position is trusted."""
+"""Authoritative 60 Hz arena simulation. No client damage or position is trusted."""
 import math
 import random
 import secrets
@@ -20,6 +20,8 @@ MAP = [
  '11111111111111111111',
 ]
 CHEATS = ('aim', 'esp', 'recoil', 'ammo')
+MOVE_SPEED = 3.6
+MOVE_ACCEL = 22.0
 
 def angle(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
@@ -40,6 +42,20 @@ def move(p, dx, dy):
         if all(not wall(x+a, y+b) for a in (-.22,.22) for b in (-.22,.22)):
             setattr(p, axis, getattr(p, axis)+delta)
 
+def walk(p, f, s, dt, aiming=False):
+    """Accelerate along a normalized analog input, with friction on release."""
+    length = max(1, math.hypot(f, s))
+    speed = 2.6 if aiming else MOVE_SPEED
+    tx = (math.cos(p.yaw)*f-math.sin(p.yaw)*s)*speed/length
+    ty = (math.sin(p.yaw)*f+math.cos(p.yaw)*s)*speed/length
+    blend = 1-math.exp(-MOVE_ACCEL*dt)
+    p.vx += (tx-p.vx)*blend
+    p.vy += (ty-p.vy)*blend
+    ox, oy = p.x, p.y
+    move(p, p.vx*dt, p.vy*dt)
+    if abs(p.x-ox) < .00001: p.vx = 0
+    if abs(p.y-oy) < .00001: p.vy = 0
+
 @dataclass
 class Player:
     id: str
@@ -50,6 +66,9 @@ class Player:
     x: float = 2.5
     y: float = 2.5
     yaw: float = 0
+    vx: float = 0
+    vy: float = 0
+    seq: int = 0
     hp: int = 100
     kills: int = 0
     deaths: int = 0
@@ -78,6 +97,7 @@ class Room:
         self.history = []
         self.log = []
         self.message = ''
+        self.quick = False
 
     def add(self, name, team=0, bot=False):
         if self.state != 'LOBBY': raise ValueError('진행 중인 방입니다.')
@@ -113,8 +133,9 @@ class Room:
         if self.mode == 'ai':
             for team in (0,1):
                 while sum(p.team == team for p in self.players.values()) < 3:
-                    self.add('GUARD '+str(len(self.players)+1),team,True)
-        self.score, self.history, self.round = [0,0], [], 0
+                    i = sum(p.team == team for p in self.players.values())
+                    self.add('GUARD '+str(len(self.players)+1),team,True).skin = ('scout','warden','rogue')[i]
+        self.score, self.history, self.round, self.log = [0,0], [], 0, []
         for p in self.players.values(): p.kills = p.deaths = 0
         self.new_round()
 
@@ -126,6 +147,7 @@ class Room:
                 p.x,p.y,p.yaw = (2.5 if team == 0 else 17.5), 2.5+i*3, (0 if team == 0 else math.pi)
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = 100,30,0,0,0
                 p.inp,p.route = {},[]
+                p.vx,p.vy,p.stale = 0,0,0
         self.message = f'ROUND {self.round}'
 
     def finish(self, winner, reason):
@@ -143,6 +165,11 @@ class Room:
                 return max(-1,min(1,float(v))) if isinstance(v,(int,float)) and math.isfinite(v) else 0
             p.inp = {k:num(k) for k in ('f','s','turn')}
             p.inp.update({k:data.get(k) is True for k in ('fire','aim','reload')})
+            yaw = data.get('yaw')
+            if isinstance(yaw,(int,float)) and math.isfinite(yaw) and not p.bot and p.hp > 0:
+                p.yaw = angle(yaw)
+            seq = data.get('seq')
+            if isinstance(seq,int) and 0 <= seq <= 2**53: p.seq = max(p.seq,seq)
             p.stale = 0
         elif op == 'toggle' and data.get('key') in CHEATS and not p.bot:
             p.cheats[data['key']] = not p.cheats[data['key']]
@@ -160,6 +187,11 @@ class Room:
             self.players = {i:q for i,q in self.players.items() if not q.bot}
             for q in self.players.values(): q.ready = False
             self.state = 'LOBBY'
+        elif op == 'rematch' and p.id == self.host and self.state == 'MATCH_END' and self.quick:
+            self.players = {i:q for i,q in self.players.items() if not q.bot}
+            for q in self.players.values(): q.ready = True
+            self.state = 'LOBBY'
+            self.start()
 
     def path(self, p, target):
         start, end = (int(p.x),int(p.y)), (int(target.x),int(target.y))
@@ -202,7 +234,8 @@ class Room:
                 d = math.hypot(x-p.x,y-p.y)
                 if d < .15: p.route.pop(0)
                 else:
-                    p.yaw = math.atan2(y-p.y,x-p.x)
+                    desired = math.atan2(y-p.y,x-p.x)
+                    p.yaw = angle(p.yaw+max(-2.8*dt,min(2.8*dt,angle(desired-p.yaw))))
                     move(p,(x-p.x)/d*2.0*dt,(y-p.y)/d*2.0*dt)
 
     def shoot(self,p):
@@ -248,15 +281,16 @@ class Room:
             if p.reload > 0:
                 p.reload = max(0,p.reload-dt)
                 if p.reload == 0: p.ammo = 30
-            if p.bot: self.ai(p,dt)
+            if p.bot:
+                ox,oy = p.x,p.y
+                self.ai(p,dt)
+                p.vx,p.vy = (p.x-ox)/dt,(p.y-oy)/dt
             else:
                 p.stale += dt
                 if p.stale > .4: p.inp = {}
                 p.yaw = angle(p.yaw+p.inp.get('turn',0)*3.2*dt)
                 f,s = p.inp.get('f',0),p.inp.get('s',0)
-                length = max(1,math.hypot(f,s))
-                speed = 2.6 if p.inp.get('aim') else 3.6
-                move(p,(math.cos(p.yaw)*f-math.sin(p.yaw)*s)*speed*dt/length,(math.sin(p.yaw)*f+math.cos(p.yaw)*s)*speed*dt/length)
+                walk(p,f,s,dt,p.inp.get('aim'))
             if p.cheats['aim'] and p.inp.get('aim'):
                 targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and clear(p.x,p.y,q.x,q.y) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
                 if targets:
@@ -279,4 +313,4 @@ class Room:
             d = asdict(p)
             for k in ('inp','route','think','stale'): d.pop(k)
             players.append(d)
-        return dict(type='state',code=self.code,mode=self.mode,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
