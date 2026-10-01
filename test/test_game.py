@@ -1,6 +1,6 @@
 import math
 import random
-from backend.game import Room, clear
+from backend.game import Room, Player, clear, walk
 from fastapi.testclient import TestClient
 from backend.main import app
 
@@ -150,3 +150,61 @@ def test_six_real_websocket_players():
             if snap.get('state')=='COUNTDOWN':break
         assert snap['state']=='COUNTDOWN'
         assert [sum(p['team']==t for p in snap['players']) for t in (0,1)]==[3,3]
+
+
+def test_analog_acceleration_release_and_diagonal_speed():
+    p=Player('a','Walker',0,x=2,y=1.5)
+    walk(p,1,0,1/60)
+    assert 0<p.vx<3.6
+    for _ in range(30): walk(p,.5,0,1/60)
+    assert abs(p.vx-1.8)<.001
+    start=p.x
+    for _ in range(30): walk(p,0,0,1/60)
+    assert p.x-start<.1 and abs(p.vx)<.001
+    a=Player('b','Diagonal',0,x=2,y=1.5)
+    walk(a,1,1,.1)
+    assert math.hypot(a.vx,a.vy)<=3.6
+
+
+def test_absolute_yaw_and_malformed_input_are_safe():
+    r,p=ai_room()
+    r.command(p,{'type':'input','yaw':math.pi*3+.2,'seq':12,'f':float('nan'),'s':'bad'})
+    assert abs(p.yaw-(-math.pi+.2))<.001 and p.seq==12
+    assert p.inp['f']==p.inp['s']==0
+    before=p.yaw
+    r.command(p,{'type':'input','yaw':float('inf'),'seq':2})
+    assert p.yaw==before and p.seq==12
+
+
+def test_quick_ai_skips_lobby_for_two_humans_and_pings():
+    with TestClient(app) as client:
+        with client.websocket_connect('/ws') as ws:
+            ws.send_json({'name':'Quick','mode':'ai','quick':True,'split':True,
+                          'skins':['rogue','warden'],'cheats':[{'ammo':True},{'esp':True}]})
+            w=ws.receive_json()
+            assert w['quick'] and len(w['ids'])==2
+            snap=ws.receive_json()
+            assert snap['quick'] and snap['state']=='COUNTDOWN'
+            humans=[p for p in snap['players'] if not p['bot']]
+            assert len(humans)==2 and all(p['team']==0 for p in humans)
+            assert [p['skin'] for p in humans]==['rogue','warden']
+            assert humans[0]['cheats']['ammo'] and humans[1]['cheats']['esp']
+            assert all(not any(p['cheats'].values()) for p in snap['players'] if p['bot'])
+            ws.send_json({'type':'ping','sent':123})
+            for _ in range(10):
+                reply=ws.receive_json()
+                if reply['type']=='pong':break
+            assert reply=={'type':'pong','sent':123}
+
+
+def test_quick_ai_rematch_starts_without_readiness_ui():
+    r,p=ai_room()
+    r.quick=True
+    p.skin='rogue'
+    p.cheats['esp']=True
+    r.state='MATCH_END'
+    r.score=[3,1]
+    r.command(p,{'type':'rematch'})
+    assert r.state=='COUNTDOWN' and r.score==[0,0] and r.round==1
+    assert len(r.players)==6 and p.skin=='rogue' and p.cheats['esp']
+    assert all(not any(q.cheats.values()) for q in r.players.values() if q.bot)
