@@ -1,4 +1,4 @@
-/* Cheat FPS 0.2.2 — local, instanced 3D renderer. Build instructions in README.
+/* Cheat FPS 0.2.3 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
@@ -111,7 +111,7 @@ export class CheatRenderer3D {
         const key=map.join('');if(this.mapKey===key&&this.arenaId===theme.id)return;this.mapKey=key;this.arenaId=theme.id;
         this.renderer.setClearColor(theme.sky||'#adc5ca');this.scene.fog.color.set(theme.sky||'#adc5ca');
         this.staticRoot.traverse(o=>{if(o.isMesh){if(![box,sphere,cylinder].includes(o.geometry))o.geometry.dispose();o.material.map?.dispose();o.material.dispose();if(o.isInstancedMesh)o.dispose();}});
-        this.staticRoot.clear();
+        this.staticRoot.clear();this.trainRoot=null;this.trainWheels=[];this.trackLights=[];
         const wallBatch=new Batch(this.staticRoot,box,900,material('white'));
         const block=(x,y,z,sx,sy,sz,tint)=>{transform.position.set(x,y,z);transform.rotation.set(0,0,0);transform.scale.set(sx,sy,sz);transform.updateMatrix();wallBatch.add(transform.matrix,tint);};
         for(let z=0;z<map.length;z++)for(let x=0;x<map[z].length;x++){
@@ -183,14 +183,40 @@ export class CheatRenderer3D {
             cube('#263f59',20,3.45,12,.14,.1,3.9);
             tube('#95aab9',18.3,3.8,10.3,.055,7.6);
         }else if(id==='railway'){
+            const before=new Set(group.children);
             cube('#444e45',20,.15,12,12,.3,4);cube('#54705d',20,1.2,12,11.8,1.1,3.7);
             const boiler=tube('#425b4b',21,2.65,12,.82,7.3);boiler.rotation.z=Math.PI/2;
             cube('#35473e',16.8,3.4,12,2.7,2.5,3.3);cube('#bbccbf',16.8,3.6,10.32,1.5,.9,.05);cube('#bbccbf',16.8,3.6,13.68,1.5,.9,.05);
             cube('#5b6b58',16.8,4.76,12,3.2,.2,3.7);const lamp=tube('#ffe3a0',25.93,2.2,12,.24,.12);lamp.rotation.z=Math.PI/2;tube('#3d4941',23.5,4,12,.28,1.6);
-            for(const x of [16,18,20,22,24])for(const z of [10.08,13.92]){const w=tube('#252f30',x,.8,z,.48,.17);w.rotation.x=Math.PI/2;}
-            for(const z of [10.4,13.6])cube('#a2aaa0',20,.04,z,32,.08,.08);
-            for(let x=4;x<37;x+=1.5)cube('#635d48',x,.015,12,.22,.025,3.8);
+            for(const x of [16,18,20,22,24])for(const z of [10.08,13.92]){
+                const pivot=new THREE.Group();pivot.position.set(x,.8,z);group.add(pivot);this.trainWheels.push(pivot);
+                const w=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.17,12),material('#252f30'));w.rotation.x=Math.PI/2;pivot.add(w);
+                const spoke=new THREE.Mesh(new THREE.BoxGeometry(.73,.065,.19),material('#a8b3a0'));pivot.add(spoke);
+            }
+            this.trainRoot=new THREE.Group();this.trainRoot.name='moving-train';
+            for(const mesh of [...group.children])if(!before.has(mesh))this.trainRoot.add(mesh);
+            group.add(this.trainRoot);this.trainRoot.visible=false;
+            for(const z of [10.4,13.6])cube('#a2aaa0',20,.04,z,40,.08,.08);
+            for(let x=0;x<40;x+=1.5)cube('#635d48',x,.015,12,.22,.025,3.8);
+            for(const z of [9.7,14.3])for(let x=1;x<40;x+=1){
+                const stripe=cube(x%2?'#edb44c':'#343a32',x,.025,z,.8,.04,.20);stripe.rotation.y=.35;
+            }
+            for(const x of [3,37])for(const z of [9,15]){
+                tube('#49594e',x,1.3,z,.07,2.6);cube('#273a34',x,2.6,z,.45,.7,.25);
+                const lamp=add(new THREE.SphereGeometry(.15,10,8),'#6c3129',x,2.7,z-.17);
+                lamp.material.dispose();lamp.material=new THREE.MeshBasicMaterial({color:'#6c3129'});this.trackLights.push(lamp);
+            }
         }
+    }
+    updateTrain(train){
+        if(!this.trainRoot)return;
+        this.trainRoot.visible=!!train?.active;
+        if(train){
+            this.trainRoot.position.x=train.x*2-20;
+            for(const wheel of this.trainWheels)wheel.rotation.z=-(train.x*2)/.48;
+        }
+        const flash=train&&(train.warning||train.active)&&Math.floor(train.elapsed*5)%2===0;
+        for(const lamp of this.trackLights)lamp.material.color.set(flash?'#ff442e':'#6c3129');
     }
     resize(w,h,quality){
         const scale=Math.min(devicePixelRatio||1,quality===2?1.5:quality===4?1:.75,1600/Math.max(w,h));
