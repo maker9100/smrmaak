@@ -208,3 +208,44 @@ def test_quick_ai_rematch_starts_without_readiness_ui():
     assert r.state=='COUNTDOWN' and r.score==[0,0] and r.round==1
     assert len(r.players)==6 and p.skin=='rogue' and p.cheats['esp']
     assert all(not any(q.cheats.values()) for q in r.players.values() if q.bot)
+
+
+def test_tap_survives_release_before_the_simulation_tick():
+    r,p=ai_room()
+    for q in r.players.values():q.bot=False
+    r.command(p,{'type':'shoot','serial':1})
+    r.command(p,{'type':'input','fire':False})
+    r.tick(1/60)
+    assert p.shots==1
+    r.command(p,{'type':'shoot','serial':1})
+    for _ in range(20):r.tick(1/60)
+    assert p.shots==1,'Repeated tap serial fired twice'
+    r.command(p,{'type':'shoot','serial':2})
+    r.tick(1/60)
+    assert p.shots==2
+
+
+def test_vertical_aim_hits_body_but_not_the_sky():
+    r,p=ai_room()
+    for q in r.players.values():q.bot=False
+    target=next(q for q in r.players.values() if q.team==1)
+    p.x,p.y,p.yaw,p.pitch=2.5,1.5,0,.7
+    target.x,target.y,target.hp=6.5,1.5,100
+    p.cheats['recoil']=True
+    r.shoot(p)
+    assert target.hp==100
+    p.cooldown=0
+    r.command(p,{'type':'input','pitch':math.atan2(-.15,4)})
+    r.shoot(p)
+    assert target.hp==75
+    r.command(p,{'type':'input','pitch':float('nan')})
+    assert math.isfinite(p.pitch)
+
+
+def test_walk_is_independent_of_render_frame_rate():
+    positions=[]
+    for rate in [20,60,120]:
+        p=Player('walk','Walker',0,x=2.5,y=1.5)
+        for _ in range(rate):walk(p,1,0,1/rate)
+        positions.append(p.x)
+    assert max(positions)-min(positions)<.00001
