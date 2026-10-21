@@ -48,7 +48,7 @@ body.playing input,body.playing select { -webkit-user-select:text; user-select:t
 #viewControls { position:absolute; inset:0; }
 .viewport-controls { position:absolute; top:0; bottom:0; overflow:hidden; --stick:116px; --action:58px; }
 .look-surface { position:absolute; inset:0; pointer-events:auto; cursor:crosshair; }
-.control-hint { position:absolute; top:84px; left:12px; right:12px; font:10px/1.5 Arial; color:#bdccc0b0; pointer-events:none; }
+.control-hint { position:absolute; top:104px; left:12px; right:12px; font:10px/1.5 Arial; color:#bdccc0b0; pointer-events:none; }
 .joystick { position:absolute; left:18px; bottom:64px; width:var(--stick); height:var(--stick); border:1px solid #b5dfc67a; border-radius:50%; background:radial-gradient(circle,#14252075 0 31%,#29453d55 32% 70%,#05151177 71%); pointer-events:auto; }
 .joystick:before,.joystick:after { content:''; position:absolute; background:#c6ff471f; pointer-events:none; }
 .joystick:before { left:49%; top:12%; width:1px; height:76%; }
@@ -76,3 +76,44 @@ td,th { padding:12px; text-align:left; border-bottom:1px solid var(--line); }
 @media(max-height:530px) { .viewport-controls{--stick:94px;--action:44px}.joystick{bottom:53px;left:12px}.actions{bottom:53px;right:10px;gap:5px}.actions .fire-button{height:93px}.view-cheats{bottom:8px;gap:3px}.view-cheats button{font-size:9px;padding:8px 6px}.control-hint{display:none}.spectate-button{top:62px} }
 @media(max-width:650px) { body.split-play .viewport-controls{--stick:76px;--action:36px}body.split-play .joystick{left:6px}body.split-play .actions{right:6px;gap:4px}body.split-play .actions .fire-button{height:76px}body.split-play .view-cheats{left:4px;right:4px;gap:2px}body.split-play .view-cheats button{padding:8px 4px;font-size:8px}body.split-play .control-hint{font-size:8px} }
 @media(max-width:650px) { body.split-play .floating{top:70px;right:6px;font-size:10px;padding:5px}body.split-play .control-hint{display:none} }
+
+/* 0.2.1: rendered panes and touch bounds share visualViewport dimensions. */
+html,body { overscroll-behavior:none; }
+#world3d,#game,#playUI { height:var(--app-height,100dvh); }
+#world3d { z-index:0;pointer-events:none; }
+#game { z-index:1; }
+.screen { z-index:4; }
+body.playing { position:fixed;inset:0;overflow:hidden; }
+.compact-pane { --stick:94px;--action:44px; }
+.compact-pane .joystick { bottom:53px;left:12px; }
+.compact-pane .actions { bottom:53px;right:10px;gap:5px; }
+.compact-pane .actions .fire-button { height:93px; }
+.compact-pane .view-cheats { bottom:8px;gap:3px; }
+.compact-pane .view-cheats button { font-size:9px;padding:8px 6px; }
+.compact-pane .control-hint { display:none; }
+.compact-pane .spectate-button { top:62px; }
+body.portrait-split .viewport-controls { --stick:94px;--action:44px; }
+body.portrait-split .actions .fire-button { height:93px; }
+body.portrait-split .view-cheats button { padding:8px 6px;font-size:9px; }
+body.portrait-split .floating { top:70px; }
+
+/* v0.2.2: actual arena preview with a compact title menu. */
+#menu { display:flex;align-items:center;padding:40px 7vw;background:linear-gradient(90deg,rgba(5,14,17,.96) 0%,rgba(5,14,17,.84) 27%,rgba(5,14,17,.22) 66%,rgba(5,14,17,.06)); }
+.menu-content { width:min(340px,85vw); }
+#menu h1 { font-size:clamp(72px,8vw,118px);margin:0 0 40px;line-height:.88;letter-spacing:-5px; }
+.menu-actions { display:flex;flex-direction:column;gap:12px; }
+.menu-actions label { margin:0;color:#c4d5cb;font-size:13px; }
+.menu-actions select { width:100%;background:#0b1a1be6; }
+.menu-actions .primary { margin-top:8px;min-height:54px; }
+.menu-links { display:flex;gap:28px;margin-top:6px; }
+.menu-links button { border:0;background:transparent;padding:10px 0;color:#c7d6cc; }
+.menu-links button:hover { color:var(--acid); }
+.menu-version { position:absolute;bottom:16px;left:7vw;color:#b3c4b58c;font:11px monospace; }
+#networkSetup label { display:flex;margin:14px 0;gap:10px; }
+#networkSetup label:not(.check) { flex-direction:column; }
+#networkSetup .join { margin:16px 0; }
+@media(max-height:560px){#menu{padding:20px 6vw}#menu h1{font-size:62px;margin-bottom:20px}.menu-content{width:280px}.menu-actions{gap:7px}.menu-actions .primary{min-height:44px}.menu-links{margin-top:0}.menu-version{bottom:9px;left:auto;right:15px}}
+@media(max-width:600px){#menu{background:linear-gradient(90deg,#050e11e8,#050e1188);padding:28px 8vw}.menu-content{width:min(310px,84vw)}#menu h1{font-size:86px;margin-bottom:34px}}
+
+#previewCaption { position:absolute;bottom:24px;right:30px;color:#d3dfd6c0;font-size:12px;letter-spacing:1px;text-align:right;max-width:55%;text-shadow:0 1px 4px #000;pointer-events:none; }
+#mapLandmark { font-size:12px;color:#aec4bc; }

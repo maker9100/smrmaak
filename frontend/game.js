@@ -1,9 +1,15 @@
 'use strict';
-// Cheat FPS 0.2.0: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.2.2: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
-const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:false});
+const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
+let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
+try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.2':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.2';
 const CHEATS = ['aim','esp','recoil','ammo'];
 const LABELS = ['AIM','ESP','NO RECOIL','∞ AMMO'];
+const contacts = new Map(), sentInputs = new Map();
+const nativeTouch = 'ontouchstart' in window;
+let tapSerial=0;
 const keys = new Set(), local = new Map(), motion = new Map(), samples = new Map();
 const effects = new Map(), padEdges = new Map(), spriteCache = new Map(), wallCache = new Map(), weaponCache = new Map();
 let ws=null, state=null, ids=[], map=[], phase='', controlIds='', lobbyStamp='';
@@ -28,15 +34,15 @@ function active(){return state&&['COUNTDOWN','PLAYING','ROUND_END'].includes(sta
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',3500);}
 function send(data,id){if(ws?.readyState===WebSocket.OPEN&&ws.bufferedAmount<65536)ws.send(JSON.stringify({...data,id:id||ids[0]}));}
 function sound(hit=false){
-    if(!audio||options.volume<=0)return;
+    if(!audio||audio.state!=='running'||options.volume<=0)return;
     const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;
     o.type=hit?'sine':'sawtooth';o.frequency.setValueAtTime(hit?960:160,t);o.frequency.exponentialRampToValueAtTime(hit?600:45,t+.075);
     g.gain.setValueAtTime(options.volume*.11,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);
     o.connect(g);g.connect(audio.destination);o.start();o.stop(t+.11);
 }
-function audioOn(){try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{}}
+function audioOn(){try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}}
 function resetInput(){
-    keys.clear();
+    keys.clear();contacts.clear();
     for(const c of local.values()){
         c.f=c.s=c.turn=0;c.ads=c.mouseFire=c.mouseAim=false;c.fire.clear();c.fireUntil=c.reloadUntil=0;c.look.clear();c.stick=null;
         c.input={f:0,s:0,turn:0,aim:false,fire:false,reload:false};
@@ -48,29 +54,36 @@ function resetInput(){
 function showScreen(name){
     ['menu','lobby','playUI','result'].forEach(id=>$(id).classList.toggle('hidden',id!==name));
     document.body.classList.toggle('playing',name==='playUI');
+    if(name==='menu')previewIndex=-1;
     document.body.classList.toggle('split-play',name==='playUI'&&ids.length===2);
 }
-function syncMenu(){
-    const ai=$('mode').value==='ai',split=$('split').checked;
-    $('create').textContent=ai?'AI전 바로 시작 →':'로컬 대전 방 만들기 →';
-    $('quickCustom').classList.toggle('hidden',!ai);
-    $('skinSecond').classList.toggle('hidden',!split);
-    $('joinRow').classList.toggle('hidden',ai);
-    $('quickCheats').innerHTML=[0,...(split?[1]:[])].map(i=>`<span>P${i+1}</span>`+CHEATS.map((k,j)=>`<button data-loadout="${i}" data-cheat="${k}" class="${loadouts[i][k]?'on':''}">${LABELS[j]}</button>`).join('')).join('');
-}
-$('mode').onchange=$('split').onchange=syncMenu;
-$('quickCheats').onclick=e=>{const b=e.target.closest('[data-loadout]');if(!b)return;loadouts[+b.dataset.loadout][b.dataset.cheat]=!loadouts[+b.dataset.loadout][b.dataset.cheat];syncMenu();};
+function syncMenu(){ $('create').textContent='게임 시작'; }
+$('mode').onchange=syncMenu;
 syncMenu();
+let previewMap=[],lastPreview=0,arenaCatalog=[],previewIndex=-1,currentArena=null;
+function loadArena(arena){currentArena=arena;map=arena.grid;renderer3d?.loadMap(map,arena);}
+function showPreview(index){
+    if(!arenaCatalog.length)return;
+    previewIndex=index%arenaCatalog.length;const arena=arenaCatalog[previewIndex];previewMap=arena.grid;
+    renderer3d?.loadMap(previewMap,arena);$('previewCaption').textContent=arena.name+' / '+arena.landmark;
+}
+fetch('/arenas').then(r=>{if(!r.ok)throw new Error('arenas');return r.json();}).then(d=>{
+    arenaCatalog=d.arenas;
+    for(const el of [$('mapChoice'),$('matchMap')])el.innerHTML=arenaCatalog.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    $('mapChoice').onchange=()=>{$('mapLandmark').textContent=arenaCatalog.find(a=>a.id===$('mapChoice').value)?.landmark||'';};$('mapChoice').onchange();
+    $('matchMap').onchange=()=>send({type:'map',map_id:$('matchMap').value});
+    previewMap=arenaCatalog[0].grid;if(!ids.length)showPreview(0);
+}).catch(()=>toast('맵 목록을 불러오지 못했다. 새로고침해 주세요.'));
 function connect(join=false){
     const old=ws;ws=null;old?.close();resetInput();closedByUser=false;audioOn();state=null;phase='';ids=[];seq=0;
-    samples.clear();motion.clear();effects.clear();local.clear();controlIds='';lobbyStamp='';spriteCache.clear();
+    samples.clear();motion.clear();effects.clear();local.clear();sentInputs.clear();controlIds='';lobbyStamp='';spriteCache.clear();
     showScreen('menu');$('create').disabled=$('join').disabled=true;toast('경기를 준비하는 중…');
     const socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);ws=socket;
-    socket.onopen=()=>socket.send(JSON.stringify({mode:$('mode').value,code:join?$('code').value.trim():'',name:$('name').value,split:$('split').checked,quick:!join&&$('mode').value==='ai',skins:[$('skin0').value,$('skin1').value],cheats:loadouts}));
+    socket.onopen=()=>socket.send(JSON.stringify({mode:$('mode').value,map_id:$('mapChoice').value||'freight',code:join?$('code').value.trim():'',name:$('mode').value==='ai'?'PLAYER':$('name').value,split:$('mode').value==='local'&&$('split').checked,quick:!join&&$('mode').value==='ai',skins:['scout','warden'],cheats:loadouts}));
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){ids=d.ids;map=d.map;buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.2.2'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -78,22 +91,25 @@ function connect(join=false){
     socket.onerror=()=>toast('서버 연결 실패. 잠시 후 다시 시작해 주세요.');
     socket.onclose=()=>{if(ws!==socket)return;resetInput();state=null;$('create').disabled=$('join').disabled=false;showScreen('menu');document.exitPointerLock?.();if(!closedByUser)toast('연결이 종료되었다. 다시 게임을 시작해 주세요.');};
 }
-$('create').onclick=()=>connect();
-$('join').onclick=()=>{$('code').value.trim()?connect(true):toast('방 코드를 입력해 주세요.');};
-function leave(){closedByUser=true;resetInput();const old=ws;ws=null;old?.close();state=null;document.exitPointerLock?.();$('settings').close();$('create').disabled=$('join').disabled=false;showScreen('menu');}
+$('create').onclick=()=>{if($('mode').value==='ai')connect();else $('networkSetup').showModal();};
+$('hostLocal').onclick=()=>{$('networkSetup').close();connect();};
+$('networkClose').onclick=()=>$('networkSetup').close();
+$('join').onclick=()=>{if(!$('code').value.trim()){toast('방 코드를 입력해 주세요.');return;}$('networkSetup').close();connect(true);};
+function leave(){closedByUser=true;resetInput();const old=ws;ws=null;old?.close();state=null;document.exitPointerLock?.();$('settings').close();$('networkSetup').close();$('create').disabled=$('join').disabled=false;showScreen('menu');}
 document.querySelectorAll('.leave').forEach(b=>b.onclick=leave);
 $('exit').onclick=()=>{leave();toast('게임을 종료했다. 탭을 닫으면 된다.');};
 function settings(){resetInput();document.exitPointerLock?.();['sensitivity','volume','quality'].forEach(k=>$(k).value=options[k]);$('settings').showModal();}
 $('pause').onclick=$('settingsOpen').onclick=settings;
 $('settingsClose').onclick=()=>{$('settings').close();};
 $('settings').addEventListener('cancel',resetInput);
-['sensitivity','volume','quality'].forEach(k=>$(k).oninput=()=>{options[k]=Number($(k).value);try{localStorage.setItem('cheat-fps-options',JSON.stringify(options));}catch{}});
+['sensitivity','volume','quality'].forEach(k=>$(k).oninput=()=>{options[k]=Number($(k).value);if(k==='quality')resize();try{localStorage.setItem('cheat-fps-options',JSON.stringify(options));}catch{}});
 $('start').onclick=()=>send({type:'start'});
 $('again').onclick=()=>send({type:state?.quick?'rematch':'lobby'});
 function toggles(p){return CHEATS.map((k,i)=>`<button class="${p.cheats[k]?'on':''}" data-toggle="${k}" data-id="${p.id}">${LABELS[i]}</button>`).join('');}
 function lobby(d){
     $('roomCode').textContent=d.code;
-    $('modeInfo').textContent='인간 3 vs 3 · 다른 기기에서 같은 주소와 방 코드로 참가한다.';
+    $('modeInfo').textContent='인간 3 vs 3 · '+d.arena.name;
+    $('matchMap').value=d.map_id;$('matchMap').disabled=!ids.includes(d.host);
     const stamp=JSON.stringify(d.players.map(p=>[p.id,p.name,p.team,p.skin,p.ready,p.cheats]));
     $('start').disabled=!ids.includes(d.host);
     if(stamp===lobbyStamp)return;
@@ -117,9 +133,10 @@ function results(d){
 }
 function receive(d){
     const now=performance.now(),oldRound=state?.round;
+    if(d.arena&&d.map_id!==currentArena?.id)loadArena(d.arena);
     const respawn=oldRound!==d.round || (state?.state==='MATCH_END'&&d.state==='COUNTDOWN');
     state=d;snapshotAt=now;
-    if(phase!==d.state){phase=d.state;resetInput();showScreen(phase==='LOBBY'?'lobby':phase==='MATCH_END'?'result':'playUI');if(phase==='LOBBY'){lobbyStamp='';document.exitPointerLock?.();}if(phase==='MATCH_END'){document.exitPointerLock?.();results(d);}}
+    if(phase!==d.state){phase=d.state;if(['LOBBY','MATCH_END'].includes(phase))resetInput();showScreen(phase==='LOBBY'?'lobby':phase==='MATCH_END'?'result':'playUI');if(phase==='LOBBY'){lobbyStamp='';document.exitPointerLock?.();}if(phase==='MATCH_END'){document.exitPointerLock?.();results(d);}}
     for(const p of d.players){
         const list=samples.get(p.id)||[];if(respawn)list.length=0;list.push({...p,time:now});if(list.length>12)list.shift();samples.set(p.id,list);
         const prev=effects.get(p.id);
@@ -128,61 +145,121 @@ function receive(d){
         const slot=ids.indexOf(p.id);
         if(slot>=0){
             let m=motion.get(p.id);
-            if(!m||respawn){m={x:p.x,y:p.y,yaw:p.yaw,vx:0,vy:0,kick:p.kick||0,stride:0,fov:1.12};motion.set(p.id,m);}
+            if(!m||respawn){
+                m={x:p.x,y:p.y,yaw:p.yaw,pitch:p.pitch||0,vx:0,vy:0,offsetX:0,offsetY:0,kick:p.kick||0,stride:0,fov:1.12};
+                motion.set(p.id,m);sentInputs.set(p.id,[]);
+            }else if(d.state==='PLAYING'&&p.hp>0){
+                reconcile(p,m,now);
+            }
             if(p.hp===0){m.vx=m.vy=0;}
-            // The camera uses local yaw. Aim-lock corrections are predicted too.
-            if(p.cheats.aim&&control(slot).input.aim&&p.seq>=seq-1)m.yaw=p.yaw;
+
         }
     }
     if(d.state==='LOBBY')lobby(d);
     syncControls();
 }
-function protect(e){if(e.cancelable)e.preventDefault();e.stopPropagation();}
+function protect(e){if(e.cancelable)e.preventDefault();}
 function capture(el,e){try{el.setPointerCapture(e.pointerId);}catch{}}
 function buildControls(){
     if(controlIds===ids.join(':'))return;controlIds=ids.join(':');
-    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}" style="left:${i*100/ids.length}%;width:${100/ids.length}%"><div class="look-surface" data-look="${i}"></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 조이스틱 이동 · 탭 발사 · 드래그 회전</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats">${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
-    document.querySelectorAll('[data-stick]').forEach(el=>{
-        const c=control(+el.dataset.stick),knob=el.querySelector('.stick-knob');
-        const move=e=>{if(c.stick!==e.pointerId)return;protect(e);const r=el.getBoundingClientRect(),radius=r.width*.38;let dx=(e.clientX-r.left-r.width/2)/radius,dy=(e.clientY-r.top-r.height/2)/radius;const len=Math.max(1,Math.hypot(dx,dy));dx/=len;dy/=len;c.s=Math.abs(dx)<.07?0:dx;c.f=Math.abs(dy)<.07?0:-dy;knob.style.transform=`translate(${dx*radius}px,${dy*radius}px)`;};
-        el.onpointerdown=e=>{if(!active())return;protect(e);if(c.stick!==null)return;audioOn();c.stick=e.pointerId;capture(el,e);el.classList.add('active');move(e);};
-        el.onpointermove=move;
-        const end=e=>{if(c.stick!==e.pointerId)return;protect(e);c.stick=null;c.f=c.s=0;knob.style.transform='translate(0,0)';el.classList.remove('active');};
-        el.onpointerup=el.onpointercancel=el.onlostpointercapture=end;
-    });
-    document.querySelectorAll('[data-look]').forEach(el=>{
-        const i=+el.dataset.look,c=control(i);
-        el.onpointerdown=e=>{
-            if(!active())return;protect(e);audioOn();
-            if(e.pointerType==='mouse'){
-                mouseSlot=i;if(e.button===2)c.mouseAim=true;else c.mouseFire=true;
-                if(!touchDevice&&canvas.requestPointerLock){try{const p=canvas.requestPointerLock();p?.catch(()=>{});}catch{}}
-                return;
-            }
-            if(c.look.size)return;
-            capture(el,e);c.look.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,time:performance.now(),drag:false});
-        };
-        el.onpointermove=e=>{
-            const g=c.look.get(e.pointerId);if(!g||!active())return;protect(e);
-            const distance=Math.hypot(e.clientX-g.startX,e.clientY-g.startY);
-            if(distance>9)g.drag=true;
-            if(g.drag){const dx=e.clientX-g.x;rotateLocal(i,dx*.004*options.sensitivity);}
-            g.x=e.clientX;g.y=e.clientY;
-        };
-        const end=e=>{
-            const g=c.look.get(e.pointerId);if(g){protect(e);c.look.delete(e.pointerId);if(e.type==='pointerup'&&!g.drag&&performance.now()-g.time<360&&active()){c.fireUntil=performance.now()+70;transmit();}}
-            if(e.pointerType==='mouse'){c.mouseFire=c.mouseAim=false;}
-        };
-        el.onpointerup=el.onpointercancel=el.onlostpointercapture=end;
-    });
-    document.querySelectorAll('[data-action]').forEach(b=>{
-        const i=+b.dataset.slot,c=control(i),action=b.dataset.action;
-        b.onpointerdown=e=>{protect(e);if(!active())return;audioOn();capture(b,e);if(action==='fire'){c.fire.add(e.pointerId);b.classList.add('pressed');}if(action==='reload')c.reloadUntil=performance.now()+200;if(action==='aim')c.ads=!c.ads;if(action==='spectate')c.view++;};
-        const end=e=>{protect(e);if(action==='fire'){c.fire.delete(e.pointerId);if(!c.fire.size)b.classList.remove('pressed');}};
-        b.onpointerup=b.onpointercancel=b.onlostpointercapture=end;
-    });
-    document.querySelectorAll('[data-game-cheat]').forEach(b=>b.onpointerdown=e=>{protect(e);if(state)send({type:'toggle',key:b.dataset.gameCheat},ids[+b.dataset.slot]);});
+    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}"><div class="look-surface" data-look="${i}"></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 조이스틱 이동 · 탭 발사 · 드래그 회전</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats">${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
+    resize();
 }
+function clearSelection(){
+    if(active()&&document.getSelection()?.rangeCount)document.getSelection().removeAllRanges();
+}
+function tapFire(i){
+    const p=state?.players.find(p=>p.id===ids[i]);
+    if(!active()||state.state!=='PLAYING'||!p||p.hp<=0)return;
+    transmit();send({type:'shoot',serial:++tapSerial},ids[i]);
+}
+// Touch Events are cancelled before Safari can start selection, a long-press
+// callout or a compatibility mouse click. Pointer Events handle mouse and pen.
+// Every contact keeps its original owner, even when it crosses the split line.
+function beginContact(key,x,y,target,kind,button=0){
+    if(!active())return;
+    const el=target.closest?.('[data-stick],[data-look],[data-action],[data-game-cheat],#pause');
+    if(!el)return;
+    clearSelection();audioOn();
+    if(el.id==='pause'){settings();return;}
+    const i=Number(el.dataset.stick??el.dataset.look??el.dataset.slot),c=control(i);
+    const g={el,i,x,y,startX:x,startY:y,time:performance.now(),drag:false,kind,button};
+    if(el.dataset.stick!==undefined){
+        if(c.stick!==null)return;
+        c.stick=key;g.role='stick';el.classList.add('active');
+    }else if(el.dataset.look!==undefined){
+        if(c.look.size)return;
+        g.role='look';c.look.set(key,g);mouseSlot=i;
+        if(kind==='mouse'&&button===2){c.mouseAim=true;g.role='aim';}
+        else if(kind==='mouse'&&canvas.requestPointerLock){
+            try{const promise=canvas.requestPointerLock();promise?.catch(()=>{});}catch{}
+        }
+    }else if(el.dataset.gameCheat){
+        send({type:'toggle',key:el.dataset.gameCheat},ids[i]);g.role='button';
+    }else{
+        g.role=el.dataset.action;
+        if(g.role==='fire'){c.fire.add(key);el.classList.add('pressed');tapFire(i);}
+        if(g.role==='reload')c.reloadUntil=performance.now()+220;
+        if(g.role==='aim')c.ads=!c.ads;
+        if(g.role==='spectate')c.view++;
+    }
+    contacts.set(key,g);if(g.role==='stick')moveContact(key,x,y);
+}
+function moveContact(key,x,y){
+    const g=contacts.get(key);if(!g||!active())return;
+    const c=control(g.i);
+    if(g.role==='stick'){
+        const r=g.el.getBoundingClientRect(),radius=r.width*.38;
+        let dx=(x-r.left-r.width/2)/radius,dy=(y-r.top-r.height/2)/radius;
+        const length=Math.max(1,Math.hypot(dx,dy));dx/=length;dy/=length;
+        c.s=Math.abs(dx)<.07?0:dx;c.f=Math.abs(dy)<.07?0:-dy;
+        g.el.querySelector('.stick-knob').style.transform=`translate(${dx*radius}px,${dy*radius}px)`;
+    }else if(g.role==='look'&&document.pointerLockElement!==canvas){
+        if(Math.hypot(x-g.startX,y-g.startY)>8)g.drag=true;
+        if(g.drag)rotateLocal(g.i,(x-g.x)*.0035*options.sensitivity,-(y-g.y)*.0035*options.sensitivity);
+    }
+    g.x=x;g.y=y;
+}
+function endContact(key,x,y,cancelled=false){
+    const g=contacts.get(key);if(!g)return;
+    const c=control(g.i);
+    // Some browsers coalesce all movement into the final touchend position.
+    const moved=Math.hypot(x-g.startX,y-g.startY)>8;
+    if(g.role==='look'){
+        if(!cancelled&&moved)moveContact(key,x,y);
+        if(!cancelled&&!moved&&!g.drag&&performance.now()-g.time<320&&document.pointerLockElement!==canvas)tapFire(g.i);
+    }
+    if(g.role==='stick'&&c.stick===key){c.stick=null;c.f=c.s=0;g.el.querySelector('.stick-knob').style.transform='translate(0,0)';g.el.classList.remove('active');}
+    c.look.delete(key);c.fire.delete(key);g.el.classList.remove('pressed');
+    if(g.kind==='mouse'){c.mouseFire=c.mouseAim=false;}
+    contacts.delete(key);
+}
+for(const kind of ['touchstart','touchmove','touchend','touchcancel']){
+    document.addEventListener(kind,e=>{
+        if(!active())return;
+        const touches=Array.from(e.changedTouches||[]);
+        const belongs=touches.some(t=>contacts.has('t'+t.identifier)||t.target.closest?.('#playUI'));
+        if(!belongs)return;protect(e);
+        for(const t of touches){
+            const key='t'+t.identifier;
+            if(kind==='touchstart')beginContact(key,t.clientX,t.clientY,t.target,'touch');
+            else if(kind==='touchmove')moveContact(key,t.clientX,t.clientY);
+            else endContact(key,t.clientX,t.clientY,kind==='touchcancel');
+        }
+    },{capture:true,passive:false});
+}
+$('playUI').addEventListener('pointerdown',e=>{
+    if(e.pointerType==='touch'&&nativeTouch)return;
+    if(!active())return;protect(e);
+    beginContact('p'+e.pointerId,e.clientX,e.clientY,e.target,e.pointerType,e.button);
+    if(document.pointerLockElement!==canvas)capture(e.target,e);
+});
+window.addEventListener('pointermove',e=>{if(e.pointerType==='touch'&&nativeTouch)return;moveContact('p'+e.pointerId,e.clientX,e.clientY);});
+for(const name of ['pointerup','pointercancel','lostpointercapture'])window.addEventListener(name,e=>{
+    if(e.pointerType==='touch'&&nativeTouch)return;
+    endContact('p'+e.pointerId,e.clientX,e.clientY,name!=='pointerup');
+});
+document.addEventListener('selectionchange',clearSelection);
 function syncControls(){
     ids.forEach((id,i)=>{const p=state?.players.find(p=>p.id===id);if(!p)return;const panel=document.querySelector(`.viewport-controls[data-slot="${i}"]`);if(!panel)return;
         panel.querySelectorAll('[data-game-cheat]').forEach(b=>b.classList.toggle('on',p.cheats[b.dataset.gameCheat]));
@@ -202,8 +279,13 @@ window.addEventListener('blur',resetInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetInput();});
 window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')for(const c of local.values())c.mouseFire=c.mouseAim=false;});
 document.addEventListener('pointerlockchange',()=>{if(!document.pointerLockElement){for(const c of local.values())c.mouseFire=c.mouseAim=false;}});
-document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas&&active())rotateLocal(mouseSlot,e.movementX*.0025*options.sensitivity);});
-function rotateLocal(i,delta){const m=motion.get(ids[i]);if(m&&active())m.yaw=wrap(m.yaw+delta);}
+document.addEventListener('mousedown',e=>{
+    if(document.pointerLockElement!==canvas||!active())return;
+    protect(e);const c=control(mouseSlot);if(e.button===0)c.mouseFire=true;if(e.button===2)c.mouseAim=true;
+});
+document.addEventListener('mouseup',e=>{for(const c of local.values()){if(e.button===0)c.mouseFire=false;if(e.button===2)c.mouseAim=false;}});
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas&&active())rotateLocal(mouseSlot,e.movementX*.0025*options.sensitivity,-e.movementY*.0025*options.sensitivity);});
+function rotateLocal(i,delta,vertical=0){const m=motion.get(ids[i]);if(m&&active()){m.yaw=wrap(m.yaw+delta);m.pitch=clamp((m.pitch||0)+vertical,-1.15,1.15);}}
 const down=k=>keys.has(k)?1:0;
 function inputs(i,now){
     const c=control(i),has=active(),p=state?.players.find(p=>p.id===ids[i]);
@@ -220,7 +302,11 @@ function inputs(i,now){
 }
 function transmit(){
     if(!state||!ids.length)return;const now=performance.now();seq++;
-    ids.forEach((id,i)=>{const input=inputs(i,now),m=motion.get(id);send({type:'input',...input,turn:0,yaw:m?.yaw,seq},id);});
+    ids.forEach((id,i)=>{
+        const input=inputs(i,now),m=motion.get(id),packet={type:'input',...input,turn:0,yaw:m?.yaw,pitch:m?.pitch||0,seq};
+        send(packet,id);const history=sentInputs.get(id)||[];
+        history.push({...packet,time:now});if(history.length>150)history.shift();sentInputs.set(id,history);
+    });
     if(now-pingAt>1500){pingAt=now;send({type:'ping',sent:now});}
 }
 setInterval(transmit,1000/30);
@@ -236,29 +322,55 @@ function ray(x,y,a){
     return {d:Math.max(.03,side?ty-ddy:tx-ddx),side,mx,my,frac:side?(x+dx*(ty-ddy))%1:(y+dy*(tx-ddx))%1};
 }
 function visible(p,q){const d=Math.hypot(q.x-p.x,q.y-p.y);return ray(p.x,p.y,Math.atan2(q.y-p.y,q.x-p.x)).d>=d-.3;}
+function integrate(m,input,dt){
+    const speed=input.aim?2.6:3.6,yaw=input.yaw??m.yaw;
+    const tx=(Math.cos(yaw)*input.f-Math.sin(yaw)*input.s)*speed,ty=(Math.sin(yaw)*input.f+Math.cos(yaw)*input.s)*speed;
+    const blend=1-Math.exp(-22*dt),dx=tx*dt+(m.vx-tx)*blend/22,dy=ty*dt+(m.vy-ty)*blend/22;
+    m.vx=mix(m.vx,tx,blend);m.vy=mix(m.vy,ty,blend);
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/.12));
+    for(let n=0;n<steps;n++)moveClient(m,dx/steps,dy/steps);
+}
+function reconcile(p,m,now){
+    const history=sentInputs.get(p.id)||[],ack=history.findIndex(h=>h.seq===p.seq);
+    if(ack<0)return;
+    // Replay only the portion not yet simulated by the server. The visual
+    // offset decays independently, so snapshots never directly yank the view.
+    const target={x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0,yaw:p.yaw};
+    let consumed=p.input_age||0,total=0;
+    for(let j=ack;j<history.length;j++){
+        const h=history[j],duration=Math.max(0,((history[j+1]?.time??now)-h.time)/1000);
+        const skip=Math.min(duration,consumed);consumed-=skip;
+        const dt=Math.min(duration-skip,.4-total);
+        if(dt>0){integrate(target,h,dt);total+=dt;}
+        if(total>=.4)break;
+    }
+    const dx=m.x-target.x,dy=m.y-target.y;
+    if(Math.hypot(dx,dy)>2){m.offsetX=m.offsetY=0;}else{m.offsetX+=dx;m.offsetY+=dy;}
+    m.x=target.x;m.y=target.y;m.vx=target.vx;m.vy=target.vy;
+    if(ack>0)history.splice(0,ack);
+}
 function predict(dt,now){
     ids.forEach((id,i)=>{
         const p=state.players.find(p=>p.id===id),m=motion.get(id);if(!p||!m)return;const input=inputs(i,now);m.yaw=wrap(m.yaw+input.turn*3.2*dt);
-        const speed=input.aim?2.6:3.6,blend=1-Math.exp(-22*dt),tx=(Math.cos(m.yaw)*input.f-Math.sin(m.yaw)*input.s)*speed,ty=(Math.sin(m.yaw)*input.f+Math.cos(m.yaw)*input.s)*speed;
-        m.vx=mix(m.vx,tx,blend);m.vy=mix(m.vy,ty,blend);
-        const ox=m.x,oy=m.y;if(state.state==='PLAYING'&&p.hp>0)moveClient(m,m.vx*dt,m.vy*dt);
+        const ox=m.x,oy=m.y;
+        if(state.state==='PLAYING'&&p.hp>0)integrate(m,{...input,yaw:m.yaw},dt);else m.vx=m.vy=0;
         m.stride+=Math.hypot(m.x-ox,m.y-oy)*4.5;
-        // Extrapolate the latest authoritative sample, then gently reconcile.
-        const age=clamp((now-snapshotAt+rtt*.45)/1000,0,.12);
-        const target={x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0};moveClient(target,target.vx*age,target.vy*age);
-        const dx=target.x-m.x,dy=target.y-m.y;
-        if(Math.hypot(dx,dy)>1.5){m.x=p.x;m.y=p.y;}else moveClient(m,dx*(1-Math.exp(-9*dt)),dy*(1-Math.exp(-9*dt)));
-        if(p.cheats.aim&&input.aim&&p.hp>0){const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<.65&&visible(me,q));targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw)));if(targets.length)m.yaw=Math.atan2(targets[0].y-m.y,targets[0].x-m.x);}
+        const decay=Math.exp(-15*dt);m.offsetX*=decay;m.offsetY*=decay;
+        if(p.cheats.aim&&input.aim&&p.hp>0){
+            const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<.65&&visible(me,q));
+            targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw)));
+            if(targets.length){m.yaw=Math.atan2(targets[0].y-m.y,targets[0].x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(targets[0].x-m.x,targets[0].y-m.y));}
+        }
         m.kick=mix(m.kick,p.kick||0,1-Math.exp(-20*dt));m.fov=mix(m.fov,input.aim?.88:1.12,1-Math.exp(-12*dt));
     });
 }
 function interpolated(now){
     return state.players.map(p=>{
-        const own=motion.get(p.id);if(ids.includes(p.id)&&p.hp>0&&own)return {...p,...own};
+        const own=motion.get(p.id);if(ids.includes(p.id)&&p.hp>0&&own)return {...p,...own,x:own.x+own.offsetX,y:own.y+own.offsetY};
         const list=samples.get(p.id)||[],time=now-75;let a=list[0],b=list[list.length-1];if(!a)return p;
         for(let j=1;j<list.length;j++){if(list[j].time>=time){a=list[j-1];b=list[j];break;}a=list[j];}
         const t=a===b?1:clamp((time-a.time)/(b.time-a.time),0,1),yaw=wrap(a.yaw+wrap(b.yaw-a.yaw)*t);
-        return {...p,x:mix(a.x,b.x,t),y:mix(a.y,b.y,t),yaw,vx:mix(a.vx||0,b.vx||0,t),vy:mix(a.vy||0,b.vy||0,t)};
+        return {...p,x:mix(a.x,b.x,t),y:mix(a.y,b.y,t),yaw,pitch:mix(a.pitch||0,b.pitch||0,t),vx:mix(a.vx||0,b.vx||0,t),vy:mix(a.vy||0,b.vy||0,t)};
     });
 }
 
@@ -464,7 +576,7 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     const scoreWidth=Math.min(w-14,compact?270:334);
     rounded(w/2-scoreWidth/2,12,scoreWidth,54,7,'#07171fbc');
     textAt(`BLUE ${alive[0]}   ${state.score[0]} : ${state.score[1]}   ${alive[1]} RED`,w/2,34,font,'#e0efea','center');
-    textAt(`ROUND ${state.round}/5 · ${Math.ceil(state.timer)}s`,w/2,54,11,'#d0f773','center');
+    textAt(`${state.arena?.name||''} · R${state.round}/5 · ${Math.ceil(state.timer)}s`,w/2,54,11,'#d0f773','center');
     textAt(`P${index+1} / ${owner.name}${owner.hp<=0?' · 관전':''}`,14,compact?83:88,11,owner.team?'#ffab97':'#a2dcec');
     // Health and ammunition sit above the touch controls, per viewport.
     const touch=touchDevice||ids.length===2,baseline=touch?h-(h<530?208:252):h-66;
@@ -487,31 +599,75 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     }
     const hurt=now-(effects.get(owner.id)?.hurtAt||0);if(hurt>=0&&hurt<300){ctx.strokeStyle=`rgba(242,79,62,${(1-hurt/300)*.6})`;ctx.lineWidth=14;ctx.strokeRect(3,3,w-6,h-6);}
 }
-function view(index,roster,w,h,now){
+function labels3d(p,roster,rect){
+    for(const q of roster){
+        if(q.hp<=0||q.id===p.id)continue;
+        const enemy=q.team!==p.team;if(enemy&&!p.cheats.esp&&!visible(p,q))continue;
+        const box=renderer3d.project(q,rect);if(!box)continue;
+        const height=box.bottom-box.top,width=Math.max(10,height*.37),tint=enemy?'#ff9681':'#81e2ff';
+        if(enemy&&p.cheats.esp){ctx.strokeStyle=tint;ctx.lineWidth=1.5;ctx.strokeRect(box.x-width/2,box.top,width,height);}
+        if(height>12&&(p.cheats.esp||!enemy)){
+            textAt(`${q.name} · ${q.hp}`,box.x,box.top-12,Math.min(11,Math.max(8,height*.12)),tint,'center');
+            ctx.fillStyle='#163132';ctx.fillRect(box.x-22,box.top-8,44,3);ctx.fillStyle=tint;ctx.fillRect(box.x-22,box.top-8,44*q.hp/100,3);
+        }
+    }
+}
+function view(index,roster,w,h,now,rect){
     const owner=roster.find(p=>p.id===ids[index]);if(!owner)return;
     let p=owner;const c=control(index);
     if(owner.hp<=0){const alive=roster.filter(q=>q.team===owner.team&&q.hp>0);if(alive.length)p=alive[c.view%alive.length];}
     const m=motion.get(p.id),fov=p.id===owner.id&&m?m.fov:1.12;
-    const horizon=h*.48+(owner.hp>0?Math.sin((m?.stride||0)*2)*Math.min(1,Math.hypot(m?.vx||0,m?.vy||0)/3.6)*1.2:0),proj=w/(2*Math.tan(fov/2));
-    ground(p,w,h,horizon,proj);const depth=walls(p,w,h,horizon,proj,fov);
-    characters(p,roster,w,h,horizon,proj,depth,now);
-    if(p.hp>0)rifle(p,m,w,h,now);hud(p,owner,roster,w,h,index,horizon,now);
+    if(renderer3d&&!renderer3d.lost){
+        renderer3d.render(p,rect,fov,now,effects.get(p.id));labels3d(p,roster,rect);
+    }else{
+        const proj=w/(2*Math.tan(fov/2)),horizon=h*.5+Math.tan(p.pitch||0)*proj;
+        ground(p,w,h,horizon,proj);const depth=walls(p,w,h,horizon,proj,fov);
+        characters(p,roster,w,h,horizon,proj,depth,now);
+        if(p.hp>0)rifle(p,m,w,h,now);
+    }
+    hud(p,owner,roster,w,h,index,h*.5,now);
+}
+function viewportLayout(){
+    const vertical=ids.length===2&&viewportWidth<viewportHeight;
+    return ids.map((_,i)=>({x:vertical?0:i*viewportWidth/ids.length,y:vertical?i*viewportHeight/2:0,w:vertical?viewportWidth:viewportWidth/ids.length,h:vertical?viewportHeight/2:viewportHeight}));
 }
 function resize(){
-    // CSS coordinates stay identical for rendering and pointer hit testing.
-    const ratio=Math.min(devicePixelRatio||1,1,1440/Math.max(innerWidth,innerHeight));
-    const width=Math.max(1,Math.round(innerWidth*ratio)),height=Math.max(1,Math.round(innerHeight*ratio));
+    viewportWidth=Math.round(window.visualViewport?.width||innerWidth);viewportHeight=Math.round(window.visualViewport?.height||innerHeight);
+    document.documentElement.style.setProperty('--app-height',viewportHeight+'px');
+    const ratio=Math.min(devicePixelRatio||1,1,1440/Math.max(viewportWidth,viewportHeight));
+    const width=Math.max(1,Math.round(viewportWidth*ratio)),height=Math.max(1,Math.round(viewportHeight*ratio));
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}
-    ctx.setTransform(width/innerWidth,0,0,height/innerHeight,0,0);
+    ctx.setTransform(width/viewportWidth,0,0,height/viewportHeight,0,0);
+    renderer3d?.resize(viewportWidth,viewportHeight,options.quality);
+    viewportLayout().forEach((r,i)=>{const el=document.querySelector(`.viewport-controls[data-slot="${i}"]`);if(el){Object.assign(el.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px',bottom:'auto'});el.classList.toggle('compact-pane',r.h<530);}});
+    document.body.classList.toggle('portrait-split',ids.length===2&&viewportWidth<viewportHeight);
 }
-window.addEventListener('resize',resize);resize();
+window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);resize();
+// Canvas fallback draws the same server map as an isometric overview.
+function previewFallback(now){
+    ctx.fillStyle='#243b3e';ctx.fillRect(0,0,viewportWidth,viewportHeight);
+    const scale=Math.min(viewportWidth/33,viewportHeight/19),cx=viewportWidth*.65,cy=viewportHeight*.24;
+    for(let y=0;y<previewMap.length;y++)for(let x=0;x<previewMap[y].length;x++){
+        const px=cx+(x-y)*scale*.85-5*scale,py=cy+(x+y)*scale*.4,solid=previewMap[y][x]==='1',lift=solid?scale*.9:0;
+        ctx.beginPath();ctx.moveTo(px,py-lift);ctx.lineTo(px+scale*.85,py+scale*.4-lift);ctx.lineTo(px,py+scale*.8-lift);ctx.lineTo(px-scale*.85,py+scale*.4-lift);ctx.closePath();ctx.fillStyle=solid?'#8b9c8d':'#556d63';ctx.fill();ctx.strokeStyle='#304d47';ctx.stroke();
+        if(solid){ctx.beginPath();ctx.moveTo(px-scale*.85,py+scale*.4-lift);ctx.lineTo(px,py+scale*.8-lift);ctx.lineTo(px,py+scale*.8);ctx.lineTo(px-scale*.85,py+scale*.4);ctx.closePath();ctx.fillStyle='#3b5653';ctx.fill();ctx.beginPath();ctx.moveTo(px,py+scale*.8-lift);ctx.lineTo(px+scale*.85,py+scale*.4-lift);ctx.lineTo(px+scale*.85,py+scale*.4);ctx.lineTo(px,py+scale*.8);ctx.closePath();ctx.fillStyle=x<8?'#497c85':'#776153';ctx.fill();}
+    }
+}
 function frame(now){
-    const dt=Math.min(.05,(now-lastFrame)/1000);frameMs=mix(frameMs,now-lastFrame,.05);lastFrame=now;
+    const dt=Math.min(.15,Math.max(0,(now-lastFrame)/1000));frameMs=mix(frameMs,now-lastFrame,.05);lastFrame=now;
+    ctx.clearRect(0,0,viewportWidth,viewportHeight);
     if(state&&map.length&&['COUNTDOWN','PLAYING','ROUND_END'].includes(state.state)){
-        predict(dt,now);const roster=interpolated(now),w=innerWidth/ids.length,h=innerHeight;
-        for(let i=0;i<ids.length;i++){ctx.save();ctx.translate(i*w,0);ctx.beginPath();ctx.rect(0,0,w,h);ctx.clip();view(i,roster,w,h,now);ctx.restore();}
-        if(ids.length===2){line(innerWidth/2,0,innerWidth/2,h,'#07191f',3);}
-    }else{ctx.fillStyle='#0a1013';ctx.fillRect(0,0,innerWidth,innerHeight);}
+        $('world3d').style.visibility='visible';
+        predict(dt,now);const roster=interpolated(now),rects=viewportLayout();renderer3d?.begin(roster,now);
+        for(let i=0;i<ids.length;i++){const r=rects[i];ctx.save();ctx.translate(r.x,r.y);ctx.beginPath();ctx.rect(0,0,r.w,r.h);ctx.clip();view(i,roster,r.w,r.h,now,r);ctx.restore();}
+        if(ids.length===2){const r=rects[1];if(r.y)line(0,r.y,viewportWidth,r.y,'#07191f',3);else line(r.x,0,r.x,viewportHeight,'#07191f',3);}
+    }else if(!$('menu').classList.contains('hidden')&&previewMap.length){
+        const due=!document.hidden&&now-lastPreview>50;
+        if(due){const next=Math.floor(now/12000)%Math.max(1,arenaCatalog.length);if(next!==previewIndex)showPreview(next);}
+        if(renderer3d&&!renderer3d.lost){$('world3d').style.visibility='visible';if(due)renderer3d.preview(now);}
+        else{$('world3d').style.visibility='hidden';previewFallback(now);}
+        if(due)lastPreview=now;
+    }else{$('world3d').style.visibility='hidden';ctx.fillStyle='#0a1013';ctx.fillRect(0,0,viewportWidth,viewportHeight);}
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
