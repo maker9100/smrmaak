@@ -5,20 +5,8 @@ import secrets
 from collections import deque
 from dataclasses import dataclass, field, asdict
 
-MAP = [
- '11111111111111111111',
- '10000000000000000001',
- '10000000000000000001',
- '10001100000000110001',
- '10001100000000110001',
- '10000000011000000001',
- '10000000011000000001',
- '10001100000000110001',
- '10001100000000110001',
- '10000000000000000001',
- '10000000000000000001',
- '11111111111111111111',
-]
+from .arenas import ARENAS, DEFAULT_ARENA, MAP
+
 CHEATS = ('aim', 'esp', 'recoil', 'ammo')
 MOVE_SPEED = 3.6
 MOVE_ACCEL = 22.0
@@ -26,33 +14,37 @@ MOVE_ACCEL = 22.0
 def angle(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
-def wall(x, y):
-    return not (0 <= x < 20 and 0 <= y < 12) or MAP[int(y)][int(x)] == '1'
+def wall(x, y, grid=MAP):
+    return not (0 <= x < 20 and 0 <= y < 12) or grid[int(y)][int(x)] == '1'
 
-def clear(x, y, xx, yy):
+def clear(x, y, xx, yy, grid=MAP):
     d = math.hypot(xx-x, yy-y)
     n = max(1, int(d / .07))
-    return all(not wall(x+(xx-x)*i/n, y+(yy-y)*i/n) for i in range(n+1))
+    return all(not wall(x+(xx-x)*i/n, y+(yy-y)*i/n,grid) for i in range(n+1))
 
-def move(p, dx, dy):
+def move(p, dx, dy, grid=MAP):
     for axis, delta in [('x', dx), ('y', dy)]:
         x, y = p.x, p.y
         if axis == 'x': x += delta
         else: y += delta
-        if all(not wall(x+a, y+b) for a in (-.22,.22) for b in (-.22,.22)):
+        if all(not wall(x+a, y+b,grid) for a in (-.22,.22) for b in (-.22,.22)):
             setattr(p, axis, getattr(p, axis)+delta)
 
-def walk(p, f, s, dt, aiming=False):
+def walk(p, f, s, dt, aiming=False, grid=MAP):
     """Accelerate along a normalized analog input, with friction on release."""
     length = max(1, math.hypot(f, s))
     speed = 2.6 if aiming else MOVE_SPEED
     tx = (math.cos(p.yaw)*f-math.sin(p.yaw)*s)*speed/length
     ty = (math.sin(p.yaw)*f+math.cos(p.yaw)*s)*speed/length
     blend = 1-math.exp(-MOVE_ACCEL*dt)
+    dx = tx*dt + (p.vx-tx)*blend/MOVE_ACCEL
+    dy = ty*dt + (p.vy-ty)*blend/MOVE_ACCEL
     p.vx += (tx-p.vx)*blend
     p.vy += (ty-p.vy)*blend
     ox, oy = p.x, p.y
-    move(p, p.vx*dt, p.vy*dt)
+    # Small collision steps prevent tunnelling when a frame is delayed.
+    steps = max(1, math.ceil(max(abs(dx),abs(dy))/.12))
+    for _ in range(steps): move(p, dx/steps, dy/steps,grid)
     if abs(p.x-ox) < .00001: p.vx = 0
     if abs(p.y-oy) < .00001: p.vy = 0
 
@@ -66,9 +58,14 @@ class Player:
     x: float = 2.5
     y: float = 2.5
     yaw: float = 0
+    pitch: float = 0
     vx: float = 0
     vy: float = 0
     seq: int = 0
+    input_age: float = 0
+    tap_serial: int = 0
+    tap_pending: float = 0
+    reaction: float = 0
     hp: int = 100
     kills: int = 0
     deaths: int = 0
@@ -86,8 +83,10 @@ class Player:
     route: list = field(default_factory=list)
 
 class Room:
-    def __init__(self, code, mode):
+    def __init__(self, code, mode, map_id=DEFAULT_ARENA):
         self.code, self.mode = code, mode
+        if map_id not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
+        self.map_id = map_id
         self.players = {}
         self.host = None
         self.state = 'LOBBY'
@@ -98,6 +97,12 @@ class Room:
         self.log = []
         self.message = ''
         self.quick = False
+
+    @property
+    def arena(self): return ARENAS[self.map_id]
+
+    @property
+    def map(self): return self.arena['grid']
 
     def add(self, name, team=0, bot=False):
         if self.state != 'LOBBY': raise ValueError('진행 중인 방입니다.')
@@ -148,6 +153,7 @@ class Room:
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = 100,30,0,0,0
                 p.inp,p.route = {},[]
                 p.vx,p.vy,p.stale = 0,0,0
+                p.pitch,p.input_age,p.tap_pending,p.reaction = 0,0,0,0
         self.message = f'ROUND {self.round}'
 
     def finish(self, winner, reason):
@@ -168,9 +174,20 @@ class Room:
             yaw = data.get('yaw')
             if isinstance(yaw,(int,float)) and math.isfinite(yaw) and not p.bot and p.hp > 0:
                 p.yaw = angle(yaw)
+            pitch = data.get('pitch')
+            if isinstance(pitch,(int,float)) and math.isfinite(pitch) and not p.bot and p.hp > 0:
+                p.pitch = max(-1.15,min(1.15,pitch))
             seq = data.get('seq')
-            if isinstance(seq,int) and 0 <= seq <= 2**53: p.seq = max(p.seq,seq)
+            if isinstance(seq,int) and p.seq < seq <= 2**53:
+                p.seq,p.input_age = seq,0
             p.stale = 0
+        elif op == 'shoot' and not p.bot and p.hp > 0 and self.state == 'PLAYING':
+            serial = data.get('serial')
+            if isinstance(serial,int) and p.tap_serial < serial <= 2**53:
+                p.tap_serial = serial
+                # A tap is an edge, not a short-lived input state. It survives
+                # coalesced WebSocket messages but still obeys weapon cadence.
+                p.tap_pending = .2
         elif op == 'toggle' and data.get('key') in CHEATS and not p.bot:
             p.cheats[data['key']] = not p.cheats[data['key']]
         elif op == 'custom' and self.state == 'LOBBY':
@@ -181,6 +198,10 @@ class Room:
                 if sum(q.team == team for q in self.players.values()) >= 3: raise ValueError('그 팀은 가득 찼습니다.')
                 p.team = team
             p.ready = False
+        elif op == 'map' and self.state == 'LOBBY' and self.mode == 'local' and p.id == self.host:
+            if data.get('map_id') not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
+            self.map_id = data['map_id']
+            for q in self.players.values(): q.ready = False
         elif op == 'ready' and self.state == 'LOBBY': p.ready = not p.ready
         elif op == 'start' and p.id == self.host: self.start()
         elif op == 'lobby' and p.id == self.host and self.state == 'MATCH_END':
@@ -188,6 +209,7 @@ class Room:
             for q in self.players.values(): q.ready = False
             self.state = 'LOBBY'
         elif op == 'rematch' and p.id == self.host and self.state == 'MATCH_END' and self.quick:
+            self.map_id = secrets.choice(tuple(ARENAS))
             self.players = {i:q for i,q in self.players.items() if not q.bot}
             for q in self.players.values(): q.ready = True
             self.state = 'LOBBY'
@@ -201,7 +223,7 @@ class Room:
             if v == end: break
             for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)):
                 w = v[0]+dx,v[1]+dy
-                if w not in prev and not wall(w[0]+.5,w[1]+.5):
+                if w not in prev and not wall(w[0]+.5,w[1]+.5,self.map):
                     prev[w] = v
                     queue.append(w)
         route = []
@@ -214,7 +236,7 @@ class Room:
     def ai(self,p,dt):
         enemies = [q for q in self.players.values() if q.team != p.team and q.hp > 0]
         if not enemies: return
-        visible = [q for q in enemies if clear(p.x,p.y,q.x,q.y)]
+        visible = [q for q in enemies if clear(p.x,p.y,q.x,q.y,self.map)]
         target = min(visible or enemies,key=lambda q:math.hypot(q.x-p.x,q.y-p.y))
         p.think -= dt
         if p.think <= 0:
@@ -224,10 +246,13 @@ class Room:
             desired = math.atan2(target.y-p.y,target.x-p.x)
             error = angle(desired-p.yaw)
             p.yaw += max(-1.7*dt,min(1.7*dt,error))
-            p.inp = {'fire':abs(error)<.16,'aim':False}
+            p.pitch = math.atan2(-.15,math.hypot(target.x-p.x,target.y-p.y))
+            p.reaction += dt
+            p.inp = {'fire':abs(error)<.16 and p.reaction>.65,'aim':False}
             if math.hypot(target.x-p.x,target.y-p.y)>5:
-                move(p,math.cos(p.yaw)*1.6*dt,math.sin(p.yaw)*1.6*dt)
+                move(p,math.cos(p.yaw)*1.6*dt,math.sin(p.yaw)*1.6*dt,self.map)
         else:
+            p.reaction = 0
             p.inp = {}
             if p.route:
                 x,y = p.route[0]
@@ -236,7 +261,7 @@ class Room:
                 else:
                     desired = math.atan2(y-p.y,x-p.x)
                     p.yaw = angle(p.yaw+max(-2.8*dt,min(2.8*dt,angle(desired-p.yaw))))
-                    move(p,(x-p.x)/d*2.0*dt,(y-p.y)/d*2.0*dt)
+                    move(p,(x-p.x)/d*2.0*dt,(y-p.y)/d*2.0*dt,self.map)
 
     def shoot(self,p):
         if p.cooldown > 0 or (p.reload > 0 and not p.cheats['ammo']): return
@@ -252,7 +277,8 @@ class Room:
         for q in self.players.values():
             if q.hp <= 0 or q.team == p.team: continue
             d = math.hypot(q.x-p.x,q.y-p.y)
-            if abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.28,d) and clear(p.x,p.y,q.x,q.y):
+            height = .75 + math.tan(p.pitch)*d
+            if 0 < height < .98 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.28,d) and clear(p.x,p.y,q.x,q.y,self.map):
                 candidates.append((d,q))
         if not p.cheats['recoil']: p.kick = min(.13,p.kick+.022)
         if candidates:
@@ -290,14 +316,20 @@ class Room:
                 if p.stale > .4: p.inp = {}
                 p.yaw = angle(p.yaw+p.inp.get('turn',0)*3.2*dt)
                 f,s = p.inp.get('f',0),p.inp.get('s',0)
-                walk(p,f,s,dt,p.inp.get('aim'))
+                walk(p,f,s,dt,p.inp.get('aim'),self.map)
+                p.input_age += dt
             if p.cheats['aim'] and p.inp.get('aim'):
-                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and clear(p.x,p.y,q.x,q.y) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
+                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and clear(p.x,p.y,q.x,q.y,self.map) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
                 if targets:
                     q = min(targets,key=lambda q:abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)))
                     p.yaw = math.atan2(q.y-p.y,q.x-p.x)
+                    p.pitch = math.atan2(-.15,math.hypot(q.x-p.x,q.y-p.y))
             if p.inp.get('reload') and not p.cheats['ammo'] and p.ammo < 30 and p.reload == 0: p.reload = 1.5
-            if p.inp.get('fire'): self.shoot(p)
+            if p.inp.get('fire') or p.tap_pending > 0:
+                shots = p.shots
+                self.shoot(p)
+                if p.shots > shots: p.tap_pending = 0
+            p.tap_pending = max(0,p.tap_pending-dt)
         alive = [sum(p.hp>0 and p.team==t for p in self.players.values()) for t in (0,1)]
         if 0 in alive: self.finish(0 if alive[0] else 1,'전원 녹아웃')
         elif self.timer <= 0:
@@ -311,6 +343,6 @@ class Room:
         players = []
         for p in self.players.values():
             d = asdict(p)
-            for k in ('inp','route','think','stale'): d.pop(k)
+            for k in ('inp','route','think','stale','tap_pending','tap_serial','reaction'): d.pop(k)
             players.append(d)
-        return dict(type='state',code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)

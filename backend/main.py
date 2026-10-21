@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from .game import Room, MAP
+from .arenas import ARENAS, DEFAULT_ARENA
 
 rooms = {}
 peers = {}
@@ -46,7 +47,13 @@ app.mount('/static', StaticFiles(directory=ROOT), name='static')
 async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Control':'no-cache'})
 
 @app.get('/health')
-async def health(): return {'status':'ok','rooms':len(rooms)}
+async def health(): return {'status':'ok','version':'0.2.2','rooms':len(rooms)}
+
+@app.get('/arena')
+async def arena(): return {'map':MAP}
+
+@app.get('/arenas')
+async def arenas(): return {'arenas':list(ARENAS.values())}
 
 async def sender(ws,queue):
     while True:
@@ -71,7 +78,9 @@ async def socket(ws:WebSocket):
             if len(rooms)>=100: raise ValueError('서버가 가득 찼습니다.')
             code = secrets.token_hex(3).upper()
             while code in rooms: code = secrets.token_hex(3).upper()
-            room = Room(code,'local' if hello.get('mode')=='local' else 'ai')
+            mode = 'local' if hello.get('mode')=='local' else 'ai'
+            chosen = hello.get('map_id',DEFAULT_ARENA) if mode=='local' else secrets.choice(tuple(ARENAS))
+            room = Room(code,mode,chosen)
             rooms[code] = room
         count = 2 if hello.get('split') is True else 1
         free = (3 if room.mode=='ai' else 6)-len([p for p in room.players.values() if not p.bot])
@@ -89,7 +98,7 @@ async def socket(ws:WebSocket):
             room.quick = True
             for pid in owned: room.players[pid].ready = True
             room.start()
-        await ws.send_json({'type':'welcome','ids':owned,'map':MAP,'code':code,'quick':room.quick})
+        await ws.send_json({'type':'welcome','version':'0.2.2','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))
