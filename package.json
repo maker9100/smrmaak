@@ -1,6 +1,6 @@
 {
   "name": "cheat-fps-renderer",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Optional build tools; Render serves the already bundled renderer.",
   "scripts": {
