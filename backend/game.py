@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import dataclass, field, asdict
 
 from .arenas import ARENAS, DEFAULT_ARENA, MAP
+from .hazards import train_pose, train_hits, segment_box
 
 CHEATS = ('aim', 'esp', 'recoil', 'ammo')
 MOVE_SPEED = 3.6
@@ -97,6 +98,7 @@ class Room:
         self.log = []
         self.message = ''
         self.quick = False
+        self.train_time = 0.
 
     @property
     def arena(self): return ARENAS[self.map_id]
@@ -145,6 +147,7 @@ class Room:
         self.new_round()
 
     def new_round(self):
+        self.train_time = 0.
         self.round += 1
         self.state, self.timer = 'COUNTDOWN', 3
         for team in (0,1):
@@ -236,7 +239,7 @@ class Room:
     def ai(self,p,dt):
         enemies = [q for q in self.players.values() if q.team != p.team and q.hp > 0]
         if not enemies: return
-        visible = [q for q in enemies if clear(p.x,p.y,q.x,q.y,self.map)]
+        visible = [q for q in enemies if self.sight(p.x,p.y,q.x,q.y)]
         target = min(visible or enemies,key=lambda q:math.hypot(q.x-p.x,q.y-p.y))
         p.think -= dt
         if p.think <= 0:
@@ -263,6 +266,16 @@ class Room:
                     p.yaw = angle(p.yaw+max(-2.8*dt,min(2.8*dt,angle(desired-p.yaw))))
                     move(p,(x-p.x)/d*2.0*dt,(y-p.y)/d*2.0*dt,self.map)
 
+    def sight(self,x,y,xx,yy):
+        if not clear(x,y,xx,yy,self.map): return False
+        config = self.arena.get('train')
+        if config:
+            train = train_pose(self.train_time,config)
+            if train['active'] and segment_box(x,y,xx,yy,train['x']-config['length']/2,
+                    train['y']-config['width']/2,train['x']+config['length']/2,train['y']+config['width']/2):
+                return False
+        return True
+
     def shoot(self,p):
         if p.cooldown > 0 or (p.reload > 0 and not p.cheats['ammo']): return
         if not p.cheats['ammo'] and p.ammo <= 0:
@@ -278,7 +291,7 @@ class Room:
             if q.hp <= 0 or q.team == p.team: continue
             d = math.hypot(q.x-p.x,q.y-p.y)
             height = .75 + math.tan(p.pitch)*d
-            if 0 < height < .98 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.28,d) and clear(p.x,p.y,q.x,q.y,self.map):
+            if 0 < height < .98 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.28,d) and self.sight(p.x,p.y,q.x,q.y):
                 candidates.append((d,q))
         if not p.cheats['recoil']: p.kick = min(.13,p.kick+.022)
         if candidates:
@@ -300,8 +313,12 @@ class Room:
             return
         if self.state != 'PLAYING': return
         self.timer -= dt
+        train_before = self.train_time
+        self.train_time += dt
+        train_config = self.arena.get('train')
         for p in list(self.players.values()):
             if p.hp <= 0: continue
+            old_position = (p.x,p.y)
             p.cooldown = max(0,p.cooldown-dt)
             p.kick = max(0,p.kick-dt*.055)
             if p.reload > 0:
@@ -318,8 +335,17 @@ class Room:
                 f,s = p.inp.get('f',0),p.inp.get('s',0)
                 walk(p,f,s,dt,p.inp.get('aim'),self.map)
                 p.input_age += dt
+            if train_config and train_hits(train_before,self.train_time,old_position,(p.x,p.y),train_config):
+                p.hp = max(0,p.hp-train_config['damage'])
+                if p.hp == 0:
+                    p.deaths += 1
+                    p.vx=p.vy=0
+                    p.inp={}
+                    self.log.append(dict(killer='기차',victim=p.name,team=None,cause='train'))
+                    self.log=self.log[-6:]
+                    continue
             if p.cheats['aim'] and p.inp.get('aim'):
-                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and clear(p.x,p.y,q.x,q.y,self.map) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
+                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and self.sight(p.x,p.y,q.x,q.y) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
                 if targets:
                     q = min(targets,key=lambda q:abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)))
                     p.yaw = math.atan2(q.y-p.y,q.x-p.x)
@@ -331,7 +357,11 @@ class Room:
                 if p.shots > shots: p.tap_pending = 0
             p.tap_pending = max(0,p.tap_pending-dt)
         alive = [sum(p.hp>0 and p.team==t for p in self.players.values()) for t in (0,1)]
-        if 0 in alive: self.finish(0 if alive[0] else 1,'전원 녹아웃')
+        if alive == [0,0]:
+            self.round -= 1
+            self.new_round()
+            self.message = '양 팀 동시 녹아웃 · 같은 라운드 재시작'
+        elif 0 in alive: self.finish(0 if alive[0] else 1,'전원 녹아웃')
         elif self.timer <= 0:
             values = [(alive[t],sum(p.hp for p in self.players.values() if p.team==t)) for t in (0,1)]
             if values[0] != values[1]: self.finish(0 if values[0]>values[1] else 1,'시간 종료 · 생존자/체력 우세')
@@ -345,4 +375,5 @@ class Room:
             d = asdict(p)
             for k in ('inp','route','think','stale','tap_pending','tap_serial','reaction'): d.pop(k)
             players.append(d)
-        return dict(type='state',map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
+        return dict(type='state',train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)

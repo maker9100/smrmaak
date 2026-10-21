@@ -24,9 +24,14 @@ ARENAS={
  'observatory':arena('observatory','천문관측소','돔과 대형 망원경',
    [(4,3,3,1),(13,3,3,1),(6,5,1,2),(13,5,1,2),(9,5,2,2),(4,8,3,1),(13,8,3,1)],
    '#273c5b','#758698','#566b82','#83c9ed'),
- 'railway':arena('railway','철도 기지','중앙 기관차',
-   [(4,2,2,2),(14,2,2,2),(7,5,6,2),(4,8,2,2),(14,8,2,2),(9,2,2,1),(9,9,2,1)],
+ 'railway':arena('railway','철도 기지','선로를 통과하는 기관차',
+   [(4,2,2,2),(14,2,2,2),(4,8,2,2),(14,8,2,2),(9,2,2,1),(9,9,2,1)],
    '#b9c2b4','#7b7668','#7a806d','#c27b46'),
 }
+# A clear central crossing; portals in the boundary align with the rails.
+grid=ARENAS['railway']['grid']
+for y in (5,6): grid[y]='0'+grid[y][1:-1]+'0'
+ARENAS['railway']['train']=dict(period=18.,warning=3.,start=-7.,end=27.,
+                               speed=2.8,y=6.,length=6.,width=2.,damage=100)
 DEFAULT_ARENA='freight'
 MAP=ARENAS[DEFAULT_ARENA]['grid']
