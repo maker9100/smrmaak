@@ -1,12 +1,13 @@
 'use strict';
-// Cheat FPS 0.2.3: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.2.5: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.3':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.3';
-const CHEATS = ['aim','esp','recoil','ammo'];
-const LABELS = ['AIM','ESP','NO RECOIL','∞ AMMO'];
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.5':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.5';
+const CHEATS = ['aim','esp','recoil'];
+const LABELS = ['AIM','ESP','NO RECOIL'];
+const AIM_CONE=.95;
 const contacts = new Map(), sentInputs = new Map();
 const nativeTouch = 'ontouchstart' in window;
 let tapSerial=0;
@@ -27,7 +28,7 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const mix=(a,b,t)=>a+(b-a)*t;
 function control(i) {
-    if(!local.has(i)) local.set(i,{f:0,s:0,turn:0,ads:false,fire:new Set(),fireUntil:0,reloadUntil:0,look:new Map(),stick:null,view:0,mouseFire:false,mouseAim:false,input:{f:0,s:0,turn:0,aim:false,fire:false,reload:false}});
+    if(!local.has(i)) local.set(i,{f:0,s:0,turn:0,ads:false,fire:new Set(),fireUntil:0,snapUntil:0,reloadUntil:0,look:new Map(),stick:null,view:0,mouseFire:false,mouseAim:false,input:{f:0,s:0,turn:0,aim:false,fire:false,reload:false}});
     return local.get(i);
 }
 function active(){return state&&['COUNTDOWN','PLAYING','ROUND_END'].includes(state.state)&&!$('settings').open;}
@@ -44,7 +45,7 @@ function audioOn(){try{audio ||= new (window.AudioContext||window.webkitAudioCon
 function resetInput(){
     keys.clear();contacts.clear();
     for(const c of local.values()){
-        c.f=c.s=c.turn=0;c.ads=c.mouseFire=c.mouseAim=false;c.fire.clear();c.fireUntil=c.reloadUntil=0;c.look.clear();c.stick=null;
+        c.f=c.s=c.turn=0;c.ads=c.mouseFire=c.mouseAim=false;c.fire.clear();c.fireUntil=c.snapUntil=c.reloadUntil=0;c.look.clear();c.stick=null;
         c.input={f:0,s:0,turn:0,aim:false,fire:false,reload:false};
     }
     document.querySelectorAll('.stick-knob').forEach(el=>el.style.transform='translate(0,0)');
@@ -90,7 +91,7 @@ function connect(join=false){
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){if(d.version!=='0.2.3'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.2.5'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -115,17 +116,19 @@ $('again').onclick=()=>send({type:state?.quick?'rematch':'lobby'});
 function toggles(p){return CHEATS.map((k,i)=>`<button class="${p.cheats[k]?'on':''}" data-toggle="${k}" data-id="${p.id}">${LABELS[i]}</button>`).join('');}
 function lobby(d){
     $('roomCode').textContent=d.code;
-    $('modeInfo').textContent='인간 3 vs 3 · '+d.arena.name;
+    const teams=[0,1].map(t=>d.players.filter(p=>!p.bot&&p.team===t).length);
+    $('modeInfo').textContent=`${d.mode==='local'?'로컬 대전':'AI전'} · BLUE ${teams[0]} vs RED ${teams[1]} · ${d.arena.name}`;
     $('matchMap').value=d.map_id;$('matchMap').disabled=!ids.includes(d.host);
     const stamp=JSON.stringify(d.players.map(p=>[p.id,p.name,p.team,p.skin,p.ready,p.cheats]));
-    $('start').disabled=!ids.includes(d.host);
+    $('start').disabled=!ids.includes(d.host)||!d.can_start;
+    $('start').textContent=d.mode==='local'&&!d.can_start?'모두 준비하면 자동 시작':'경기 시작';
+    $('controlsInfo').textContent=d.start_hint||(d.mode==='local'?'양 팀 각 1명 이상 · 참가자 전원 준비 시 자동 시작 (팀당 최대 3명).':'참가자가 모두 준비하면 방장이 시작한다.');
     if(stamp===lobbyStamp)return;
     const editing=$('custom').contains(document.activeElement)&&['INPUT','SELECT'].includes(document.activeElement.tagName);
     $('roster').innerHTML=[0,1].map(t=>`<div class="card ${t?'red':'blue'}"><h3>${t?'RED':'BLUE'} / ${d.players.filter(p=>p.team===t).length} OF 3</h3>${d.players.filter(p=>p.team===t).map(p=>`<div class="member"><span>${esc(p.name)} ${p.id===d.host?'♛':''}</span><span>${p.ready?'준비 완료':'편성 중'}</span></div>`).join('')}</div>`).join('');
     if(editing)return;
     lobbyStamp=stamp;
     $('custom').innerHTML=ids.map((id,i)=>{const p=d.players.find(p=>p.id===id);if(!p)return '';return `<div class="card"><h3>PLAYER ${i+1}</h3><label>콜사인<input data-name="${id}" value="${esc(p.name)}" maxlength="16"></label><label>캐릭터<select data-skin="${id}">${['scout','warden','rogue'].map(s=>`<option ${p.skin===s?'selected':''}>${s}</option>`).join('')}</select></label><label>팀<select data-team="${id}" ${d.mode==='ai'?'disabled':''}><option value="0" ${p.team===0?'selected':''}>BLUE</option><option value="1" ${p.team===1?'selected':''}>RED</option></select></label><div class="toggles">${toggles(p)}</div><button data-ready="${id}" class="${p.ready?'on':''}">${p.ready?'준비 취소':'준비 완료'}</button></div>`;}).join('');
-    $('controlsInfo').textContent='각 팀 3명, 모두 준비 완료한 뒤 방장이 경기 시작.';
 }
 $('custom').onchange=e=>{
     const el=e.target,id=el.dataset.name||el.dataset.skin||el.dataset.team;if(!id)return;
@@ -178,6 +181,8 @@ function clearSelection(){
 function tapFire(i){
     const p=state?.players.find(p=>p.id===ids[i]);
     if(!active()||state.state!=='PLAYING'||!p||p.hp<=0)return;
+    const now=performance.now();control(i).snapUntil=now+220;
+    assistLocal(i,now,true);
     transmit();send({type:'shoot',serial:++tapSerial},ids[i]);
 }
 // Touch Events are cancelled before Safari can start selection, a long-press
@@ -279,7 +284,7 @@ window.addEventListener('keydown',e=>{
     if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
     if(e.code==='Escape'){if(active())settings();return;}if($('settings').open)return;
     if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&state)e.preventDefault();keys.add(e.code);
-    if(!e.repeat){const one=['Digit1','Digit2','Digit3','Digit4'].indexOf(e.code),two=['Digit7','Digit8','Digit9','Digit0'].indexOf(e.code);if(one>=0)send({type:'toggle',key:CHEATS[one]});if(two>=0&&ids[1])send({type:'toggle',key:CHEATS[two]},ids[1]);if(e.code==='KeyV')ids.forEach((_,i)=>control(i).view++);}
+    if(!e.repeat){const one=['Digit1','Digit2','Digit3'].indexOf(e.code),two=['Digit7','Digit8','Digit9'].indexOf(e.code);if(one>=0)send({type:'toggle',key:CHEATS[one]});if(two>=0&&ids[1])send({type:'toggle',key:CHEATS[two]},ids[1]);if(e.code==='KeyV')ids.forEach((_,i)=>control(i).view++);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',resetInput);
@@ -303,13 +308,14 @@ function inputs(i,now){
     let aim=c.ads||c.mouseAim||!!down(i?'ShiftRight':'ShiftLeft');
     let reload=now<c.reloadUntil||!!down(i?'KeyP':'KeyR');
     const pads=navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean):[],pad=pads[i];
-    if(pad&&has){const dz=v=>Math.abs(v||0)>.16?v:0;f-=dz(pad.axes[1]);s+=dz(pad.axes[0]);turn+=dz(pad.axes[2]);fire ||=pad.buttons[7]?.pressed;aim ||=pad.buttons[6]?.pressed;reload ||=pad.buttons[0]?.pressed;[12,13,14,15].forEach((b,j)=>{const k=`${i}:${b}`,pressed=!!pad.buttons[b]?.pressed;if(pressed&&!padEdges.get(k))send({type:'toggle',key:CHEATS[j]},ids[i]);padEdges.set(k,pressed);});}
+    if(pad&&has){const dz=v=>Math.abs(v||0)>.16?v:0;f-=dz(pad.axes[1]);s+=dz(pad.axes[0]);turn+=dz(pad.axes[2]);fire ||=pad.buttons[7]?.pressed;aim ||=pad.buttons[6]?.pressed;reload ||=pad.buttons[0]?.pressed;[12,13,14].forEach((b,j)=>{const k=`${i}:${b}`,pressed=!!pad.buttons[b]?.pressed;if(pressed&&!padEdges.get(k))send({type:'toggle',key:CHEATS[j]},ids[i]);padEdges.set(k,pressed);});}
     if(!has||p?.hp<=0){f=s=turn=0;fire=aim=reload=false;}
     const len=Math.max(1,Math.hypot(f,s));return c.input={f:f/len,s:s/len,turn:clamp(turn,-1,1),fire:!!fire,aim:!!aim,reload:!!reload};
 }
 function transmit(){
     if(!state||!ids.length)return;const now=performance.now();seq++;
     ids.forEach((id,i)=>{
+        assistLocal(i,now);
         const input=inputs(i,now),m=motion.get(id),packet={type:'input',...input,turn:0,yaw:m?.yaw,pitch:m?.pitch||0,seq};
         send(packet,id);const history=sentInputs.get(id)||[];
         history.push({...packet,time:now});if(history.length>150)history.shift();sentInputs.set(id,history);
@@ -365,6 +371,18 @@ function reconcile(p,m,now){
     m.x=target.x;m.y=target.y;m.vx=target.vx;m.vy=target.vy;
     if(ack>0)history.splice(0,ack);
 }
+function assistLocal(i,now,shot=false){
+    const p=state?.players.find(p=>p.id===ids[i]),m=motion.get(ids[i]);
+    if(!active()||state.state!=='PLAYING'||!p||!m||p.bot||p.hp<=0||!p.cheats.aim)return;
+    const input=inputs(i,now);
+    if(!shot&&!input.aim&&!input.fire&&now>=control(i).snapUntil)return;
+    const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<AIM_CONE&&visible(me,q));
+    targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw))||Math.hypot(a.x-m.x,a.y-m.y)-Math.hypot(b.x-m.x,b.y-m.y)||a.id.localeCompare(b.id));
+    if(targets.length){
+        const q=targets[0];m.yaw=Math.atan2(q.y-m.y,q.x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(q.x-m.x,q.y-m.y));
+        m.lockTarget=q.id;m.lockUntil=now+220;
+    }else{m.lockTarget=null;m.lockUntil=0;}
+}
 function predict(dt,now){
     ids.forEach((id,i)=>{
         const p=state.players.find(p=>p.id===id),m=motion.get(id);if(!p||!m)return;const input=inputs(i,now);m.yaw=wrap(m.yaw+input.turn*3.2*dt);
@@ -372,11 +390,7 @@ function predict(dt,now){
         if(state.state==='PLAYING'&&p.hp>0)integrate(m,{...input,yaw:m.yaw},dt);else m.vx=m.vy=0;
         m.stride+=Math.hypot(m.x-ox,m.y-oy)*4.5;
         const decay=Math.exp(-15*dt);m.offsetX*=decay;m.offsetY*=decay;
-        if(p.cheats.aim&&input.aim&&p.hp>0){
-            const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<.65&&visible(me,q));
-            targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw)));
-            if(targets.length){m.yaw=Math.atan2(targets[0].y-m.y,targets[0].x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(targets[0].x-m.x,targets[0].y-m.y));}
-        }
+        assistLocal(i,now);
         m.kick=mix(m.kick,p.kick||0,1-Math.exp(-20*dt));m.fov=mix(m.fov,input.aim?.88:1.12,1-Math.exp(-12*dt));
     });
 }
@@ -611,8 +625,12 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     rounded(12,baseline,cardWidth,49,5,'#07191fc9');
     textAt(`HP ${owner.hp}`,23,baseline+22,hudFont,owner.hp<30?'#ff8c76':'#e9f1e9');
     ctx.fillStyle='#314643';ctx.fillRect(23,baseline+31,cardWidth-23,5);ctx.fillStyle=owner.hp<30?'#ef735e':'#c6ff47';ctx.fillRect(23,baseline+31,(cardWidth-23)*owner.hp/100,5);
-    const ammo=p.cheats.ammo?'∞':String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
-    textAt(p.reload>0&&!p.cheats.ammo?'RELOADING':`${ammo} / 30`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt('CHEAT AR · 5.56',w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
+    const ammo=String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
+    textAt(p.reload>0?'RELOADING':`${ammo} / 30`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt('CHEAT AR · 5.56',w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
+    if(owner.hp>0&&owner.cheats.aim){
+        const m=motion.get(owner.id),locked=m?.lockTarget&&now<m.lockUntil;
+        textAt(locked?'AIM LOCK':'AIM · 조준/발사 시 자동 고정',w/2,horizon+38,compact?9:11,locked?'#ffce7b':'#b9d58e','center');
+    }
     const gap=6+Math.min(12,p.kick*75),cross=owner.hp>0?'#d9ff75':'#c6dcd5';
     line(w/2-gap-8,horizon,w/2-gap,horizon,cross,1.5);line(w/2+gap,horizon,w/2+gap+8,horizon,cross,1.5);line(w/2,horizon-gap-8,w/2,horizon-gap,cross,1.5);line(w/2,horizon+gap,w/2,horizon+gap+8,cross,1.5);ctx.fillStyle=cross;ctx.fillRect(w/2-1,horizon-1,2,2);
     if(now-(effects.get(p.id)?.hitAt||0)<180){for(const sign of [-1,1]){line(w/2+sign*8,horizon+8,w/2+sign*14,horizon+14,'#fff5d1',2);line(w/2+sign*8,horizon-8,w/2+sign*14,horizon-14,'#fff5d1',2);}}

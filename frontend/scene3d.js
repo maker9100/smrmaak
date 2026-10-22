@@ -1,4 +1,4 @@
-/* Cheat FPS 0.2.3 — local, instanced 3D renderer. Build instructions in README.
+/* Cheat FPS 0.2.5 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
