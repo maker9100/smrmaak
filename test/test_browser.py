@@ -208,7 +208,7 @@ def test_real_ai_with_simultaneous_sticks_look_and_shoot(browser,live_server_url
         assert shots(page)[0]==before[0] and shots(page)[1]>=before[1]+2
         assert abs(page.evaluate('motion.get(ids[0]).yaw')-yaw)>.25
         assert page.evaluate('motion.get(ids[0]).pitch')>.1
-        assert page.evaluate('state.players.some(p=>p.bot&&p.shots>0)')
+        page.wait_for_function('state.players.some(p=>p.bot&&p.shots>0)',timeout=20000)
         assert page.evaluate('state.players.filter(p=>p.bot).every(p=>Object.values(p.cheats).every(v=>!v))')
         assert page.evaluate('contacts.size===0&&[0,1].every(i=>control(i).f===0&&control(i).fire.size===0)')
         assert not errors,errors
@@ -223,15 +223,17 @@ def test_network_delay_does_not_drag_the_moving_camera_backwards(browser,server_
             const original=ws.onmessage;ws.onmessage=e=>setTimeout(()=>original(e),100);
             const originalSend=ws.send.bind(ws);ws.send=data=>setTimeout(()=>{if(ws.readyState===1)originalSend(data)},100);
             window.walkTrace=[];window.tracing=true;
-            const record=()=>{if(!window.tracing)return;const p=interpolated(performance.now()).find(p=>p.id===ids[0]);walkTrace.push({x:p.x,y:p.y,t:performance.now()});requestAnimationFrame(record)};record();
+            // Sample with the same animation timestamp as prediction. Wall
+            // time after software rendering includes variable drawing costs.
+            const record=t=>{if(!window.tracing)return;const p=interpolated(t).find(p=>p.id===ids[0]);walkTrace.push({x:p.x,y:p.y,t});requestAnimationFrame(record)};requestAnimationFrame(record);
         }''')
         page.keyboard.down('w');page.wait_for_timeout(1400);page.keyboard.up('w')
         data=page.evaluate('tracing=false;walkTrace');page.wait_for_timeout(600)
-        assert data[-1]['x']-data[0]['x']>3.4
+        assert data[-1]['x']-data[0]['x']>6.8
         steps=[b['x']-a['x'] for a,b in zip(data,data[1:])]
-        assert min(steps)>-.05,('Camera moved backwards under 200 ms delay',min(steps))
-        assert max(steps)<.5,('Camera jumped abruptly',max(steps))
-        assert page.evaluate('Math.abs(motion.get(ids[0]).x-state.players.find(p=>p.id===ids[0]).x)')<.25
+        assert min(steps)>-.1,('Camera moved backwards under 200 ms delay',min(steps))
+        assert all(abs(b['x']-a['x'])<max(.5,(b['t']-a['t'])/1000*7.2+.12) for a,b in zip(data,data[1:])),('Camera jumped relative to elapsed frame time',max(steps))
+        assert page.evaluate('Math.abs(motion.get(ids[0]).x-state.players.find(p=>p.id===ids[0]).x)')<.5
     finally:context.close()
 
 

@@ -60,19 +60,19 @@ def test_cheats_recoil_aim_and_damage():
 
 def test_walls_and_reload():
     r,p=ai_room()
-    assert not clear(3.5,3.5,6.5,3.5)
+    assert not clear(9.5,6.5,15.5,6.5)
     p.ammo=0
     r.shoot(p)
     assert p.reload==1.5
     for q in r.players.values():q.bot=False
     r.tick(1.6)
     assert p.ammo==30 and p.reload==0
-    p.x,p.y=1.3,1.5
+    p.x,p.y=1.5,1.5
     p.yaw=math.pi
     for _ in range(15):
         r.command(p,{'type':'input','f':1})
         r.tick(.03)
-    assert p.x>=1.22
+    assert p.x>=1.44
 
 
 def test_local_capacity_ready_and_teams():
@@ -156,13 +156,13 @@ def test_analog_acceleration_release_and_diagonal_speed():
     walk(p,1,0,1/60)
     assert 0<p.vx<3.6
     for _ in range(30): walk(p,.5,0,1/60)
-    assert abs(p.vx-1.8)<.001
+    assert abs(p.vx-3.6)<.001
     start=p.x
     for _ in range(30): walk(p,0,0,1/60)
-    assert p.x-start<.1 and abs(p.vx)<.001
+    assert p.x-start<.2 and abs(p.vx)<.001
     a=Player('b','Diagonal',0,x=2,y=1.5)
     walk(a,1,1,.1)
-    assert math.hypot(a.vx,a.vy)<=3.6
+    assert math.hypot(a.vx,a.vy)<=7.2
 
 
 def test_absolute_yaw_and_malformed_input_are_safe():
@@ -234,7 +234,7 @@ def test_vertical_aim_hits_body_but_not_the_sky():
     r.shoot(p)
     assert target.hp==100
     p.cooldown=0
-    r.command(p,{'type':'input','pitch':math.atan2(-.15,4)})
+    r.command(p,{'type':'input','pitch':math.atan2(-.3,4)})
     r.shoot(p)
     assert target.hp==75
     r.command(p,{'type':'input','pitch':float('nan')})

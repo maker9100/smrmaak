@@ -9,15 +9,15 @@ from backend.main import app
 
 @pytest.mark.parametrize('key',list(ARENAS))
 def test_every_map_is_connected_and_all_six_spawns_are_safe(key):
-    grid=ARENAS[key]['grid'];assert len(grid)==12 and all(len(row)==20 for row in grid)
-    seen={(2,2)};queue=deque(seen)
+    grid=ARENAS[key]['grid'];assert len(grid)==35 and all(len(row)==60 for row in grid)
+    seen={(5,9)};queue=deque(seen)
     while queue:
         x,y=queue.popleft()
         for dx,dy in [(1,0),(-1,0),(0,1),(0,-1)]:
             v=x+dx,y+dy
-            if 0<=v[0]<20 and 0<=v[1]<12 and grid[v[1]][v[0]]=='0' and v not in seen:seen.add(v);queue.append(v)
+            if 0<=v[0]<60 and 0<=v[1]<35 and grid[v[1]][v[0]]=='0' and v not in seen:seen.add(v);queue.append(v)
     assert len(seen)==sum(row.count('0') for row in grid)
-    assert all((x,y) in seen for x in [2,17] for y in [2,5,8])
+    assert all((int(x),int(y)) in seen for team in ARENAS[key]['spawns'] for x,y in team)
     room=Room('T','local',key)
     for i in range(6):room.add(str(i),i%2).ready=True
     room.start()
@@ -37,11 +37,11 @@ def test_ai_can_finish_a_full_match_on_each_map(key):
 
 def test_collision_and_shooting_use_the_room_map_not_a_global_grid():
     a=Room('A','ai','freight');b=Room('B','ai','foundry')
-    assert clear(3.5,2.5,6.5,2.5,a.map)
-    assert not clear(3.5,2.5,6.5,2.5,b.map)
+    assert clear(21.5,3.5,27.5,3.5,a.map)
+    assert not clear(21.5,3.5,27.5,3.5,b.map)
     for room in [a,b]:
         p=room.add('Shooter',0);q=room.add('Target',1,True)
-        p.x,p.y,p.yaw=3.5,2.5,0;q.x,q.y=6.5,2.5;p.cheats['recoil']=True;room.shoot(p)
+        p.x,p.y,p.yaw=21.5,3.5,0;q.x,q.y=27.5,3.5;p.cheats['recoil']=True;room.shoot(p)
         assert q.hp==(75 if room is a else 100)
 
 

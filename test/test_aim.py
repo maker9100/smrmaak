@@ -22,7 +22,7 @@ def test_aim_corrects_horizontal_and_vertical_angle_without_requiring_ads_for_fi
         room.command(p,dict(type='input',aim=False,fire=False,yaw=.8,pitch=.7))
     else:room.command(p,dict(type='input',aim=action=='ads',fire=action=='hold',yaw=.8,pitch=.7))
     room.tick(1/60)
-    assert p.yaw==pytest.approx(0) and p.pitch==pytest.approx(math.atan2(-.15,4))
+    assert p.yaw==pytest.approx(0) and p.pitch==pytest.approx(math.atan2(-.3,4))
     assert q.hp==(100 if action=='ads' else 75)
     assert p.ammo==(30 if action=='ads' else 29)
 
@@ -48,8 +48,8 @@ def test_aim_works_for_a_shot_queued_while_the_weapon_is_on_cooldown():
 def test_aim_does_not_lock_invalid_or_occluded_targets(kind):
     room,p,q=duel('railway' if kind=='train' else 'freight');p.cheats['aim']=True
     p.pitch=0
-    if kind=='wall':p.x,p.y,p.yaw=3.5,3.5,.3;q.x,q.y=6.5,3.5
-    elif kind=='train':p.x,p.y,p.yaw=10,4.5,math.pi/2+.3;q.x,q.y=10,7.5;room.train_time=9
+    if kind=='wall':p.x,p.y,p.yaw=9.5,6.5,.3;q.x,q.y=15.5,6.5
+    elif kind=='train':p.x,p.y,p.yaw=30,14.5,math.pi/2+.3;q.x,q.y=30,20.5;room.train_time=3+44/5.6
     elif kind=='behind':p.yaw=math.pi
     elif kind=='dead':q.hp=0
     elif kind=='teammate':q.team=p.team

@@ -32,11 +32,11 @@ def control_train(action:str):
             room.train_time=6
             for p in room.players.values():p.y=2.5
         elif action=='hit':
-            room.train_time=9
+            room.train_time=3+44/5.6
             victims=[]
             for p in room.players.values():
                 if not any(q.team==p.team for q in victims):
-                    p.x,p.y=10,6;victims.append(p)
+                    p.x,p.y=30,17.5;victims.append(p)
             return {'victims':[p.id for p in victims]}
     return {'ok':True}
 uvicorn.run(app,host='127.0.0.1',port=PORT,log_level='error')
@@ -80,9 +80,9 @@ def test_three_split_clients_share_train_motion_collision_and_spectating(browser
         for i,page in enumerate(pages):
             assert page.evaluate('renderTrain.x')>starts[i]+.3
             if not fallback:
-                assert page.evaluate('renderer3d.trainRoot.visible&&Math.abs(renderer3d.trainRoot.position.x-(renderTrain.x*2-20))<.001')
+                assert page.evaluate('renderer3d.trainRoot.visible&&Math.abs(renderer3d.trainRoot.position.x-(renderTrain.x-renderer3d.mapWidth/2))<.001')
             else:
-                assert page.evaluate('renderer3d===null&&ray(renderTrain.x,3,Math.PI/2).train===true')
+                assert page.evaluate('renderer3d===null&&ray(renderTrain.x,13,Math.PI/2).train===true')
             # The renderer interpolates the server clock, bounded to 250 ms.
             page.wait_for_function('renderTrain.elapsed>=state.train.elapsed&&renderTrain.elapsed-state.train.elapsed<=.251')
         result=pages[0].request.post(train_server+'/__test/train/hit').json();victims=result['victims']
