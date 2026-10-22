@@ -1,5 +1,6 @@
-"""Server-owned periodic train motion and continuous collision tests (grid units)."""
+"""Server-owned periodic train motion and continuous collision tests (metres)."""
 import math
+from .arenas import PLAYER_RADIUS
 
 
 def train_pose(elapsed, config):
@@ -38,6 +39,6 @@ def train_hits(t0, t1, old, new, config):
         bx = old[0]+(new[0]-old[0])*v-(config['start']+config['speed']*(b-start))
         ay = old[1]+(new[1]-old[1])*u-config['y']
         by = old[1]+(new[1]-old[1])*v-config['y']
-        hx,hy = config['length']/2+.22,config['width']/2+.22
+        hx,hy = config['length']/2+PLAYER_RADIUS,config['width']/2+PLAYER_RADIUS
         if segment_box(ax,ay,bx,by,-hx,-hy,hx,hy): return True
     return False
