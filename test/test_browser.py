@@ -140,7 +140,6 @@ def test_local_three_devices_with_two_players_each(browser,server_url):
         for page in pages:
             for button in page.locator('[data-ready]').all():button.click()
         host=pages[0];host.wait_for_function('state.players.length===6&&state.players.every(p=>p.ready)')
-        host.locator('#start').click()
         for page in pages:
             page.wait_for_selector('#playUI:not(.hidden)')
             assert page.locator('.joystick').count()==2

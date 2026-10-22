@@ -40,18 +40,18 @@ def test_elimination_best_of_five():
     assert len(r.history)==3
 
 
-def test_cheats_ammo_recoil_aim_and_damage():
+def test_cheats_recoil_aim_and_damage():
     r,p=ai_room()
     p.x,p.y,p.yaw=2.5,1.5,.2
     target=next(q for q in r.players.values() if q.team==1)
     target.x,target.y,target.hp=6.5,1.5,100
     for q in r.players.values():q.bot=False
     for key in p.cheats:r.command(p,{'type':'toggle','key':key})
-    p.ammo=0
+    p.ammo=30
     r.command(p,{'type':'input','aim':True,'fire':True})
     r.tick(.01)
     assert abs(p.yaw)<.001
-    assert target.hp==75 and p.ammo==0 and p.kick==0
+    assert target.hp==75 and p.ammo==29 and p.kick==0
     for _ in range(3):
         p.cooldown=0
         r.shoot(p)
@@ -139,12 +139,11 @@ def test_six_real_websocket_players():
             code=w['code']
             connections.append((ws,w['ids'][0]))
         for ws,pid in connections:ws.send_json({'id':pid,'type':'ready'})
-        # A state snapshot acknowledges all six readiness changes before start.
+        # The final readiness message automatically starts the match.
         host=connections[0][0]
         for _ in range(30):
             snap=host.receive_json()
             if len(snap.get('players',[]))==6 and all(p['ready'] for p in snap['players']): break
-        host.send_json({'type':'start','id':connections[0][1]})
         for _ in range(30):
             snap=host.receive_json()
             if snap.get('state')=='COUNTDOWN':break
@@ -188,7 +187,7 @@ def test_quick_ai_skips_lobby_for_two_humans_and_pings():
             humans=[p for p in snap['players'] if not p['bot']]
             assert len(humans)==2 and all(p['team']==0 for p in humans)
             assert [p['skin'] for p in humans]==['rogue','warden']
-            assert humans[0]['cheats']['ammo'] and humans[1]['cheats']['esp']
+            assert set(humans[0]['cheats'])=={'aim','esp','recoil'} and humans[1]['cheats']['esp']
             assert all(not any(p['cheats'].values()) for p in snap['players'] if p['bot'])
             ws.send_json({'type':'ping','sent':123})
             for _ in range(10):
