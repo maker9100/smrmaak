@@ -1,4 +1,4 @@
-# Cheat FPS v0.2.5
+# Cheat FPS v0.2.6
 
 FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 번들되어 외부 CDN 연결이나 Node 설치 없이 실행한다. WebGL2를 사용할 수 없으면 Canvas 호환 모드로 실행한다. 일반 인간 캐릭터 3종은 외형만 다르고 성능은 동일하다.
 
@@ -7,7 +7,8 @@ FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 
 | 경로 | 내용 |
 |---|---|
 | `backend/main.py` | HTTP, WebSocket, 약 60Hz 시뮬레이션 / 30Hz 전송 |
-| `backend/arenas.py` | 5개 맵의 실제 격자·색상·랜드마크 정의 |
+| `backend/arenas.py` | 60×35m 맵 5개·엄폐 구역·스폰·랜드마크 정의 |
+| `backend/ai.py` | 시야·기억·우회·엄폐·후퇴·점사·선로 회피 AI |
 | `backend/game.py` | 이동·충돌·AI·사격·치트·라운드 판정 |
 | `backend/__init__.py` | Python 패키지 |
 | `frontend/index.html` | 메뉴·팀 편성·HUD·결과·설정 |
@@ -24,6 +25,7 @@ FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 
 | `tests/test_local_start.py`, `tests/test_local_browser.py` | 최소 팀 인원·각자 준비·자동 시작·1대1/6인 검증 |
 | `tests/test_game.py` | 서버·경기·6인 WebSocket 검증 |
 | `tests/test_browser.py` | Chromium 멀티터치·실제 AI·지연·UI 검증 |
+| `tests/test_wide_ai.py`, `tests/test_wide_browser.py` | 60×35m 충돌·AI 행동·3D/카메라/선로 좌표 검증 |
 | `tests/test_webkit.py` | WebKit 입력 처리와 실제 탭 검증 |
 | `requirements.txt`, `requirements-dev.txt` | 실행 / 개발 의존성 |
 | `package.json`, `package-lock.json` | 렌더러 재빌드용 의존성 (일반 실행에는 불필요) |
@@ -34,7 +36,7 @@ FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 
 
 ## 로컬 실행
 
-Python 3.11 이상을 설치한 뒤 ZIP을 풀고 **requirements.txt가 있는 cheat-fps 폴더**에서 실행한다.
+Python 3.11 이상을 설치한 뒤 ZIP을 풀고 **requirements.txt가 있는 폴더**에서 실행한다.
 
 ### Windows PowerShell
 
@@ -191,21 +193,21 @@ AIM은 조준 또는 발사할 때 작동하며 HUD에 대기 안내와 AIM LOCK
 
 ```bash
 python -m pip install -r requirements-dev.txt
-python -m pytest tests/test_game.py tests/test_arenas.py tests/test_train.py tests/test_aim.py tests/test_local_start.py -q
+python -m pytest tests/test_game.py tests/test_arenas.py tests/test_train.py tests/test_aim.py tests/test_local_start.py tests/test_wide_ai.py -q
 ```
 
 브라우저 검사 (선택):
 
 ```bash
 python -m playwright install chromium
-CHEAT_FPS_BROWSER_TESTS=1 python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py -q
+CHEAT_FPS_BROWSER_TESTS=1 python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py tests/test_wide_browser.py -q
 ```
 
 Windows PowerShell에서는 환경 변수를 다음과 같이 설정한다.
 
 ```powershell
 $env:CHEAT_FPS_BROWSER_TESTS="1"
-python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py -q
+python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py tests/test_wide_browser.py -q
 ```
 
 서버 검사에는 AI 완주·치트·충돌·팀/라운드 판정, 실제 6개 WebSocket 접속, AI 바로 시작·재경기·2인 설정, 탭 누락/중복 방지, 상하 명중 판정, 프레임률별 이동 일치 검사가 포함된다.
@@ -235,11 +237,20 @@ Three.js 라이선스는 `frontend/THREE-LICENSE.txt`에 있다. 캐릭터·총�
 
 ## 철도 기지의 기차
 
-- 경기 시간 기준 18초 주기로 같은 방향으로 통과한다. 처음 3초는 경고등과 HUD로 진입을 예고한다. 라운드 준비/종료 중에는 움직이지 않는다.
-- 선로 중앙(y=6), 폭 2칸·길이 6칸의 기관차가 초당 2.8칸으로 이동한다. 사람이든 AI든 충돌하면 100 피해를 받아 즉시 녹아웃된다. 아군/적군 구분이나 치트 면역은 없다.
+- 경기 시간 기준 24초 주기로 같은 방향으로 통과한다. 처음 3초는 경고등과 HUD로 진입을 예고한다. 라운드 준비/종료 중에는 움직이지 않는다.
+- 선로 중앙(y=17.5m), 폭 4m·길이 12m의 기관차가 초당 5.6m으로 이동한다. 사람이든 AI든 충돌하면 100 피해를 받아 즉시 녹아웃된다. 아군/적군 구분이나 치트 면역은 없다.
 - 서버가 이동 구간과 캐릭터 이동을 함께 검사한다. 빠른 통과나 지연된 프레임에서도 충돌을 놓치지 않으며, 기차가 맵 밖으로 사라졌다 돌아오는 순간에는 맵 전체를 가로지르는 가짜 충돌이 생기지 않는다.
 - 기차 사망은 데스와 킬 로그에 기록되고 다른 플레이어에게 킬을 주지 않는다. 남은 아군 관전과 전멸 승패 판정을 적용한다. 양 팀 전원이 동시에 탈락하면 점수 없이 같은 라운드를 다시 시작하며 사망 통계는 유지한다.
 - 통과 중인 기관차는 총알과 일반 시야를 막는다. 기차가 없을 때는 선로를 건널 수 있다. ESP는 기존 규칙대로 사용할 수 있다.
 - 서버 시계를 WebSocket으로 전송하고 화면에서는 프레임마다 기차를 보간한다. 시작 화면의 철도 기지 미리보기에도 움직이는 기관차가 나온다. WebGL2 미지원 환경은 Canvas로 움직이는 기차를 표시한다.
 
 충돌 피해와 주기 등은 `backend/arenas.py`의 railway.train 값으로 바꿀 수 있다. 다른 네 맵에는 기차가 없다.
+
+
+## 60×35m 확장과 AI 이동
+
+다섯 맵 모두 가로 60m·세로 35m다. 격자 한 칸과 플레이어 위치 한 단위는 1m이며, Three.js·Canvas·사격·충돌·기차가 같은 좌표를 사용한다. 렌더링만 늘리지 않고 이동 가능한 지형을 다시 구성했다. 캐릭터와 총기 크기는 유지했고 인간의 실제 이동 속도는 이전과 같은 초당 7.2m(조준 5.2m)다. 스폰은 좌우 진영의 세 지점이며 모든 몸체가 지형과 겹치지 않는다.
+
+맵마다 17~18개 엄폐 구역과 중앙 랜드마크를 배치했다. 항만은 컨테이너 사이 세 갈래 접근로, 제련소는 세로 차폐벽과 설비 우회로, 광장은 기둥과 광장 둘레 동선, 관측소는 연구동과 돔 주변 통로, 철도 기지는 선로 양옆 엄폐와 횡단로를 사용한다. 모든 이동 가능 칸은 연결되어 있다. 철도 기차는 같은 물리 속도로 더 긴 선로를 통과하도록 24초 주기로 바뀌었다. 충돌은 100 피해다.
+
+AI는 측면 진입·중앙 전진·순찰 성향을 나눠 시작하고, 전투 중 횡이동·엄폐·재배치·후퇴를 섞는다. 가까이 몰린 아군과 간격을 벌리고 막히면 경로를 다시 정한다. 사격은 점사와 짧은 휴지기를 번갈아 사용한다. 보이는 적에게만 정상 속도로 시점을 돌리며, 적을 놓치면 마지막 목격 위치를 잠시 수색한다. 벽 뒤 적의 실시간 위치를 추적하지 않는다. 선로 경고나 가까운 기차에는 선로 바깥으로 피한다. AI는 세 가지 치트를 모두 사용하지 않는다.
