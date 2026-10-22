@@ -1,10 +1,10 @@
 'use strict';
-// Cheat FPS 0.2.5: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.2.6: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.5':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.5';
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.6':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.6';
 const CHEATS = ['aim','esp','recoil'];
 const LABELS = ['AIM','ESP','NO RECOIL'];
 const AIM_CONE=.95;
@@ -91,7 +91,7 @@ function connect(join=false){
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){if(d.version!=='0.2.5'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.2.6'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -325,13 +325,13 @@ function transmit(){
 setInterval(transmit,1000/30);
 function wall(x,y){return !map[Math.floor(y)]||map[Math.floor(y)][Math.floor(x)]!=='0';}
 function moveClient(p,dx,dy){
-    for(const [axis,delta] of [['x',dx],['y',dy]]){const x=p.x+(axis==='x'?delta:0),y=p.y+(axis==='y'?delta:0);if([-.22,.22].every(a=>[-.22,.22].every(b=>!wall(x+a,y+b))))p[axis]+=delta;else p[axis==='x'?'vx':'vy']=0;}
+    for(const [axis,delta] of [['x',dx],['y',dy]]){const x=p.x+(axis==='x'?delta:0),y=p.y+(axis==='y'?delta:0);if([-.44,.44].every(a=>[-.44,.44].every(b=>!wall(x+a,y+b))))p[axis]+=delta;else p[axis==='x'?'vx':'vy']=0;}
 }
 function ray(x,y,a){
     const dx=Math.cos(a),dy=Math.sin(a);let mx=Math.floor(x),my=Math.floor(y),side=0;
     const ddx=Math.abs(1/(dx||1e-9)),ddy=Math.abs(1/(dy||1e-9)),sx=dx<0?-1:1,sy=dy<0?-1:1;
     let tx=(dx<0?x-mx:mx+1-x)*ddx,ty=(dy<0?y-my:my+1-y)*ddy;
-    for(let i=0;i<80;i++){if(tx<ty){tx+=ddx;mx+=sx;side=0;}else{ty+=ddy;my+=sy;side=1;}if(wall(mx+.5,my+.5))break;}
+    for(let i=0;i<(map[0].length+map.length+4);i++){if(tx<ty){tx+=ddx;mx+=sx;side=0;}else{ty+=ddy;my+=sy;side=1;}if(wall(mx+.5,my+.5))break;}
     const hit={d:Math.max(.03,side?ty-ddy:tx-ddx),side,mx,my,frac:side?(x+dx*(ty-ddy))%1:(y+dy*(tx-ddx))%1};
     if(renderTrain?.active){
         const t=renderTrain;let enter=0,leave=hit.d,face=0;
@@ -343,13 +343,13 @@ function ray(x,y,a){
     }
     return hit;
 }
-function visible(p,q){const d=Math.hypot(q.x-p.x,q.y-p.y);return ray(p.x,p.y,Math.atan2(q.y-p.y,q.x-p.x)).d>=d-.3;}
+function visible(p,q){const d=Math.hypot(q.x-p.x,q.y-p.y);return ray(p.x,p.y,Math.atan2(q.y-p.y,q.x-p.x)).d>=d-.6;}
 function integrate(m,input,dt){
-    const speed=input.aim?2.6:3.6,yaw=input.yaw??m.yaw;
+    const speed=input.aim?5.2:7.2,yaw=input.yaw??m.yaw;
     const tx=(Math.cos(yaw)*input.f-Math.sin(yaw)*input.s)*speed,ty=(Math.sin(yaw)*input.f+Math.cos(yaw)*input.s)*speed;
     const blend=1-Math.exp(-22*dt),dx=tx*dt+(m.vx-tx)*blend/22,dy=ty*dt+(m.vy-ty)*blend/22;
     m.vx=mix(m.vx,tx,blend);m.vy=mix(m.vy,ty,blend);
-    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/.12));
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/.24));
     for(let n=0;n<steps;n++)moveClient(m,dx/steps,dy/steps);
 }
 function reconcile(p,m,now){
@@ -357,17 +357,21 @@ function reconcile(p,m,now){
     if(ack<0)return;
     // Replay only the portion not yet simulated by the server. The visual
     // offset decays independently, so snapshots never directly yank the view.
+    // motion is at lastFrame, not the later message-receive time. Replaying
+    // past that boundary would count the same movement again next frame.
+    const replayAt=Math.min(now,lastFrame);
     const target={x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0,yaw:p.yaw};
     let consumed=p.input_age||0,total=0;
     for(let j=ack;j<history.length;j++){
-        const h=history[j],duration=Math.max(0,((history[j+1]?.time??now)-h.time)/1000);
+        const h=history[j];if(h.time>=replayAt)break;
+        const duration=Math.max(0,(Math.min(history[j+1]?.time??replayAt,replayAt)-h.time)/1000);
         const skip=Math.min(duration,consumed);consumed-=skip;
         const dt=Math.min(duration-skip,.4-total);
         if(dt>0){integrate(target,h,dt);total+=dt;}
         if(total>=.4)break;
     }
     const dx=m.x-target.x,dy=m.y-target.y;
-    if(Math.hypot(dx,dy)>2){m.offsetX=m.offsetY=0;}else{m.offsetX+=dx;m.offsetY+=dy;}
+    if(Math.hypot(dx,dy)>4){m.offsetX=m.offsetY=0;}else{m.offsetX+=dx;m.offsetY+=dy;}
     m.x=target.x;m.y=target.y;m.vx=target.vx;m.vy=target.vy;
     if(ack>0)history.splice(0,ack);
 }
@@ -379,7 +383,7 @@ function assistLocal(i,now,shot=false){
     const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<AIM_CONE&&visible(me,q));
     targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw))||Math.hypot(a.x-m.x,a.y-m.y)-Math.hypot(b.x-m.x,b.y-m.y)||a.id.localeCompare(b.id));
     if(targets.length){
-        const q=targets[0];m.yaw=Math.atan2(q.y-m.y,q.x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(q.x-m.x,q.y-m.y));
+        const q=targets[0];m.yaw=Math.atan2(q.y-m.y,q.x-m.x);m.pitch=Math.atan2(-.3,Math.hypot(q.x-m.x,q.y-m.y));
         m.lockTarget=q.id;m.lockUntil=now+220;
     }else{m.lockTarget=null;m.lockUntil=0;}
 }
@@ -388,7 +392,7 @@ function predict(dt,now){
         const p=state.players.find(p=>p.id===id),m=motion.get(id);if(!p||!m)return;const input=inputs(i,now);m.yaw=wrap(m.yaw+input.turn*3.2*dt);
         const ox=m.x,oy=m.y;
         if(state.state==='PLAYING'&&p.hp>0)integrate(m,{...input,yaw:m.yaw},dt);else m.vx=m.vy=0;
-        m.stride+=Math.hypot(m.x-ox,m.y-oy)*4.5;
+        m.stride+=Math.hypot(m.x-ox,m.y-oy)*2.25;
         const decay=Math.exp(-15*dt);m.offsetX*=decay;m.offsetY*=decay;
         assistLocal(i,now);
         m.kick=mix(m.kick,p.kick||0,1-Math.exp(-20*dt));m.fov=mix(m.fov,input.aim?.88:1.12,1-Math.exp(-12*dt));
@@ -488,10 +492,10 @@ function ground(p,w,h,horizon,proj){
     const grid=(x,y,xx,yy)=>{
         let a=cam(x,y),b=cam(xx,yy);if(a.z<.08&&b.z<.08)return;
         if(a.z<.08){const t=(.08-a.z)/(b.z-a.z);a={z:.08,u:mix(a.u,b.u,t)};}if(b.z<.08){const t=(.08-b.z)/(a.z-b.z);b={z:.08,u:mix(b.u,a.u,t)};}
-        line(w/2+a.u*proj/a.z,horizon+proj*.5/a.z,w/2+b.u*proj/b.z,horizon+proj*.5/b.z,'#99aaa11c');
+        line(w/2+a.u*proj/a.z,horizon+proj*1.5/a.z,w/2+b.u*proj/b.z,horizon+proj*1.5/b.z,'#99aaa11c');
     };
     ctx.save();ctx.beginPath();ctx.rect(0,horizon,w,h-horizon);ctx.clip();
-    for(let x=1;x<20;x+=1)grid(x,1,x,11);for(let y=1;y<12;y+=1)grid(1,y,19,y);
+    for(let x=1;x<map[0].length;x+=2)grid(x,1,x,map.length-1);for(let y=1;y<map.length;y+=2)grid(1,y,map[0].length-1,y);
     ctx.restore();
 }
 function wallMaterial(pillar,brightness){
@@ -515,10 +519,9 @@ function walls(p,w,h,horizon,proj,fov){
     const co=Math.cos(p.yaw),si=Math.sin(p.yaw),lens=Math.tan(fov/2);
     for(let i=0;i<columns;i++){
         const camera=(2*(i+.5)/columns-1)*lens,angle=p.yaw+Math.atan(camera),hit=ray(p.x,p.y,angle);
-        const z=hit.d/Math.sqrt(1+camera*camera),height=proj/z,top=horizon-height*.5,x=i*width;
+        const z=hit.d/Math.sqrt(1+camera*camera),pillar=hit.mx>0&&hit.mx<map[0].length-1&&hit.my>0&&hit.my<map.length-1,wallHeight=hit.train?4.8:pillar?2.6:3.8,height=proj*wallHeight/z,top=horizon-proj*(wallHeight-1.5)/z,x=i*width;
         depths[i]=z;
-        const pillar=hit.mx>1&&hit.mx<18&&hit.my>1&&hit.my<10;
-        const brightness=clamp(70-z*2.5-(hit.side?9:0),18,70),shade=pillar?brightness-3:brightness;
+        const brightness=clamp(70-z*1.25-(hit.side?9:0),18,70),shade=pillar?brightness-3:brightness;
         const texture=wallMaterial(hit.train?'train':pillar,shade),dy=Math.max(0,top),bottom=Math.min(h,top+height),dh=bottom-dy;
         if(dh>0)ctx.drawImage(texture,Math.floor(hit.frac*63),128*(dy-top)/height,1,128*dh/height,x,dy,width+.6,dh);
     }
@@ -531,7 +534,7 @@ function characters(p,roster,w,h,horizon,proj,depth,now){
         return {q,z,x:w/2+u*proj/z,size:proj/z};
     }).filter(t=>t.z>.12).sort((a,b)=>b.z-a.z);
     for(const {q,z,x,size} of projected){
-        const hh=size*.94,ww=hh*128/192,left=x-ww/2,top=horizon+size*.5-hh;
+        const hh=size*1.88,ww=hh*128/192,left=x-ww/2,top=horizon+size*1.5-hh;
         if(left>w||left+ww<0)continue;
         const start=clamp(Math.floor(left/width),0,depths.length-1),end=clamp(Math.ceil((left+ww)/width),0,depths.length-1);
         let seen=false;ctx.save();ctx.beginPath();
@@ -543,7 +546,7 @@ function characters(p,roster,w,h,horizon,proj,depth,now){
         }
         ctx.clip();
         if(seen){
-            ctx.fillStyle='#03151366';ctx.beginPath();ctx.ellipse(x,horizon+size*.45,ww*.47,Math.max(2,hh*.045),0,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle='#03151366';ctx.beginPath();ctx.ellipse(x,horizon+size*1.48,ww*.47,Math.max(2,hh*.045),0,0,Math.PI*2);ctx.fill();
             const facing=wrap(q.yaw-Math.atan2(p.y-q.y,p.x-q.x)),direction=(Math.round(facing/(Math.PI/4))+8)%8;
             const speed=Math.hypot(q.vx||0,q.vy||0),step=speed>.25?Math.floor(now/68+q.x*.4+q.y*.3)%8:0;
             ctx.globalAlpha=clamp(1-z/60,.6,1);ctx.drawImage(humanSprite(q.team,q.skin,direction,step),left,top,ww,hh);ctx.globalAlpha=1;
@@ -587,7 +590,7 @@ function rifleModel(team){
 }
 function rifle(p,m,w,h,now){
     const fx=effects.get(p.id)||{},shot=now-(fx.shotAt||0),flash=shot>=0&&shot<55;
-    const moving=Math.min(1,Math.hypot(m?.vx||0,m?.vy||0)/3.6),stride=m?.stride||0;
+    const moving=Math.min(1,Math.hypot(m?.vx||0,m?.vy||0)/7.2),stride=m?.stride||0;
     const ads=m?.fov<1,scale=Math.min(w*.72,h*.72)/330;
     const bobX=Math.sin(stride)*moving*4,bobY=Math.abs(Math.cos(stride))*moving*4;
     const kick=p.cheats.recoil?0:Math.max(0,1-shot/115)*8;
@@ -601,7 +604,7 @@ function rifle(p,m,w,h,now){
     ctx.restore();
 }
 function radar(p,roster,x,y,size){
-    rounded(x,y,size,size,5,'#071c23a3');const scale=(size-14)/20;
+    rounded(x,y,size,size,5,'#071c23a3');const scale=(size-14)/Math.max(map[0].length,map.length);
     for(let yy=0;yy<map.length;yy++)for(let xx=0;xx<map[yy].length;xx++)if(map[yy][xx]==='1'){ctx.fillStyle='#839a9660';ctx.fillRect(x+7+xx*scale,y+7+yy*scale,scale,scale);}
     for(const q of roster){if(q.hp<=0||q.team!==p.team&&!p.cheats.esp)continue;ctx.fillStyle=q.id===p.id?'#d5ff68':q.team===p.team?'#72d5ed':'#ff8573';ctx.beginPath();ctx.arc(x+7+q.x*scale,y+7+q.y*scale,q.id===p.id?3:2.2,0,Math.PI*2);ctx.fill();}
     line(x+7+p.x*scale,y+7+p.y*scale,x+7+(p.x+Math.cos(p.yaw)*1.5)*scale,y+7+(p.y+Math.sin(p.yaw)*1.5)*scale,'#d5ff68',1.5);
@@ -691,9 +694,9 @@ window.addEventListener('resize',resize);window.visualViewport?.addEventListener
 // Canvas fallback draws the same server map as an isometric overview.
 function previewFallback(now){
     ctx.fillStyle='#243b3e';ctx.fillRect(0,0,viewportWidth,viewportHeight);
-    const scale=Math.min(viewportWidth/33,viewportHeight/19),cx=viewportWidth*.65,cy=viewportHeight*.24;
+    const scale=Math.min(viewportWidth/(previewMap[0].length+previewMap.length)*1.1,viewportHeight/(previewMap[0].length+previewMap.length)*1.3),cx=viewportWidth*.65,cy=viewportHeight*.24;
     for(let y=0;y<previewMap.length;y++)for(let x=0;x<previewMap[y].length;x++){
-        const px=cx+(x-y)*scale*.85-5*scale,py=cy+(x+y)*scale*.4,solid=previewMap[y][x]==='1',lift=solid?scale*.9:0;
+        const px=cx+(x-y-(previewMap[0].length-previewMap.length)/2)*scale*.85,py=cy+(x+y)*scale*.4,solid=previewMap[y][x]==='1',lift=solid?scale*.9:0;
         ctx.beginPath();ctx.moveTo(px,py-lift);ctx.lineTo(px+scale*.85,py+scale*.4-lift);ctx.lineTo(px,py+scale*.8-lift);ctx.lineTo(px-scale*.85,py+scale*.4-lift);ctx.closePath();ctx.fillStyle=solid?'#8b9c8d':'#556d63';ctx.fill();ctx.strokeStyle='#304d47';ctx.stroke();
         if(solid){ctx.beginPath();ctx.moveTo(px-scale*.85,py+scale*.4-lift);ctx.lineTo(px,py+scale*.8-lift);ctx.lineTo(px,py+scale*.8);ctx.lineTo(px-scale*.85,py+scale*.4);ctx.closePath();ctx.fillStyle='#3b5653';ctx.fill();ctx.beginPath();ctx.moveTo(px,py+scale*.8-lift);ctx.lineTo(px+scale*.85,py+scale*.4-lift);ctx.lineTo(px+scale*.85,py+scale*.4);ctx.lineTo(px,py+scale*.8);ctx.closePath();ctx.fillStyle=x<8?'#497c85':'#776153';ctx.fill();}
     }
