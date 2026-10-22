@@ -1,10 +1,27 @@
-# Cheat FPS v0.2.3 전체 파일 내용
+# Cheat FPS v0.2.5 전체 파일 내용
 
 각 제목은 프로젝트 루트 기준 경로다. SOURCE-CODE.md 자체를 제외한 모든 파일을 생략 없이 포함한다.
 
 ## CHANGELOG.md
 
-```markdown
+``````markdown
+# v0.2.5 — 로컬 최소 인원 / 독립 준비 / 자동 시작
+
+- 로컬 대전의 6인 필수 조건을 제거했다. 양 팀에 인간이 각각 1명 이상 있고 참가자 전원이 준비하면 마지막 준비 요청에서 자동으로 시작한다.
+- 1대1·2대1·3대3을 지원하고 팀당 최대 3명/총 6명은 유지한다. 빈자리를 AI로 채우지 않는다.
+- 같은 기기의 2인도 준비 상태를 각각 검사한다. 한쪽만 준비하거나 한 팀이 비어 있으면 시작되지 않는다. 팀/맵 변경에 따른 준비 취소도 적용한다.
+- 서버가 can_start/start_hint를 전송하고 대기실은 실제 팀 인원, 시작 불가 이유와 자동 시작 안내를 표시한다. 직접 시작 요청도 같은 조건으로 검증한다.
+- AI전, AIM 수정, 무한 탄약 제거, 맵 5개와 기차 기믹을 포함한다.
+
+# v0.2.4 — AIM 사격 적용 / 무한 탄약 제거
+
+- 조준 입력이 없으면 발동하지 않던 AIM을 일반 사격·모바일 짧은 탭에도 적용했다. 서버는 실제 발사 직전에 표적을 다시 확인하고 수평·수직 조준을 보정한다.
+- 화면도 탭 입력 즉시 조준을 보정하고 발사 입력을 보내기 전에 갱신한다. 짧은 탭의 후속 상태 전송에서도 보정을 유지한다.
+- 정면 탐색 범위를 약 ±54도로 늘리고 보이는 적 중 조준점에 가까운 대상을 우선한다. 아군·사망자·뒤쪽 대상·벽/기차 뒤 대상과 AI 자체의 AIM 사용을 제외한다.
+- HUD에 AIM 대기 안내 / AIM LOCK 표시를 추가했다.
+- 무한 탄약 로직·로드아웃·HUD·버튼·키보드/게임패드 단축키를 제거했다. 이전 클라이언트의 ammo 치트 요청은 무시한다. 30발 탄창·1.5초 재장전은 모든 플레이어에게 적용한다.
+- 맵 5개와 움직이는 기차 등 v0.2.3 기능을 포함한다.
+
 # v0.2.3 — 철도 기지 기차 기믹
 
 - 기관차가 선로를 따라 18초 주기로 움직인다. 진입 3초 전 경고등과 HUD를 표시한다.
@@ -42,11 +59,11 @@
 - 메인/설정/상태 API에 v0.2.1 표시. 서버·프론트 버전이 서로 다르면 업데이트를 안내한다.
 
 3vs3, 5판 3선승, 즉시 녹아웃·관전, 네 가지 무제한 토글, 로컬 6인, 결과·통계와 Render Python 구성을 유지한다.
-```
+``````
 
 ## DESIGN.md
 
-```markdown
+``````markdown
 # 시작 화면 시안
 
 사용자가 요청한 내장 image_gen으로 레이아웃 시안을 생성했다. 실제 게임 배경은 이 생성 이미지를 사용하지 않고 서버 맵의 실제 3D 지형과 랜드마크를 렌더링한다.
@@ -57,12 +74,22 @@
 ## v0.2.3 철도 기지
 
 중앙 고정 기관차와 막힌 격자를 제거하고 길이 12m, 폭 4m의 기관차가 선로를 통과하도록 변경했다. 선로 양쪽 안전선과 빨간 경고등, 출발 전 HUD 예고를 추가한다. 바퀴는 이동 거리에 따라 회전한다. 서버가 이동 시계와 충돌을 결정하고, 클라이언트는 렌더링 프레임마다 보간한다. 기차는 맵 밖에서 주기를 초기화해 화면 안에서 순간이동하지 않는다. 환경 피해는 100으로 양 팀의 사람/AI 모두에게 적용한다.
-```
+
+
+## v0.2.4 조준/탄약
+
+AIM은 조준 버튼이나 발사 입력에 반응한다. 모바일 짧은 탭에도 입력 즉시 시점을 보정하고, 서버에서 사격 직전에 대상을 다시 검사한다. HUD에는 대기 안내와 AIM LOCK 피드백을 표시한다. 스킬 버튼은 AIM·ESP·NO RECOIL 세 개만 남긴다. 무한 탄약은 제거하며 30발 탄창과 재장전이 모든 인간/AI에게 적용된다.
+
+
+## v0.2.5 로컬 준비
+
+로컬 대전은 최대 3대3이며 양 팀에 인간이 각각 1명 이상 있어야 한다. 준비는 연결 기기가 아니라 플레이어 ID별로 관리한다. 마지막 참가자가 준비하면 서버가 자동으로 경기 카운트다운에 진입한다. 분할 화면 2명도 각각 준비하며, 둘만 있는 경우 BLUE/RED 1대1로 진행한다. AI전의 빠른 시작과 AI 충원 규칙은 별도 모드로 유지한다.
+``````
 
 ## README.md
 
-````markdown
-# Cheat FPS v0.2.3
+``````markdown
+# Cheat FPS v0.2.5
 
 FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 번들되어 외부 CDN 연결이나 Node 설치 없이 실행한다. WebGL2를 사용할 수 없으면 Canvas 호환 모드로 실행한다. 일반 인간 캐릭터 3종은 외형만 다르고 성능은 동일하다.
 
@@ -80,7 +107,12 @@ FastAPI + WebSocket + Three.js 3D FPS. Three.js와 렌더러는 프로젝트에 
 | `frontend/scene3d.js` | 3D 캐릭터·장비·맵·카메라 원본 소스 |
 | `frontend/renderer3d.js` | Three.js 포함 실행용 번들 |
 | `frontend/THREE-LICENSE.txt` | Three.js MIT 라이선스 |
+| `backend/hazards.py` | 기차 이동·연속 충돌 판정 |
+| `tests/test_aim.py` | AIM 탭/일반 사격·시야 제외·탄약/재장전 검증 |
+| `tests/test_aim_browser.py` | 실제 터치/키보드 AIM과 2인 독립 조작 검증 |
+| `tests/test_train.py`, `tests/test_train_browser.py` | 기차 판정과 6인 동기화 검증 |
 | `tests/test_arenas.py` | 모든 맵 연결성·AI 완주·방별 충돌·랜덤/선택 검증 |
+| `tests/test_local_start.py`, `tests/test_local_browser.py` | 최소 팀 인원·각자 준비·자동 시작·1대1/6인 검증 |
 | `tests/test_game.py` | 서버·경기·6인 WebSocket 검증 |
 | `tests/test_browser.py` | Chromium 멀티터치·실제 AI·지연·UI 검증 |
 | `tests/test_webkit.py` | WebKit 입력 처리와 실제 탭 검증 |
@@ -119,7 +151,7 @@ python3 -m venv .venv
 2. 서버가 다섯 맵 중 하나를 무작위로 정한다. 대기방/방 코드/준비 완료 과정 없이 3초 카운트다운 뒤 경기로 들어간다.
 3. 혼자 플레이하면 인간 1명 + 아군 AI 2명 vs 적 AI 3명이다.
 4. AI전 시작 메뉴에는 2인 분할·캐릭터 선택·치트 설정이 없다. 치트는 플레이 중 토글한다.
-5. AI는 아군과 적 모두 4종 치트를 사용하지 않는다.
+5. AI는 아군과 적 모두 치트를 사용하지 않는다.
 6. 결과 화면의 **AI전 다시 플레이**는 새 맵을 다시 무작위로 정하고 곧바로 새 경기를 시작한다. 같은 맵이 연속으로 나올 수도 있다.
 
 ## 다섯 맵
@@ -130,24 +162,24 @@ python3 -m venv .venv
 | 제련소 | 주황색 용광로·높은 굴뚝 | 세로 차폐벽 사이 우회로 |
 | 시계 광장 | 네 방향 시계탑 | 중앙 광장과 기둥 옆 통로 |
 | 천문관측소 | 관측 돔·망원경 | 분리된 측면 차폐와 중앙 돔 주변 |
-| 철도 기지 | 기관차·철길 | 긴 중앙 열차의 앞뒤 우회 |
+| 철도 기지 | 움직이는 기관차·철길 | 통과 주기를 보고 선로 횡단 |
 
 AI전은 매 경기 서버가 무작위로 선택한다. 한 경기의 모든 라운드는 같은 맵이며 재경기에서 다시 추첨한다. 로컬 대전은 방장이 접속 창에서 고르며 대기실에서도 바꿀 수 있다. 맵을 바꾸면 모든 참가자의 준비 상태가 해제된다. 참가자는 방장의 맵을 공유하며 경기 도중에는 바꿀 수 없다.
 
 시작 화면은 실제 맵 5개를 12초 간격으로 순환하고 각 맵 주위를 천천히 둘러본다. WebGL2가 없으면 실제 격자의 등각 미리보기를 사용한다. 메뉴 미리보기를 위해 방을 생성하거나 AI 경기를 실행하지 않는다. `/arenas`가 서버의 맵 목록을 제공하며 게임과 미리보기가 같은 데이터를 사용한다. 생성 이미지 시안은 레이아웃 참고용이고, 실제 배경은 생성 이미지를 붙이지 않고 게임 지형으로 그린다.
 
-## 로컬 네트워크 3vs3
+## 로컬 대전 — 팀당 1~3명
 
 1. 서버를 실행하고 메인 메뉴에서 로컬 대전 → 게임 시작을 누른다. 별도 접속 창에서 맵을 선택하고 방 만들기를 누른다.
 2. 다른 참가자는 같은 와이파이/LAN에서 `http://서버PC의사설IP:8000`을 연다.
 3. 방장이 알려 준 6자리 방 코드를 입력해 참가한다.
 4. 각자 팀을 선택한다. 팀별 최대 3명, 방 전체 최대 6명이다.
-5. 6명 전원이 준비 완료하면 방장이 시작한다. 로컬 대전 시작 시 AI로 빈자리를 채우지 않는다.
+5. BLUE와 RED에 각각 1명 이상 있고, 참가자 전원이 준비 완료하면 자동으로 카운트다운을 시작한다. 1대1·2대1 등도 가능하며 팀당 최대 3명/총 6명이다. 빈자리는 AI로 채우지 않는다.
 6. Windows에서는 `ipconfig`, macOS에서는 네트워크 설정에서 서버 기기의 사설 IPv4 주소를 확인한다. 방화벽은 해당 사설 네트워크에서 TCP 8000 수신을 허용한다. 공유기의 게스트 네트워크/기기 격리는 연결을 막을 수 있다.
 
 ### 같은 기기에서 두 명
 
-로컬 대전 접속 창에서 **같은 기기에서 2인 참가**를 체크한다. 키보드/마우스, 게임패드 또는 각 화면의 독립된 터치 조작으로 플레이한다. 로컬 대전에서는 2인씩 3개 기기를 사용하면 6명이 된다. 이 구현의 한 브라우저 분할 화면은 최대 2인이다. 6인 한 화면 분할은 지원하지 않는다. 일반 AI전 메뉴는 1인만 참가한다.
+로컬 대전 접속 창에서 **같은 기기에서 2인 참가**를 체크한다. 키보드/마우스, 게임패드 또는 각 화면의 독립된 터치 조작으로 플레이한다. 같은 기기의 두 플레이어는 기본적으로 BLUE/RED에 한 명씩 배정되며 각자 준비 완료를 눌러야 자동 시작된다. 두 명만으로 1대1이 가능하다. 여러 기기를 함께 쓰면 기기 분할 여부와 관계없이 현재 참가자 전원이 준비해야 한다. 2인씩 3개 기기를 사용하면 3대3이 된다. 이 구현의 한 브라우저 분할 화면은 최대 2인이다. 6인 한 화면 분할은 지원하지 않는다. 일반 AI전 메뉴는 1인만 참가한다.
 
 Render에 올린 뒤에는 같은 URL + 방 코드로 인터넷 대전도 가능하다.
 
@@ -160,13 +192,13 @@ Render에 올린 뒤에는 같은 URL + 방 코드로 인터넷 대전도 가능
 | 발사 | 마우스 좌클릭 또는 Space | Enter |
 | 조준 | 마우스 우클릭 또는 왼쪽 Shift | 오른쪽 Shift |
 | 재장전 | R | P |
-| AIM / ESP / 무반동 / 무한탄창 | 1 / 2 / 3 / 4 | 7 / 8 / 9 / 0 |
+| AIM / ESP / 무반동 | 1 / 2 / 3 | 7 / 8 / 9 |
 | 관전 대상 전환 | V | V |
 | 설정 | ESC 또는 우상단 메뉴 | 공통 |
 
 게임 화면을 클릭하면 해당 플레이어의 마우스를 잠근다. 분할 화면에서는 클릭한 쪽의 시점을 조작한다. 브라우저에서 마우스 잠금을 지원하지 않으면 화면 드래그 또는 Q/E로 회전할 수 있다. 첫 클릭은 마우스를 고정하며, 그 뒤 좌클릭을 누르면 연사한다. 브라우저 오른쪽 클릭 메뉴는 게임 캔버스에서 차단한다.
 
-게임패드: 왼쪽 스틱 이동, 오른쪽 스틱 좌우 회전, RT 발사, LT 조준, A 재장전, 방향패드 상/하/좌/우로 치트 네 개를 토글한다. 브라우저에서 인식시키려면 게임패드 버튼을 한 번 누른다. 표준 Gamepad 매핑을 사용한다.
+게임패드: 왼쪽 스틱 이동, 오른쪽 스틱 좌우 회전, RT 발사, LT 조준, A 재장전, 방향패드 상/하/좌로 치트 세 개를 토글한다. 브라우저에서 인식시키려면 게임패드 버튼을 한 번 누른다. 표준 Gamepad 매핑을 사용한다.
 
 모바일:
 
@@ -174,14 +206,14 @@ Render에 올린 뒤에는 같은 URL + 방 코드로 인터넷 대전도 가능
 - 빈 화면을 **짧게 탭**하면 1발 발사한다.
 - 빈 화면을 **드래그**하면 좌우·상하로 시점을 회전한다. 드래그한 터치는 발사로 처리하지 않는다.
 - **발사 버튼을 누르는 동안** 연사한다. 이동·회전·발사에 여러 손가락을 동시에 사용할 수 있다.
-- 조준 버튼은 토글, 장전 버튼은 재장전이다. 네 치트는 각 화면 아래에서 자유롭게 전환한다.
+- 조준 버튼은 토글, 장전 버튼은 재장전이다. 세 치트는 각 화면 아래에서 자유롭게 전환한다.
 - 2인 분할의 각 화면에 조이스틱·발사·조준·장전·치트 버튼이 각각 있다. 가로 화면은 좌우, 세로 화면은 위아래로 나뉜다. 터치만으로 두 사람이 동시에 플레이할 수 있다.
 - 버튼을 길게 눌러도 텍스트 선택·복사 팝업이 뜨지 않도록 iOS 선택/콜아웃과 기본 제스처를 차단했다.
 - 손가락을 떼거나 터치가 취소되거나 탭이 비활성화되면 입력을 해제한다. 모바일에서는 가로 화면을 사용하면 시야가 넓어진다.
 
 ## 경기 규칙
 
-- 각 팀 3명, 최대 5라운드, 먼저 3승한 팀이 최종 승리한다.
+- 팀당 최대 3명(AI전 3대3, 로컬은 팀당 1~3명), 최대 5라운드, 먼저 3승한 팀이 최종 승리한다.
 - HP 100, 인간 소총 피해 25, AI 피해 16, 아군 피해 없음.
 - HP 0이면 해당 라운드에서 즉시 탈락하고 살아 있는 아군을 관전한다. 라운드 중 부활하지 않는다.
 - 3초 준비 → 120초 경기 → 라운드 종료 4초 → 다음 라운드 순서로 진행한다.
@@ -193,16 +225,15 @@ Render에 올린 뒤에는 같은 URL + 방 코드로 인터넷 대전도 가능
 - 대기실에서 방장이 나가면 다른 인간 참가자가 방장을 이어받는다. 인간이 모두 나가면 방이 삭제된다.
 - 설정 창을 열어도 다른 참가자와 AI 경기는 계속된다. 내 입력만 정지한다.
 
-## 4종 공식 치트
+## 3종 공식 치트
 
 | 토글 | 효과 |
 |---|---|
-| AIM | 조준을 누르는 동안 정면 약 ±37도 내, 벽에 가리지 않은 적에게 서버가 조준 방향을 스냅한다. 벽 관통 사격은 아니다. |
+| AIM | 조준·일반 발사·터치 탭 발사 시 정면 약 ±54도 내 보이는 적의 몸통으로 조준을 보정한다. 조준 버튼 없이 발사해도 적용된다. 벽과 지나가는 기차에 가려진 적은 제외한다. |
 | ESP | 벽 뒤 적의 윤곽 박스·이름·HP 표시. 레이더는 시야 밖 적도 표시한다. |
 | NO RECOIL | 서버의 연사 탄퍼짐/반동 증가를 제거한다. |
-| ∞ AMMO | 탄약 소모와 재장전 대기를 무시하고 발사한다. 꺼지면 남아 있던 일반 탄창 상태로 돌아간다. |
 
-치트는 대기실과 경기 중 자유롭게 켜고 끈다. 게이지·사용 횟수·쿨타임은 없다. 총 자체의 발사 간격은 존재한다. 캐릭터 외형은 scout / warden / rogue 세 종류다.
+AIM은 조준 또는 발사할 때 작동하며 HUD에 대기 안내와 AIM LOCK 표시가 나온다. AI는 AIM을 사용하지 않는다. 무한 탄약은 제거했고, 모든 플레이어가 30발 탄창과 1.5초 재장전을 사용한다. 치트는 대기실과 경기 중 자유롭게 켜고 끈다. 게이지·사용 횟수·쿨타임은 없다. 총 자체의 발사 간격은 존재한다. 캐릭터 외형은 scout / warden / rogue 세 종류다.
 
 ## 서버/동기화
 
@@ -251,21 +282,21 @@ Render에 올린 뒤에는 같은 URL + 방 코드로 인터넷 대전도 가능
 
 ```bash
 python -m pip install -r requirements-dev.txt
-python -m pytest tests/test_game.py tests/test_arenas.py tests/test_train.py -q
+python -m pytest tests/test_game.py tests/test_arenas.py tests/test_train.py tests/test_aim.py tests/test_local_start.py -q
 ```
 
 브라우저 검사 (선택):
 
 ```bash
 python -m playwright install chromium
-CHEAT_FPS_BROWSER_TESTS=1 python -m pytest tests/test_browser.py tests/test_train_browser.py -q
+CHEAT_FPS_BROWSER_TESTS=1 python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py -q
 ```
 
 Windows PowerShell에서는 환경 변수를 다음과 같이 설정한다.
 
 ```powershell
 $env:CHEAT_FPS_BROWSER_TESTS="1"
-python -m pytest tests/test_browser.py tests/test_train_browser.py -q
+python -m pytest tests/test_browser.py tests/test_train_browser.py tests/test_aim_browser.py tests/test_local_browser.py -q
 ```
 
 서버 검사에는 AI 완주·치트·충돌·팀/라운드 판정, 실제 6개 WebSocket 접속, AI 바로 시작·재경기·2인 설정, 탭 누락/중복 방지, 상하 명중 판정, 프레임률별 이동 일치 검사가 포함된다.
@@ -303,12 +334,12 @@ Three.js 라이선스는 `frontend/THREE-LICENSE.txt`에 있다. 캐릭터·총�
 - 서버 시계를 WebSocket으로 전송하고 화면에서는 프레임마다 기차를 보간한다. 시작 화면의 철도 기지 미리보기에도 움직이는 기관차가 나온다. WebGL2 미지원 환경은 Canvas로 움직이는 기차를 표시한다.
 
 충돌 피해와 주기 등은 `backend/arenas.py`의 railway.train 값으로 바꿀 수 있다. 다른 네 맵에는 기차가 없다.
-````
+``````
 
 ## UPDATING.md
 
-````markdown
-# v0.2.3 업데이트
+``````markdown
+# v0.2.5 업데이트
 
 이 ZIP은 전체 프로젝트다. 압축을 푼 뒤 **backend와 frontend 폴더 경로를 그대로 유지**한다. 기존 버전과 파일 이름은 대부분 같지만 내용이 바뀌었고, 3D 렌더러 파일이 추가되었다.
 
@@ -319,7 +350,7 @@ Three.js 라이선스는 `frontend/THREE-LICENSE.txt`에 있다. 캐릭터·총�
 3. GitHub 저장소의 **frontend 폴더 안**으로 들어간다. 같은 방법으로 ZIP의 frontend 안 파일 6개를 모두 업로드하고 커밋한다.
 4. README, 테스트, 배포 설정 등 루트의 나머지 파일도 같은 경로에 반영하면 전체 프로젝트가 일치한다. 기존 버전의 설치/시작 명령은 그대로 사용한다.
 5. Render 서비스에서 Manual Deploy → Deploy latest commit을 선택한다. 자동 배포를 쓰더라도 마지막 파일까지 반영된 커밋이 배포되었는지 확인한다.
-6. 배포 완료 후 게임 페이지를 새로고침한다. 메인 메뉴에 **v0.2.3**이 보여야 한다. 서버 주소 뒤에 `/health`를 붙이면 `version` 값도 `0.2.3`이다.
+6. 배포 완료 후 게임 페이지를 새로고침한다. 메인 메뉴에 **v0.2.5**이 보여야 한다. 서버 주소 뒤에 `/health`를 붙이면 `version` 값도 `0.2.5`이다.
 
 파일 업로드 목록에 경로가 중복되지 않아야 한다. 예를 들어 GitHub의 frontend 폴더 안에서 이미 frontend 폴더 자체를 다시 넣으면 `frontend/frontend/game.js`가 되어 잘못된다. **폴더 안에서는 그 안의 파일들만** 업로드한다.
 
@@ -345,17 +376,53 @@ Three.js 라이선스는 `frontend/THREE-LICENSE.txt`에 있다. 캐릭터·총�
 uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
 ```
 
-설정 창에서 `그래픽: 3D · v0.2.3`을 확인할 수 있다. WebGL2를 사용할 수 없는 브라우저에서는 2D 호환 모드가 표시된다. 코드 전달만으로 기존 Render 서비스가 바뀌지는 않으므로, 위 파일 교체와 배포가 필요하다.
+설정 창에서 `그래픽: 3D · v0.2.5`을 확인할 수 있다. WebGL2를 사용할 수 없는 브라우저에서는 2D 호환 모드가 표시된다. 코드 전달만으로 기존 Render 서비스가 바뀌지는 않으므로, 위 파일 교체와 배포가 필요하다.
 
 이번 버전에는 **backend/arenas.py**가 추가되었다. 이 파일을 빼면 서버가 시작되지 않는다. 메인 메뉴에서 모드·게임 시작·설정·종료만 보이며, 로컬 대전 → 게임 시작을 누르면 맵 5개를 선택하는 접속 창이 열린다. 시작 화면의 지도 배경은 `/arenas` API를 사용하므로 backend와 frontend를 함께 교체한다.
 
 
 이번 버전의 새 필수 파일은 **backend/hazards.py**다. backend 파일 5개와 frontend 파일 6개를 모두 반영한다. 철도 기지는 중앙의 고정 장애물을 없애고 실제로 지나가는 기차와 경고등을 배치했다. 기관차 충돌은 100 피해/즉사다. 다운로드한 ZIP을 올리기 전까지 기존 Render 게임은 바뀌지 않는다.
-````
+
+
+v0.2.5에서는 AIM을 일반 사격·모바일 탭 사격에도 적용하고 무한 탄약을 제거했다. backend와 frontend 파일을 모두 교체한다. 남은 치트는 AIM / ESP / NO RECOIL 세 개이며, 모든 사격에 탄약이 소모된다. 1P 단축키는 1·2·3, 2P는 7·8·9다.
+
+
+v0.2.5의 로컬 대전은 BLUE/RED에 각각 1명 이상 있고 참가자 전원이 준비 완료하면 자동으로 시작한다. 1대1·2대1도 가능하며 빈자리를 AI로 채우지 않는다. 같은 기기의 2인도 준비 버튼을 따로 누른다. 팀당 최대 3명은 유지한다. 대기실에 시작 조건/실제 인원이 표시되므로 backend와 frontend를 함께 반영한다.
+``````
 
 ## VALIDATION.md
 
-```markdown
+``````markdown
+# v0.2.5 검사 기록 — 2026-10-22
+
+- 서버 검사 67개 통과(3.07초): 기존 게임/맵/기차/AIM 54개 + 로컬 시작 조건 13개.
+- Chromium 브라우저 검사 4개 통과(48.97초): 같은 기기 2인 준비/자동 1대1 시작, 두 기기의 한 팀만 준비한 상태 차단 및 팀 변경 후 1대1 시작, 세 기기×2인의 3대3 자동 시작, 다섯 맵/랜드마크/로컬 맵 선택.
+- JavaScript 구문 검사와 Three.js 실행용 번들 빌드 통과.
+
+서버에서는 1대1·2대1·1대2·3대3을 마지막 참가자의 준비 요청으로 자동 시작하는지 검사했다. 빈 팀/빈 방 차단, 준비하지 않은 세 번째 참가자의 시작 차단, 방장 직접 요청의 우회 차단, 팀/맵 변경 시 준비 취소, 로컬 빈자리 AI 충원 없음도 확인했다. 두 명뿐인 경기의 3승 종료와 대기실 복귀/재시작, 실제 분할 WebSocket의 각 플레이어 준비 및 별도 두 WebSocket의 1대1 자동 시작을 확인했다.
+
+브라우저에서는 한쪽만 준비했을 때 대기실과 비활성 시작 버튼이 유지되고, 같은 기기의 두 번째 플레이어가 준비하면 두 인간만 있는 1대1 카운트다운/게임 화면으로 넘어가는지 확인했다. 분할 조이스틱은 두 개이며 AI는 없다. 서로 다른 기기의 참가자들이 같은 팀에 있을 때는 모두 준비해도 시작되지 않으며, 팀 변경 후 다시 준비하면 시작된다. 6명으로 참가하는 기존 3대3 시작 흐름도 새 자동 시작 규칙으로 통과했다.
+
+이번 변경에서 실제 iPad Safari나 WebKit 검사는 수행하지 않았다. 아래 AIM/기차/입력 브라우저 검사 기록은 각 이전 버전의 기록이다. 기존 AIM/기차를 포함한 서버 검사는 이번 67개 실행에 모두 포함된다. GitHub/Render에는 배포하지 않았다. 업데이트는 UPDATING.md를 따른다.
+
+---
+
+# v0.2.4 검사 기록 — 2026-10-22
+
+- 서버 검사 54개 통과: 기존 게임/맵/기차 40개와 AIM·탄약 14개.
+- Chromium 검사 15개 사례 통과: 기존 조작/맵/기차 12개(135.08초) + 신규 AIM 3개(22.08초). 이후 1인 탭 사례에 수신 지연 120ms를 추가한 검사도 단독 통과(6.89초)했다.
+- 백엔드 구문 검사, JavaScript 구문 검사와 Three.js 렌더러 번들 빌드 통과.
+
+v0.2.3 소스로 AIM을 켠 뒤 조준 없이 짧게 탭하는 상황을 재현했다. 총은 1발 발사됐지만 표적 HP는 100으로 남았다. v0.2.4는 같은 수평·수직 오차의 탭/일반 발사에서 조준을 보정하고 표적 HP가 75로 감소했다. 조준만 누를 때는 보정만 하며 자동으로 발사하지 않는다.
+
+서버 검사는 짧은 탭과 버튼 해제 사이의 입력, 일반 사격, 조준, 발사 대기 중 새 시점 입력, AIM 끄기, 정면 표적 선택/재획득, 벽·기차·뒤쪽·사망자·아군 제외, AI AIM 금지, 삭제한 ammo 토글 무시, 남은 치트를 모두 켜도 30발 소모 및 자동/수동 재장전 준수를 포함한다. 기존 WebSocket 검사에서는 예전 ammo 로드아웃 요청이 상태에 추가되지 않는 것도 확인했다.
+
+브라우저에서는 실제 터치 탭으로 1인과 2인 화면의 독립된 AIM 조준·명중·탄약 소모를 검사했다. AIM 활성화 직후 서버 상태를 기다리지 않고 탭하는 상황은 수신 지연 120ms를 넣어 확인했다. 키보드 일반 사격/조준 및 AIM 해제, 각 화면의 치트 버튼 3개, 무한 탄약 버튼 없음, 삭제한 4·0 단축키로 토글 요청이 전송되지 않음도 확인했다. 기존 조작/네트워크 지연/메뉴/맵/기차 검사는 12개 모두 순차 실행으로 통과했다.
+
+실제 iPad Safari를 직접 시험하지 않았으며 이번 변경의 WebKit 검사는 다시 실행하지 않았다. 아래 WebKit 통과 기록은 v0.2.2에 해당한다. GitHub/Render 배포는 수행하지 않았다. 업데이트 방법은 UPDATING.md를 따른다.
+
+---
+
 # v0.2.3 검사 기록 — 2026-10-21
 
 - 서버 검사 40개 통과: 기존 게임/맵 29개와 기차 11개.
@@ -394,17 +461,17 @@ uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
 실제 iPad/iPhone 기기를 직접 조작하지 않았다. WebKit은 실제 브라우저 엔진에서 검사했지만 OS의 선택 팝업을 재현한 것은 아니다. 홀드·다중 터치는 이벤트 데이터를 합성했으며 짧은 탭은 브라우저 터치 입력으로 확인했다. 게임패드 하드웨어도 직접 시험하지 않았다.
 
 입력/UI 검사는 AI를 정지한 테스트 전용 서버에서 반복하고, 별도 실제 AI 검사는 정상 AI로 진행했다. 해당 테스트용 엔드포인트는 운영 서버 코드에 들어 있지 않다. 원격 GitHub/Render 배포는 수행하지 않았다. 업데이트 방법은 UPDATING.md를 따른다.
-```
+``````
 
 ## backend/__init__.py
 
-```python
+``````python
 """Cheat FPS server package."""
-```
+``````
 
 ## backend/arenas.py
 
-```python
+``````python
 """Five server-owned arenas. Geometry, collision and preview share this catalog."""
 
 def layout(rectangles):
@@ -442,11 +509,11 @@ ARENAS['railway']['train']=dict(period=18.,warning=3.,start=-7.,end=27.,
                                speed=2.8,y=6.,length=6.,width=2.,damage=100)
 DEFAULT_ARENA='freight'
 MAP=ARENAS[DEFAULT_ARENA]['grid']
-```
+``````
 
 ## backend/game.py
 
-```python
+``````python
 """Authoritative 60 Hz arena simulation. No client damage or position is trusted."""
 import math
 import random
@@ -457,7 +524,8 @@ from dataclasses import dataclass, field, asdict
 from .arenas import ARENAS, DEFAULT_ARENA, MAP
 from .hazards import train_pose, train_hits, segment_box
 
-CHEATS = ('aim', 'esp', 'recoil', 'ammo')
+CHEATS = ('aim', 'esp', 'recoil')
+AIM_CONE = .95
 MOVE_SPEED = 3.6
 MOVE_ACCEL = 22.0
 
@@ -572,7 +640,7 @@ class Room:
         p = self.players.get(pid)
         if not p: return
         if self.state in ('PLAYING','COUNTDOWN','ROUND_END'):
-            # Keep the six-player roster but never give replacement AI cheats.
+            # Keep the match roster but never give replacement AI cheats.
             p.bot = True
             p.name = p.name[:12] + '·AI'
             p.cheats = dict.fromkeys(CHEATS,False)
@@ -581,11 +649,18 @@ class Room:
         humans = [q.id for q in self.players.values() if not q.bot]
         if self.host == pid: self.host = humans[0] if humans else None
 
-    def start(self):
-        if self.state != 'LOBBY': raise ValueError('대기실에서만 시작할 수 있습니다.')
+    def start_error(self):
+        if self.state != 'LOBBY': return '대기실에서만 시작할 수 있습니다.'
         humans = [p for p in self.players.values() if not p.bot]
-        if not all(p.ready for p in humans): raise ValueError('모든 플레이어가 준비해야 합니다.')
-        if self.mode == 'local' and len(humans) != 6: raise ValueError('로컬 대전은 6명이 필요합니다. 기기당 2인 접속도 가능합니다.')
+        if not humans: return '플레이어가 필요합니다.'
+        if self.mode == 'local' and not all(any(p.team == t for p in humans) for t in (0,1)):
+            return 'BLUE와 RED에 각각 1명 이상 참가해야 합니다.'
+        if not all(p.ready for p in humans): return '참가자 전원이 준비해야 합니다. 분할 화면도 각각 준비해 주세요.'
+        return ''
+
+    def start(self):
+        reason = self.start_error()
+        if reason: raise ValueError(reason)
         if self.mode == 'ai':
             for team in (0,1):
                 while sum(p.team == team for p in self.players.values()) < 3:
@@ -654,7 +729,9 @@ class Room:
             if data.get('map_id') not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
             self.map_id = data['map_id']
             for q in self.players.values(): q.ready = False
-        elif op == 'ready' and self.state == 'LOBBY': p.ready = not p.ready
+        elif op == 'ready' and self.state == 'LOBBY':
+            p.ready = not p.ready
+            if self.mode == 'local' and not self.start_error(): self.start()
         elif op == 'start' and p.id == self.host: self.start()
         elif op == 'lobby' and p.id == self.host and self.state == 'MATCH_END':
             self.players = {i:q for i,q in self.players.items() if not q.bot}
@@ -725,14 +802,26 @@ class Room:
                 return False
         return True
 
+    def assist_aim(self,p):
+        """Acquire a visible enemy before the shot, including queued mobile taps."""
+        if p.bot or p.hp <= 0 or not p.cheats['aim'] or self.state != 'PLAYING': return
+        targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0
+                   and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < AIM_CONE
+                   and self.sight(p.x,p.y,q.x,q.y)]
+        if not targets: return
+        q = min(targets,key=lambda q:(abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)),math.hypot(q.x-p.x,q.y-p.y),q.id))
+        p.yaw = math.atan2(q.y-p.y,q.x-p.x)
+        p.pitch = math.atan2(-.15,math.hypot(q.x-p.x,q.y-p.y))
+
     def shoot(self,p):
-        if p.cooldown > 0 or (p.reload > 0 and not p.cheats['ammo']): return
-        if not p.cheats['ammo'] and p.ammo <= 0:
+        if p.cooldown > 0 or p.reload > 0: return
+        if p.ammo <= 0:
             p.reload = 1.5
             return
         p.cooldown = .30 if p.bot else .115
         p.shots += 1
-        if not p.cheats['ammo']: p.ammo -= 1
+        p.ammo -= 1
+        self.assist_aim(p)
         spread = random.uniform(-.09,.09) if p.bot else (0 if p.cheats['recoil'] else random.uniform(-p.kick,p.kick))
         direction = p.yaw + spread
         candidates = []
@@ -793,13 +882,9 @@ class Room:
                     self.log.append(dict(killer='기차',victim=p.name,team=None,cause='train'))
                     self.log=self.log[-6:]
                     continue
-            if p.cheats['aim'] and p.inp.get('aim'):
-                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and self.sight(p.x,p.y,q.x,q.y) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
-                if targets:
-                    q = min(targets,key=lambda q:abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)))
-                    p.yaw = math.atan2(q.y-p.y,q.x-p.x)
-                    p.pitch = math.atan2(-.15,math.hypot(q.x-p.x,q.y-p.y))
-            if p.inp.get('reload') and not p.cheats['ammo'] and p.ammo < 30 and p.reload == 0: p.reload = 1.5
+            if p.inp.get('aim') or p.inp.get('fire') or p.tap_pending > 0:
+                self.assist_aim(p)
+            if p.inp.get('reload') and p.ammo < 30 and p.reload == 0: p.reload = 1.5
             if p.inp.get('fire') or p.tap_pending > 0:
                 shots = p.shots
                 self.shoot(p)
@@ -825,12 +910,13 @@ class Room:
             for k in ('inp','route','think','stale','tap_pending','tap_serial','reaction'): d.pop(k)
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
-        return dict(type='state',train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
-```
+        reason = self.start_error()
+        return dict(type='state',can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+``````
 
 ## backend/hazards.py
 
-```python
+``````python
 """Server-owned periodic train motion and continuous collision tests (grid units)."""
 import math
 
@@ -874,11 +960,11 @@ def train_hits(t0, t1, old, new, config):
         hx,hy = config['length']/2+.22,config['width']/2+.22
         if segment_box(ax,ay,bx,by,-hx,-hy,hx,hy): return True
     return False
-```
+``````
 
 ## backend/main.py
 
-```python
+``````python
 import asyncio
 import contextlib
 import json
@@ -928,7 +1014,7 @@ app.mount('/static', StaticFiles(directory=ROOT), name='static')
 async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Control':'no-cache'})
 
 @app.get('/health')
-async def health(): return {'status':'ok','version':'0.2.3','rooms':len(rooms)}
+async def health(): return {'status':'ok','version':'0.2.5','rooms':len(rooms)}
 
 @app.get('/arena')
 async def arena(): return {'map':MAP}
@@ -979,7 +1065,7 @@ async def socket(ws:WebSocket):
             room.quick = True
             for pid in owned: room.players[pid].ready = True
             room.start()
-        await ws.send_json({'type':'welcome','version':'0.2.3','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
+        await ws.send_json({'type':'welcome','version':'0.2.5','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))
@@ -1013,11 +1099,11 @@ async def socket(ws:WebSocket):
             for pid in owned: room.remove(pid)
             if not any(not p.bot for p in room.players.values()): rooms.pop(room.code,None)
         with contextlib.suppress(Exception): await ws.close()
-```
+``````
 
 ## frontend/THREE-LICENSE.txt
 
-```text
+``````text
 The MIT License
 
 Copyright © 2010-2025 three.js authors
@@ -1039,20 +1125,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
+``````
 
 ## frontend/game.js
 
-```javascript
+``````javascript
 'use strict';
-// Cheat FPS 0.2.3: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.2.5: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.3':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.3';
-const CHEATS = ['aim','esp','recoil','ammo'];
-const LABELS = ['AIM','ESP','NO RECOIL','∞ AMMO'];
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.2.5':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.2.5';
+const CHEATS = ['aim','esp','recoil'];
+const LABELS = ['AIM','ESP','NO RECOIL'];
+const AIM_CONE=.95;
 const contacts = new Map(), sentInputs = new Map();
 const nativeTouch = 'ontouchstart' in window;
 let tapSerial=0;
@@ -1073,7 +1160,7 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const mix=(a,b,t)=>a+(b-a)*t;
 function control(i) {
-    if(!local.has(i)) local.set(i,{f:0,s:0,turn:0,ads:false,fire:new Set(),fireUntil:0,reloadUntil:0,look:new Map(),stick:null,view:0,mouseFire:false,mouseAim:false,input:{f:0,s:0,turn:0,aim:false,fire:false,reload:false}});
+    if(!local.has(i)) local.set(i,{f:0,s:0,turn:0,ads:false,fire:new Set(),fireUntil:0,snapUntil:0,reloadUntil:0,look:new Map(),stick:null,view:0,mouseFire:false,mouseAim:false,input:{f:0,s:0,turn:0,aim:false,fire:false,reload:false}});
     return local.get(i);
 }
 function active(){return state&&['COUNTDOWN','PLAYING','ROUND_END'].includes(state.state)&&!$('settings').open;}
@@ -1090,7 +1177,7 @@ function audioOn(){try{audio ||= new (window.AudioContext||window.webkitAudioCon
 function resetInput(){
     keys.clear();contacts.clear();
     for(const c of local.values()){
-        c.f=c.s=c.turn=0;c.ads=c.mouseFire=c.mouseAim=false;c.fire.clear();c.fireUntil=c.reloadUntil=0;c.look.clear();c.stick=null;
+        c.f=c.s=c.turn=0;c.ads=c.mouseFire=c.mouseAim=false;c.fire.clear();c.fireUntil=c.snapUntil=c.reloadUntil=0;c.look.clear();c.stick=null;
         c.input={f:0,s:0,turn:0,aim:false,fire:false,reload:false};
     }
     document.querySelectorAll('.stick-knob').forEach(el=>el.style.transform='translate(0,0)');
@@ -1136,7 +1223,7 @@ function connect(join=false){
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){if(d.version!=='0.2.3'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.2.5'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -1161,17 +1248,19 @@ $('again').onclick=()=>send({type:state?.quick?'rematch':'lobby'});
 function toggles(p){return CHEATS.map((k,i)=>`<button class="${p.cheats[k]?'on':''}" data-toggle="${k}" data-id="${p.id}">${LABELS[i]}</button>`).join('');}
 function lobby(d){
     $('roomCode').textContent=d.code;
-    $('modeInfo').textContent='인간 3 vs 3 · '+d.arena.name;
+    const teams=[0,1].map(t=>d.players.filter(p=>!p.bot&&p.team===t).length);
+    $('modeInfo').textContent=`${d.mode==='local'?'로컬 대전':'AI전'} · BLUE ${teams[0]} vs RED ${teams[1]} · ${d.arena.name}`;
     $('matchMap').value=d.map_id;$('matchMap').disabled=!ids.includes(d.host);
     const stamp=JSON.stringify(d.players.map(p=>[p.id,p.name,p.team,p.skin,p.ready,p.cheats]));
-    $('start').disabled=!ids.includes(d.host);
+    $('start').disabled=!ids.includes(d.host)||!d.can_start;
+    $('start').textContent=d.mode==='local'&&!d.can_start?'모두 준비하면 자동 시작':'경기 시작';
+    $('controlsInfo').textContent=d.start_hint||(d.mode==='local'?'양 팀 각 1명 이상 · 참가자 전원 준비 시 자동 시작 (팀당 최대 3명).':'참가자가 모두 준비하면 방장이 시작한다.');
     if(stamp===lobbyStamp)return;
     const editing=$('custom').contains(document.activeElement)&&['INPUT','SELECT'].includes(document.activeElement.tagName);
     $('roster').innerHTML=[0,1].map(t=>`<div class="card ${t?'red':'blue'}"><h3>${t?'RED':'BLUE'} / ${d.players.filter(p=>p.team===t).length} OF 3</h3>${d.players.filter(p=>p.team===t).map(p=>`<div class="member"><span>${esc(p.name)} ${p.id===d.host?'♛':''}</span><span>${p.ready?'준비 완료':'편성 중'}</span></div>`).join('')}</div>`).join('');
     if(editing)return;
     lobbyStamp=stamp;
     $('custom').innerHTML=ids.map((id,i)=>{const p=d.players.find(p=>p.id===id);if(!p)return '';return `<div class="card"><h3>PLAYER ${i+1}</h3><label>콜사인<input data-name="${id}" value="${esc(p.name)}" maxlength="16"></label><label>캐릭터<select data-skin="${id}">${['scout','warden','rogue'].map(s=>`<option ${p.skin===s?'selected':''}>${s}</option>`).join('')}</select></label><label>팀<select data-team="${id}" ${d.mode==='ai'?'disabled':''}><option value="0" ${p.team===0?'selected':''}>BLUE</option><option value="1" ${p.team===1?'selected':''}>RED</option></select></label><div class="toggles">${toggles(p)}</div><button data-ready="${id}" class="${p.ready?'on':''}">${p.ready?'준비 취소':'준비 완료'}</button></div>`;}).join('');
-    $('controlsInfo').textContent='각 팀 3명, 모두 준비 완료한 뒤 방장이 경기 시작.';
 }
 $('custom').onchange=e=>{
     const el=e.target,id=el.dataset.name||el.dataset.skin||el.dataset.team;if(!id)return;
@@ -1224,6 +1313,8 @@ function clearSelection(){
 function tapFire(i){
     const p=state?.players.find(p=>p.id===ids[i]);
     if(!active()||state.state!=='PLAYING'||!p||p.hp<=0)return;
+    const now=performance.now();control(i).snapUntil=now+220;
+    assistLocal(i,now,true);
     transmit();send({type:'shoot',serial:++tapSerial},ids[i]);
 }
 // Touch Events are cancelled before Safari can start selection, a long-press
@@ -1325,7 +1416,7 @@ window.addEventListener('keydown',e=>{
     if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
     if(e.code==='Escape'){if(active())settings();return;}if($('settings').open)return;
     if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&state)e.preventDefault();keys.add(e.code);
-    if(!e.repeat){const one=['Digit1','Digit2','Digit3','Digit4'].indexOf(e.code),two=['Digit7','Digit8','Digit9','Digit0'].indexOf(e.code);if(one>=0)send({type:'toggle',key:CHEATS[one]});if(two>=0&&ids[1])send({type:'toggle',key:CHEATS[two]},ids[1]);if(e.code==='KeyV')ids.forEach((_,i)=>control(i).view++);}
+    if(!e.repeat){const one=['Digit1','Digit2','Digit3'].indexOf(e.code),two=['Digit7','Digit8','Digit9'].indexOf(e.code);if(one>=0)send({type:'toggle',key:CHEATS[one]});if(two>=0&&ids[1])send({type:'toggle',key:CHEATS[two]},ids[1]);if(e.code==='KeyV')ids.forEach((_,i)=>control(i).view++);}
 });
 window.addEventListener('keyup',e=>keys.delete(e.code));
 window.addEventListener('blur',resetInput);
@@ -1349,13 +1440,14 @@ function inputs(i,now){
     let aim=c.ads||c.mouseAim||!!down(i?'ShiftRight':'ShiftLeft');
     let reload=now<c.reloadUntil||!!down(i?'KeyP':'KeyR');
     const pads=navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean):[],pad=pads[i];
-    if(pad&&has){const dz=v=>Math.abs(v||0)>.16?v:0;f-=dz(pad.axes[1]);s+=dz(pad.axes[0]);turn+=dz(pad.axes[2]);fire ||=pad.buttons[7]?.pressed;aim ||=pad.buttons[6]?.pressed;reload ||=pad.buttons[0]?.pressed;[12,13,14,15].forEach((b,j)=>{const k=`${i}:${b}`,pressed=!!pad.buttons[b]?.pressed;if(pressed&&!padEdges.get(k))send({type:'toggle',key:CHEATS[j]},ids[i]);padEdges.set(k,pressed);});}
+    if(pad&&has){const dz=v=>Math.abs(v||0)>.16?v:0;f-=dz(pad.axes[1]);s+=dz(pad.axes[0]);turn+=dz(pad.axes[2]);fire ||=pad.buttons[7]?.pressed;aim ||=pad.buttons[6]?.pressed;reload ||=pad.buttons[0]?.pressed;[12,13,14].forEach((b,j)=>{const k=`${i}:${b}`,pressed=!!pad.buttons[b]?.pressed;if(pressed&&!padEdges.get(k))send({type:'toggle',key:CHEATS[j]},ids[i]);padEdges.set(k,pressed);});}
     if(!has||p?.hp<=0){f=s=turn=0;fire=aim=reload=false;}
     const len=Math.max(1,Math.hypot(f,s));return c.input={f:f/len,s:s/len,turn:clamp(turn,-1,1),fire:!!fire,aim:!!aim,reload:!!reload};
 }
 function transmit(){
     if(!state||!ids.length)return;const now=performance.now();seq++;
     ids.forEach((id,i)=>{
+        assistLocal(i,now);
         const input=inputs(i,now),m=motion.get(id),packet={type:'input',...input,turn:0,yaw:m?.yaw,pitch:m?.pitch||0,seq};
         send(packet,id);const history=sentInputs.get(id)||[];
         history.push({...packet,time:now});if(history.length>150)history.shift();sentInputs.set(id,history);
@@ -1411,6 +1503,18 @@ function reconcile(p,m,now){
     m.x=target.x;m.y=target.y;m.vx=target.vx;m.vy=target.vy;
     if(ack>0)history.splice(0,ack);
 }
+function assistLocal(i,now,shot=false){
+    const p=state?.players.find(p=>p.id===ids[i]),m=motion.get(ids[i]);
+    if(!active()||state.state!=='PLAYING'||!p||!m||p.bot||p.hp<=0||!p.cheats.aim)return;
+    const input=inputs(i,now);
+    if(!shot&&!input.aim&&!input.fire&&now>=control(i).snapUntil)return;
+    const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<AIM_CONE&&visible(me,q));
+    targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw))||Math.hypot(a.x-m.x,a.y-m.y)-Math.hypot(b.x-m.x,b.y-m.y)||a.id.localeCompare(b.id));
+    if(targets.length){
+        const q=targets[0];m.yaw=Math.atan2(q.y-m.y,q.x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(q.x-m.x,q.y-m.y));
+        m.lockTarget=q.id;m.lockUntil=now+220;
+    }else{m.lockTarget=null;m.lockUntil=0;}
+}
 function predict(dt,now){
     ids.forEach((id,i)=>{
         const p=state.players.find(p=>p.id===id),m=motion.get(id);if(!p||!m)return;const input=inputs(i,now);m.yaw=wrap(m.yaw+input.turn*3.2*dt);
@@ -1418,11 +1522,7 @@ function predict(dt,now){
         if(state.state==='PLAYING'&&p.hp>0)integrate(m,{...input,yaw:m.yaw},dt);else m.vx=m.vy=0;
         m.stride+=Math.hypot(m.x-ox,m.y-oy)*4.5;
         const decay=Math.exp(-15*dt);m.offsetX*=decay;m.offsetY*=decay;
-        if(p.cheats.aim&&input.aim&&p.hp>0){
-            const me={...p,...m},targets=state.players.filter(q=>q.hp>0&&q.team!==p.team&&Math.abs(wrap(Math.atan2(q.y-m.y,q.x-m.x)-m.yaw))<.65&&visible(me,q));
-            targets.sort((a,b)=>Math.abs(wrap(Math.atan2(a.y-m.y,a.x-m.x)-m.yaw))-Math.abs(wrap(Math.atan2(b.y-m.y,b.x-m.x)-m.yaw)));
-            if(targets.length){m.yaw=Math.atan2(targets[0].y-m.y,targets[0].x-m.x);m.pitch=Math.atan2(-.15,Math.hypot(targets[0].x-m.x,targets[0].y-m.y));}
-        }
+        assistLocal(i,now);
         m.kick=mix(m.kick,p.kick||0,1-Math.exp(-20*dt));m.fov=mix(m.fov,input.aim?.88:1.12,1-Math.exp(-12*dt));
     });
 }
@@ -1657,8 +1757,12 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     rounded(12,baseline,cardWidth,49,5,'#07191fc9');
     textAt(`HP ${owner.hp}`,23,baseline+22,hudFont,owner.hp<30?'#ff8c76':'#e9f1e9');
     ctx.fillStyle='#314643';ctx.fillRect(23,baseline+31,cardWidth-23,5);ctx.fillStyle=owner.hp<30?'#ef735e':'#c6ff47';ctx.fillRect(23,baseline+31,(cardWidth-23)*owner.hp/100,5);
-    const ammo=p.cheats.ammo?'∞':String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
-    textAt(p.reload>0&&!p.cheats.ammo?'RELOADING':`${ammo} / 30`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt('CHEAT AR · 5.56',w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
+    const ammo=String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
+    textAt(p.reload>0?'RELOADING':`${ammo} / 30`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt('CHEAT AR · 5.56',w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
+    if(owner.hp>0&&owner.cheats.aim){
+        const m=motion.get(owner.id),locked=m?.lockTarget&&now<m.lockUntil;
+        textAt(locked?'AIM LOCK':'AIM · 조준/발사 시 자동 고정',w/2,horizon+38,compact?9:11,locked?'#ffce7b':'#b9d58e','center');
+    }
     const gap=6+Math.min(12,p.kick*75),cross=owner.hp>0?'#d9ff75':'#c6dcd5';
     line(w/2-gap-8,horizon,w/2-gap,horizon,cross,1.5);line(w/2+gap,horizon,w/2+gap+8,horizon,cross,1.5);line(w/2,horizon-gap-8,w/2,horizon-gap,cross,1.5);line(w/2,horizon+gap,w/2,horizon+gap+8,cross,1.5);ctx.fillStyle=cross;ctx.fillRect(w/2-1,horizon-1,2,2);
     if(now-(effects.get(p.id)?.hitAt||0)<180){for(const sign of [-1,1]){line(w/2+sign*8,horizon+8,w/2+sign*14,horizon+14,'#fff5d1',2);line(w/2+sign*8,horizon-8,w/2+sign*14,horizon-14,'#fff5d1',2);}}
@@ -1747,30 +1851,30 @@ function frame(now){
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-```
+``````
 
 ## frontend/index.html
 
-```html
+``````html
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Cheat FPS</title><link rel="stylesheet" href="/static/style.css?v=0.2.3"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Cheat FPS</title><link rel="stylesheet" href="/static/style.css?v=0.2.5"></head>
 <body>
 <canvas id="world3d" aria-hidden="true"></canvas>
 <canvas id="game"></canvas>
-<main id="menu" class="screen"><div class="menu-content"><h1>CHEAT<span>FPS</span></h1><div class="menu-actions"><label for="mode">모드</label><select id="mode"><option value="ai">AI전</option><option value="local">로컬 대전</option></select><button id="create" class="primary">게임 시작</button><div class="menu-links"><button id="settingsOpen">설정</button><button id="exit">종료</button></div></div></div><div id="previewCaption" aria-live="off"></div><small class="menu-version">v0.2.3</small></main>
-<dialog id="networkSetup"><h2>로컬 대전</h2><label>콜사인<input id="name" maxlength="16" value="CHEATER"></label><label class="check"><input type="checkbox" id="split">같은 기기에서 2인 참가</label><label>맵<select id="mapChoice"></select></label><p id="mapLandmark"></p><button id="hostLocal" class="primary">방 만들기</button><div id="joinRow" class="join"><input id="code" maxlength="6" placeholder="6자리 방 코드"><button id="join">참가</button></div><button id="networkClose">돌아가기</button></dialog>
+<main id="menu" class="screen"><div class="menu-content"><h1>CHEAT<span>FPS</span></h1><div class="menu-actions"><label for="mode">모드</label><select id="mode"><option value="ai">AI전</option><option value="local">로컬 대전</option></select><button id="create" class="primary">게임 시작</button><div class="menu-links"><button id="settingsOpen">설정</button><button id="exit">종료</button></div></div></div><div id="previewCaption" aria-live="off"></div><small class="menu-version">v0.2.5</small></main>
+<dialog id="networkSetup"><h2>로컬 대전</h2><p>양 팀 각 1명 이상 · 참가자 전원 준비 시 자동 시작.<br>2인 분할 화면도 각자 준비 완료를 눌러 주세요.</p><label>콜사인<input id="name" maxlength="16" value="CHEATER"></label><label class="check"><input type="checkbox" id="split">같은 기기에서 2인 참가</label><label>맵<select id="mapChoice"></select></label><p id="mapLandmark"></p><button id="hostLocal" class="primary">방 만들기</button><div id="joinRow" class="join"><input id="code" maxlength="6" placeholder="6자리 방 코드"><button id="join">참가</button></div><button id="networkClose">돌아가기</button></dialog>
 <div id="lobby" class="screen hidden"><div class="wide"><div class="eyebrow">PRE-MATCH / TEAM ASSEMBLY</div><h2>팀 편성 <span id="roomCode"></span></h2><p id="modeInfo"></p><label>맵<select id="matchMap"></select></label><div id="roster" class="teams"></div><div id="custom" class="teams"></div><p>치트 버튼은 장착과 활성화를 동시에 전환한다. 경기 중에도 제한 없이 변경할 수 있다.</p><div class="row"><button id="start" class="primary">경기 시작</button><button class="leave">메인 메뉴</button></div><p id="controlsInfo"></p></div></div>
 <div id="playUI" class="hidden"><div id="viewControls"></div><button id="pause" class="floating">☰ / ESC</button></div>
 <div id="result" class="screen hidden"><div class="wide"><div class="eyebrow">SENTENCE COMPLETE</div><h2 id="resultTitle"></h2><h1 id="finalScore"></h1><div id="rounds"></div><div id="stats"></div><div class="row"><button id="again" class="primary">다시 플레이</button><button class="leave">메인 메뉴</button></div></div></div>
-<dialog id="settings"><h2>설정 & 조작</h2><p id="graphicsStatus"></p><label>시점 감도<input id="sensitivity" type="range" min="0.3" max="3" step="0.1"></label><label>사운드<input id="volume" type="range" min="0" max="1" step="0.05"></label><label>렌더 품질<select id="quality"><option value="2">높음</option><option value="4">보통</option><option value="6">낮음</option></select></label><p>1P: WASD 이동 · 마우스 / Q,E 회전<br>좌클릭 / Space 발사 · 우클릭 / Shift 조준<br>R 장전 · 1~4 치트 · V 관전 대상 변경<br>2P: 방향키 이동 · J,L 회전 · Enter 발사<br>오른쪽 Shift 조준 · P 장전 · 7,8,9,0 치트<br>게임패드: 좌 스틱 이동 · 우 스틱 회전<br>RT 발사 · LT 조준 · A 장전 · 방향패드 치트</p><p>모바일: 각 화면 왼쪽 조이스틱으로 이동.<br>빈 화면을 짧게 탭하면 발사, 드래그하면 회전.<br>발사 버튼을 누르면 연사. 조준 버튼은 토글이다.<br>2인 화면은 가로 모드에서 좌우, 세로 모드에서 위아래로 나뉜다.</p><button id="settingsClose" class="primary">닫기 / 계속</button><button class="leave">메인 메뉴</button></dialog>
+<dialog id="settings"><h2>설정 & 조작</h2><p id="graphicsStatus"></p><label>시점 감도<input id="sensitivity" type="range" min="0.3" max="3" step="0.1"></label><label>사운드<input id="volume" type="range" min="0" max="1" step="0.05"></label><label>렌더 품질<select id="quality"><option value="2">높음</option><option value="4">보통</option><option value="6">낮음</option></select></label><p>1P: WASD 이동 · 마우스 / Q,E 회전<br>좌클릭 / Space 발사 · 우클릭 / Shift 조준<br>R 장전 · 1~3 치트 · V 관전 대상 변경<br>2P: 방향키 이동 · J,L 회전 · Enter 발사<br>오른쪽 Shift 조준 · P 장전 · 7,8,9 치트<br>게임패드: 좌 스틱 이동 · 우 스틱 회전<br>RT 발사 · LT 조준 · A 장전 · 방향패드 치트</p><p>모바일: 각 화면 왼쪽 조이스틱으로 이동.<br>빈 화면을 짧게 탭하면 발사, 드래그하면 회전.<br>발사 버튼을 누르면 연사. 조준 버튼은 토글이다.<br>AIM: 켠 뒤 조준 또는 발사하면 자동 고정.<br>2인 화면은 가로 모드에서 좌우, 세로 모드에서 위아래로 나뉜다.</p><button id="settingsClose" class="primary">닫기 / 계속</button><button class="leave">메인 메뉴</button></dialog>
 <div id="toast" role="status"></div>
-<script src="/static/renderer3d.js?v=0.2.3"></script>
-<script src="/static/game.js?v=0.2.3"></script></body></html>
-```
+<script src="/static/renderer3d.js?v=0.2.5"></script>
+<script src="/static/game.js?v=0.2.5"></script></body></html>
+``````
 
 ## frontend/renderer3d.js
 
-```javascript
+``````javascript
 (()=>{var sl=0,qa=1,rl=2;var Ya=1,al=2,nn=3,fn=0,we=1,sn=2,_n=0,Xn=1,Za=2,Ja=3,$a=4,ol=5,Cn=100,ll=101,cl=102,hl=103,ul=104,dl=200,fl=201,pl=202,ml=203,Hs=204,Gs=205,gl=206,_l=207,xl=208,vl=209,yl=210,Ml=211,Sl=212,bl=213,El=214,dr=0,fr=1,pr=2,qn=3,mr=4,gr=5,_r=6,xr=7,vr=0,Tl=1,wl=2,xn=0,Al=1,Rl=2,Cl=3,Il=4,Pl=5,Ll=6,Dl=7;var Ka=300,$n=301,Kn=302,yr=303,Mr=304,us=306,vi=1e3,Rn=1001,Ws=1002,Ie=1003,Ul=1004;var ds=1005;var Xe=1006,Sr=1007;var Fn=1008;var Ze=1009,Qa=1010,ja=1011,Ci=1012,br=1013,On=1014,Je=1015,Ii=1016,Er=1017,Tr=1018,Pi=1020,to=35902,eo=35899,no=1021,io=1022,ke=1023,yi=1026,Li=1027,wr=1028,Ar=1029,so=1030,Rr=1031;var Cr=1033,fs=33776,ps=33777,ms=33778,gs=33779,Ir=35840,Pr=35841,Lr=35842,Dr=35843,Ur=36196,Nr=37492,Fr=37496,Or=37808,Br=37809,zr=37810,kr=37811,Vr=37812,Hr=37813,Gr=37814,Wr=37815,Xr=37816,qr=37817,Yr=37818,Zr=37819,Jr=37820,$r=37821,Kr=36492,Qr=36494,jr=36495,ta=36283,ea=36284,na=36285,ia=36286;var qi=2300,Xs=2301,Vs=2302,Ba=2400,za=2401,ka=2402;var Nl=3200,Fl=3201;var ro=0,Ol=1,vn="",ge="srgb",Yn="srgb-linear",Yi="linear",qt="srgb";var Wn=7680;var Va=519,Bl=512,zl=513,kl=514,ao=515,Vl=516,Hl=517,Gl=518,Wl=519,Ha=35044,oo=35048;var lo="300 es",We=2e3,Zi=2001;var pn=class{addEventListener(t,e){this._listeners===void 0&&(this._listeners={});let n=this._listeners;n[t]===void 0&&(n[t]=[]),n[t].indexOf(e)===-1&&n[t].push(e)}hasEventListener(t,e){let n=this._listeners;return n===void 0?!1:n[t]!==void 0&&n[t].indexOf(e)!==-1}removeEventListener(t,e){let n=this._listeners;if(n===void 0)return;let s=n[t];if(s!==void 0){let r=s.indexOf(e);r!==-1&&s.splice(r,1)}}dispatchEvent(t){let e=this._listeners;if(e===void 0)return;let n=e[t.type];if(n!==void 0){t.target=this;let s=n.slice(0);for(let r=0,a=s.length;r<a;r++)s[r].call(this,t);t.target=null}}},ve=["00","01","02","03","04","05","06","07","08","09","0a","0b","0c","0d","0e","0f","10","11","12","13","14","15","16","17","18","19","1a","1b","1c","1d","1e","1f","20","21","22","23","24","25","26","27","28","29","2a","2b","2c","2d","2e","2f","30","31","32","33","34","35","36","37","38","39","3a","3b","3c","3d","3e","3f","40","41","42","43","44","45","46","47","48","49","4a","4b","4c","4d","4e","4f","50","51","52","53","54","55","56","57","58","59","5a","5b","5c","5d","5e","5f","60","61","62","63","64","65","66","67","68","69","6a","6b","6c","6d","6e","6f","70","71","72","73","74","75","76","77","78","79","7a","7b","7c","7d","7e","7f","80","81","82","83","84","85","86","87","88","89","8a","8b","8c","8d","8e","8f","90","91","92","93","94","95","96","97","98","99","9a","9b","9c","9d","9e","9f","a0","a1","a2","a3","a4","a5","a6","a7","a8","a9","aa","ab","ac","ad","ae","af","b0","b1","b2","b3","b4","b5","b6","b7","b8","b9","ba","bb","bc","bd","be","bf","c0","c1","c2","c3","c4","c5","c6","c7","c8","c9","ca","cb","cc","cd","ce","cf","d0","d1","d2","d3","d4","d5","d6","d7","d8","d9","da","db","dc","dd","de","df","e0","e1","e2","e3","e4","e5","e6","e7","e8","e9","ea","eb","ec","ed","ee","ef","f0","f1","f2","f3","f4","f5","f6","f7","f8","f9","fa","fb","fc","fd","fe","ff"];var pa=Math.PI/180,qs=180/Math.PI;function _s(){let i=Math.random()*4294967295|0,t=Math.random()*4294967295|0,e=Math.random()*4294967295|0,n=Math.random()*4294967295|0;return(ve[i&255]+ve[i>>8&255]+ve[i>>16&255]+ve[i>>24&255]+"-"+ve[t&255]+ve[t>>8&255]+"-"+ve[t>>16&15|64]+ve[t>>24&255]+"-"+ve[e&63|128]+ve[e>>8&255]+"-"+ve[e>>16&255]+ve[e>>24&255]+ve[n&255]+ve[n>>8&255]+ve[n>>16&255]+ve[n>>24&255]).toLowerCase()}function zt(i,t,e){return Math.max(t,Math.min(e,i))}function Ic(i,t){return(i%t+t)%t}function ma(i,t,e){return(1-e)*i+e*t}function zi(i,t){switch(t.constructor){case Float32Array:return i;case Uint32Array:return i/4294967295;case Uint16Array:return i/65535;case Uint8Array:return i/255;case Int32Array:return Math.max(i/2147483647,-1);case Int16Array:return Math.max(i/32767,-1);case Int8Array:return Math.max(i/127,-1);default:throw new Error("Invalid component type.")}}function Re(i,t){switch(t.constructor){case Float32Array:return i;case Uint32Array:return Math.round(i*4294967295);case Uint16Array:return Math.round(i*65535);case Uint8Array:return Math.round(i*255);case Int32Array:return Math.round(i*2147483647);case Int16Array:return Math.round(i*32767);case Int8Array:return Math.round(i*127);default:throw new Error("Invalid component type.")}}var Ht=class i{constructor(t=0,e=0){i.prototype.isVector2=!0,this.x=t,this.y=e}get width(){return this.x}set width(t){this.x=t}get height(){return this.y}set height(t){this.y=t}set(t,e){return this.x=t,this.y=e,this}setScalar(t){return this.x=t,this.y=t,this}setX(t){return this.x=t,this}setY(t){return this.y=t,this}setComponent(t,e){switch(t){case 0:this.x=e;break;case 1:this.y=e;break;default:throw new Error("index is out of range: "+t)}return this}getComponent(t){switch(t){case 0:return this.x;case 1:return this.y;default:throw new Error("index is out of range: "+t)}}clone(){return new this.constructor(this.x,this.y)}copy(t){return this.x=t.x,this.y=t.y,this}add(t){return this.x+=t.x,this.y+=t.y,this}addScalar(t){return this.x+=t,this.y+=t,this}addVectors(t,e){return this.x=t.x+e.x,this.y=t.y+e.y,this}addScaledVector(t,e){return this.x+=t.x*e,this.y+=t.y*e,this}sub(t){return this.x-=t.x,this.y-=t.y,this}subScalar(t){return this.x-=t,this.y-=t,this}subVectors(t,e){return this.x=t.x-e.x,this.y=t.y-e.y,this}multiply(t){return this.x*=t.x,this.y*=t.y,this}multiplyScalar(t){return this.x*=t,this.y*=t,this}divide(t){return this.x/=t.x,this.y/=t.y,this}divideScalar(t){return this.multiplyScalar(1/t)}applyMatrix3(t){let e=this.x,n=this.y,s=t.elements;return this.x=s[0]*e+s[3]*n+s[6],this.y=s[1]*e+s[4]*n+s[7],this}min(t){return this.x=Math.min(this.x,t.x),this.y=Math.min(this.y,t.y),this}max(t){return this.x=Math.max(this.x,t.x),this.y=Math.max(this.y,t.y),this}clamp(t,e){return this.x=zt(this.x,t.x,e.x),this.y=zt(this.y,t.y,e.y),this}clampScalar(t,e){return this.x=zt(this.x,t,e),this.y=zt(this.y,t,e),this}clampLength(t,e){let n=this.length();return this.divideScalar(n||1).multiplyScalar(zt(n,t,e))}floor(){return this.x=Math.floor(this.x),this.y=Math.floor(this.y),this}ceil(){return this.x=Math.ceil(this.x),this.y=Math.ceil(this.y),this}round(){return this.x=Math.round(this.x),this.y=Math.round(this.y),this}roundToZero(){return this.x=Math.trunc(this.x),this.y=Math.trunc(this.y),this}negate(){return this.x=-this.x,this.y=-this.y,this}dot(t){return this.x*t.x+this.y*t.y}cross(t){return this.x*t.y-this.y*t.x}lengthSq(){return this.x*this.x+this.y*this.y}length(){return Math.sqrt(this.x*this.x+this.y*this.y)}manhattanLength(){return Math.abs(this.x)+Math.abs(this.y)}normalize(){return this.divideScalar(this.length()||1)}angle(){return Math.atan2(-this.y,-this.x)+Math.PI}angleTo(t){let e=Math.sqrt(this.lengthSq()*t.lengthSq());if(e===0)return Math.PI/2;let n=this.dot(t)/e;return Math.acos(zt(n,-1,1))}distanceTo(t){return Math.sqrt(this.distanceToSquared(t))}distanceToSquared(t){let e=this.x-t.x,n=this.y-t.y;return e*e+n*n}manhattanDistanceTo(t){return Math.abs(this.x-t.x)+Math.abs(this.y-t.y)}setLength(t){return this.normalize().multiplyScalar(t)}lerp(t,e){return this.x+=(t.x-this.x)*e,this.y+=(t.y-this.y)*e,this}lerpVectors(t,e,n){return this.x=t.x+(e.x-t.x)*n,this.y=t.y+(e.y-t.y)*n,this}equals(t){return t.x===this.x&&t.y===this.y}fromArray(t,e=0){return this.x=t[e],this.y=t[e+1],this}toArray(t=[],e=0){return t[e]=this.x,t[e+1]=this.y,t}fromBufferAttribute(t,e){return this.x=t.getX(e),this.y=t.getY(e),this}rotateAround(t,e){let n=Math.cos(e),s=Math.sin(e),r=this.x-t.x,a=this.y-t.y;return this.x=r*n-a*s+t.x,this.y=r*s+a*n+t.y,this}random(){return this.x=Math.random(),this.y=Math.random(),this}*[Symbol.iterator](){yield this.x,yield this.y}},mn=class{constructor(t=0,e=0,n=0,s=1){this.isQuaternion=!0,this._x=t,this._y=e,this._z=n,this._w=s}static slerpFlat(t,e,n,s,r,a,o){let c=n[s+0],l=n[s+1],h=n[s+2],u=n[s+3],f=r[a+0],p=r[a+1],_=r[a+2],v=r[a+3];if(o===0){t[e+0]=c,t[e+1]=l,t[e+2]=h,t[e+3]=u;return}if(o===1){t[e+0]=f,t[e+1]=p,t[e+2]=_,t[e+3]=v;return}if(u!==v||c!==f||l!==p||h!==_){let m=1-o,d=c*f+l*p+h*_+u*v,w=d>=0?1:-1,E=1-d*d;if(E>Number.EPSILON){let R=Math.sqrt(E),A=Math.atan2(R,d*w);m=Math.sin(m*A)/R,o=Math.sin(o*A)/R}let S=o*w;if(c=c*m+f*S,l=l*m+p*S,h=h*m+_*S,u=u*m+v*S,m===1-o){let R=1/Math.sqrt(c*c+l*l+h*h+u*u);c*=R,l*=R,h*=R,u*=R}}t[e]=c,t[e+1]=l,t[e+2]=h,t[e+3]=u}static multiplyQuaternionsFlat(t,e,n,s,r,a){let o=n[s],c=n[s+1],l=n[s+2],h=n[s+3],u=r[a],f=r[a+1],p=r[a+2],_=r[a+3];return t[e]=o*_+h*u+c*p-l*f,t[e+1]=c*_+h*f+l*u-o*p,t[e+2]=l*_+h*p+o*f-c*u,t[e+3]=h*_-o*u-c*f-l*p,t}get x(){return this._x}set x(t){this._x=t,this._onChangeCallback()}get y(){return this._y}set y(t){this._y=t,this._onChangeCallback()}get z(){return this._z}set z(t){this._z=t,this._onChangeCallback()}get w(){return this._w}set w(t){this._w=t,this._onChangeCallback()}set(t,e,n,s){return this._x=t,this._y=e,this._z=n,this._w=s,this._onChangeCallback(),this}clone(){return new this.constructor(this._x,this._y,this._z,this._w)}copy(t){return this._x=t.x,this._y=t.y,this._z=t.z,this._w=t.w,this._onChangeCallback(),this}setFromEuler(t,e=!0){let n=t._x,s=t._y,r=t._z,a=t._order,o=Math.cos,c=Math.sin,l=o(n/2),h=o(s/2),u=o(r/2),f=c(n/2),p=c(s/2),_=c(r/2);switch(a){case"XYZ":this._x=f*h*u+l*p*_,this._y=l*p*u-f*h*_,this._z=l*h*_+f*p*u,this._w=l*h*u-f*p*_;break;case"YXZ":this._x=f*h*u+l*p*_,this._y=l*p*u-f*h*_,this._z=l*h*_-f*p*u,this._w=l*h*u+f*p*_;break;case"ZXY":this._x=f*h*u-l*p*_,this._y=l*p*u+f*h*_,this._z=l*h*_+f*p*u,this._w=l*h*u-f*p*_;break;case"ZYX":this._x=f*h*u-l*p*_,this._y=l*p*u+f*h*_,this._z=l*h*_-f*p*u,this._w=l*h*u+f*p*_;break;case"YZX":this._x=f*h*u+l*p*_,this._y=l*p*u+f*h*_,this._z=l*h*_-f*p*u,this._w=l*h*u-f*p*_;break;case"XZY":this._x=f*h*u-l*p*_,this._y=l*p*u-f*h*_,this._z=l*h*_+f*p*u,this._w=l*h*u+f*p*_;break;default:console.warn("THREE.Quaternion: .setFromEuler() encountered an unknown order: "+a)}return e===!0&&this._onChangeCallback(),this}setFromAxisAngle(t,e){let n=e/2,s=Math.sin(n);return this._x=t.x*s,this._y=t.y*s,this._z=t.z*s,this._w=Math.cos(n),this._onChangeCallback(),this}setFromRotationMatrix(t){let e=t.elements,n=e[0],s=e[4],r=e[8],a=e[1],o=e[5],c=e[9],l=e[2],h=e[6],u=e[10],f=n+o+u;if(f>0){let p=.5/Math.sqrt(f+1);this._w=.25/p,this._x=(h-c)*p,this._y=(r-l)*p,this._z=(a-s)*p}else if(n>o&&n>u){let p=2*Math.sqrt(1+n-o-u);this._w=(h-c)/p,this._x=.25*p,this._y=(s+a)/p,this._z=(r+l)/p}else if(o>u){let p=2*Math.sqrt(1+o-n-u);this._w=(r-l)/p,this._x=(s+a)/p,this._y=.25*p,this._z=(c+h)/p}else{let p=2*Math.sqrt(1+u-n-o);this._w=(a-s)/p,this._x=(r+l)/p,this._y=(c+h)/p,this._z=.25*p}return this._onChangeCallback(),this}setFromUnitVectors(t,e){let n=t.dot(e)+1;return n<1e-8?(n=0,Math.abs(t.x)>Math.abs(t.z)?(this._x=-t.y,this._y=t.x,this._z=0,this._w=n):(this._x=0,this._y=-t.z,this._z=t.y,this._w=n)):(this._x=t.y*e.z-t.z*e.y,this._y=t.z*e.x-t.x*e.z,this._z=t.x*e.y-t.y*e.x,this._w=n),this.normalize()}angleTo(t){return 2*Math.acos(Math.abs(zt(this.dot(t),-1,1)))}rotateTowards(t,e){let n=this.angleTo(t);if(n===0)return this;let s=Math.min(1,e/n);return this.slerp(t,s),this}identity(){return this.set(0,0,0,1)}invert(){return this.conjugate()}conjugate(){return this._x*=-1,this._y*=-1,this._z*=-1,this._onChangeCallback(),this}dot(t){return this._x*t._x+this._y*t._y+this._z*t._z+this._w*t._w}lengthSq(){return this._x*this._x+this._y*this._y+this._z*this._z+this._w*this._w}length(){return Math.sqrt(this._x*this._x+this._y*this._y+this._z*this._z+this._w*this._w)}normalize(){let t=this.length();return t===0?(this._x=0,this._y=0,this._z=0,this._w=1):(t=1/t,this._x=this._x*t,this._y=this._y*t,this._z=this._z*t,this._w=this._w*t),this._onChangeCallback(),this}multiply(t){return this.multiplyQuaternions(this,t)}premultiply(t){return this.multiplyQuaternions(t,this)}multiplyQuaternions(t,e){let n=t._x,s=t._y,r=t._z,a=t._w,o=e._x,c=e._y,l=e._z,h=e._w;return this._x=n*h+a*o+s*l-r*c,this._y=s*h+a*c+r*o-n*l,this._z=r*h+a*l+n*c-s*o,this._w=a*h-n*o-s*c-r*l,this._onChangeCallback(),this}slerp(t,e){if(e===0)return this;if(e===1)return this.copy(t);let n=this._x,s=this._y,r=this._z,a=this._w,o=a*t._w+n*t._x+s*t._y+r*t._z;if(o<0?(this._w=-t._w,this._x=-t._x,this._y=-t._y,this._z=-t._z,o=-o):this.copy(t),o>=1)return this._w=a,this._x=n,this._y=s,this._z=r,this;let c=1-o*o;if(c<=Number.EPSILON){let p=1-e;return this._w=p*a+e*this._w,this._x=p*n+e*this._x,this._y=p*s+e*this._y,this._z=p*r+e*this._z,this.normalize(),this}let l=Math.sqrt(c),h=Math.atan2(l,o),u=Math.sin((1-e)*h)/l,f=Math.sin(e*h)/l;return this._w=a*u+this._w*f,this._x=n*u+this._x*f,this._y=s*u+this._y*f,this._z=r*u+this._z*f,this._onChangeCallback(),this}slerpQuaternions(t,e,n){return this.copy(t).slerp(e,n)}random(){let t=2*Math.PI*Math.random(),e=2*Math.PI*Math.random(),n=Math.random(),s=Math.sqrt(1-n),r=Math.sqrt(n);return this.set(s*Math.sin(t),s*Math.cos(t),r*Math.sin(e),r*Math.cos(e))}equals(t){return t._x===this._x&&t._y===this._y&&t._z===this._z&&t._w===this._w}fromArray(t,e=0){return this._x=t[e],this._y=t[e+1],this._z=t[e+2],this._w=t[e+3],this._onChangeCallback(),this}toArray(t=[],e=0){return t[e]=this._x,t[e+1]=this._y,t[e+2]=this._z,t[e+3]=this._w,t}fromBufferAttribute(t,e){return this._x=t.getX(e),this._y=t.getY(e),this._z=t.getZ(e),this._w=t.getW(e),this._onChangeCallback(),this}toJSON(){return this.toArray()}_onChange(t){return this._onChangeCallback=t,this}_onChangeCallback(){}*[Symbol.iterator](){yield this._x,yield this._y,yield this._z,yield this._w}},O=class i{constructor(t=0,e=0,n=0){i.prototype.isVector3=!0,this.x=t,this.y=e,this.z=n}set(t,e,n){return n===void 0&&(n=this.z),this.x=t,this.y=e,this.z=n,this}setScalar(t){return this.x=t,this.y=t,this.z=t,this}setX(t){return this.x=t,this}setY(t){return this.y=t,this}setZ(t){return this.z=t,this}setComponent(t,e){switch(t){case 0:this.x=e;break;case 1:this.y=e;break;case 2:this.z=e;break;default:throw new Error("index is out of range: "+t)}return this}getComponent(t){switch(t){case 0:return this.x;case 1:return this.y;case 2:return this.z;default:throw new Error("index is out of range: "+t)}}clone(){return new this.constructor(this.x,this.y,this.z)}copy(t){return this.x=t.x,this.y=t.y,this.z=t.z,this}add(t){return this.x+=t.x,this.y+=t.y,this.z+=t.z,this}addScalar(t){return this.x+=t,this.y+=t,this.z+=t,this}addVectors(t,e){return this.x=t.x+e.x,this.y=t.y+e.y,this.z=t.z+e.z,this}addScaledVector(t,e){return this.x+=t.x*e,this.y+=t.y*e,this.z+=t.z*e,this}sub(t){return this.x-=t.x,this.y-=t.y,this.z-=t.z,this}subScalar(t){return this.x-=t,this.y-=t,this.z-=t,this}subVectors(t,e){return this.x=t.x-e.x,this.y=t.y-e.y,this.z=t.z-e.z,this}multiply(t){return this.x*=t.x,this.y*=t.y,this.z*=t.z,this}multiplyScalar(t){return this.x*=t,this.y*=t,this.z*=t,this}multiplyVectors(t,e){return this.x=t.x*e.x,this.y=t.y*e.y,this.z=t.z*e.z,this}applyEuler(t){return this.applyQuaternion(Oo.setFromEuler(t))}applyAxisAngle(t,e){return this.applyQuaternion(Oo.setFromAxisAngle(t,e))}applyMatrix3(t){let e=this.x,n=this.y,s=this.z,r=t.elements;return this.x=r[0]*e+r[3]*n+r[6]*s,this.y=r[1]*e+r[4]*n+r[7]*s,this.z=r[2]*e+r[5]*n+r[8]*s,this}applyNormalMatrix(t){return this.applyMatrix3(t).normalize()}applyMatrix4(t){let e=this.x,n=this.y,s=this.z,r=t.elements,a=1/(r[3]*e+r[7]*n+r[11]*s+r[15]);return this.x=(r[0]*e+r[4]*n+r[8]*s+r[12])*a,this.y=(r[1]*e+r[5]*n+r[9]*s+r[13])*a,this.z=(r[2]*e+r[6]*n+r[10]*s+r[14])*a,this}applyQuaternion(t){let e=this.x,n=this.y,s=this.z,r=t.x,a=t.y,o=t.z,c=t.w,l=2*(a*s-o*n),h=2*(o*e-r*s),u=2*(r*n-a*e);return this.x=e+c*l+a*u-o*h,this.y=n+c*h+o*l-r*u,this.z=s+c*u+r*h-a*l,this}project(t){return this.applyMatrix4(t.matrixWorldInverse).applyMatrix4(t.projectionMatrix)}unproject(t){return this.applyMatrix4(t.projectionMatrixInverse).applyMatrix4(t.matrixWorld)}transformDirection(t){let e=this.x,n=this.y,s=this.z,r=t.elements;return this.x=r[0]*e+r[4]*n+r[8]*s,this.y=r[1]*e+r[5]*n+r[9]*s,this.z=r[2]*e+r[6]*n+r[10]*s,this.normalize()}divide(t){return this.x/=t.x,this.y/=t.y,this.z/=t.z,this}divideScalar(t){return this.multiplyScalar(1/t)}min(t){return this.x=Math.min(this.x,t.x),this.y=Math.min(this.y,t.y),this.z=Math.min(this.z,t.z),this}max(t){return this.x=Math.max(this.x,t.x),this.y=Math.max(this.y,t.y),this.z=Math.max(this.z,t.z),this}clamp(t,e){return this.x=zt(this.x,t.x,e.x),this.y=zt(this.y,t.y,e.y),this.z=zt(this.z,t.z,e.z),this}clampScalar(t,e){return this.x=zt(this.x,t,e),this.y=zt(this.y,t,e),this.z=zt(this.z,t,e),this}clampLength(t,e){let n=this.length();return this.divideScalar(n||1).multiplyScalar(zt(n,t,e))}floor(){return this.x=Math.floor(this.x),this.y=Math.floor(this.y),this.z=Math.floor(this.z),this}ceil(){return this.x=Math.ceil(this.x),this.y=Math.ceil(this.y),this.z=Math.ceil(this.z),this}round(){return this.x=Math.round(this.x),this.y=Math.round(this.y),this.z=Math.round(this.z),this}roundToZero(){return this.x=Math.trunc(this.x),this.y=Math.trunc(this.y),this.z=Math.trunc(this.z),this}negate(){return this.x=-this.x,this.y=-this.y,this.z=-this.z,this}dot(t){return this.x*t.x+this.y*t.y+this.z*t.z}lengthSq(){return this.x*this.x+this.y*this.y+this.z*this.z}length(){return Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z)}manhattanLength(){return Math.abs(this.x)+Math.abs(this.y)+Math.abs(this.z)}normalize(){return this.divideScalar(this.length()||1)}setLength(t){return this.normalize().multiplyScalar(t)}lerp(t,e){return this.x+=(t.x-this.x)*e,this.y+=(t.y-this.y)*e,this.z+=(t.z-this.z)*e,this}lerpVectors(t,e,n){return this.x=t.x+(e.x-t.x)*n,this.y=t.y+(e.y-t.y)*n,this.z=t.z+(e.z-t.z)*n,this}cross(t){return this.crossVectors(this,t)}crossVectors(t,e){let n=t.x,s=t.y,r=t.z,a=e.x,o=e.y,c=e.z;return this.x=s*c-r*o,this.y=r*a-n*c,this.z=n*o-s*a,this}projectOnVector(t){let e=t.lengthSq();if(e===0)return this.set(0,0,0);let n=t.dot(this)/e;return this.copy(t).multiplyScalar(n)}projectOnPlane(t){return ga.copy(this).projectOnVector(t),this.sub(ga)}reflect(t){return this.sub(ga.copy(t).multiplyScalar(2*this.dot(t)))}angleTo(t){let e=Math.sqrt(this.lengthSq()*t.lengthSq());if(e===0)return Math.PI/2;let n=this.dot(t)/e;return Math.acos(zt(n,-1,1))}distanceTo(t){return Math.sqrt(this.distanceToSquared(t))}distanceToSquared(t){let e=this.x-t.x,n=this.y-t.y,s=this.z-t.z;return e*e+n*n+s*s}manhattanDistanceTo(t){return Math.abs(this.x-t.x)+Math.abs(this.y-t.y)+Math.abs(this.z-t.z)}setFromSpherical(t){return this.setFromSphericalCoords(t.radius,t.phi,t.theta)}setFromSphericalCoords(t,e,n){let s=Math.sin(e)*t;return this.x=s*Math.sin(n),this.y=Math.cos(e)*t,this.z=s*Math.cos(n),this}setFromCylindrical(t){return this.setFromCylindricalCoords(t.radius,t.theta,t.y)}setFromCylindricalCoords(t,e,n){return this.x=t*Math.sin(e),this.y=n,this.z=t*Math.cos(e),this}setFromMatrixPosition(t){let e=t.elements;return this.x=e[12],this.y=e[13],this.z=e[14],this}setFromMatrixScale(t){let e=this.setFromMatrixColumn(t,0).length(),n=this.setFromMatrixColumn(t,1).length(),s=this.setFromMatrixColumn(t,2).length();return this.x=e,this.y=n,this.z=s,this}setFromMatrixColumn(t,e){return this.fromArray(t.elements,e*4)}setFromMatrix3Column(t,e){return this.fromArray(t.elements,e*3)}setFromEuler(t){return this.x=t._x,this.y=t._y,this.z=t._z,this}setFromColor(t){return this.x=t.r,this.y=t.g,this.z=t.b,this}equals(t){return t.x===this.x&&t.y===this.y&&t.z===this.z}fromArray(t,e=0){return this.x=t[e],this.y=t[e+1],this.z=t[e+2],this}toArray(t=[],e=0){return t[e]=this.x,t[e+1]=this.y,t[e+2]=this.z,t}fromBufferAttribute(t,e){return this.x=t.getX(e),this.y=t.getY(e),this.z=t.getZ(e),this}random(){return this.x=Math.random(),this.y=Math.random(),this.z=Math.random(),this}randomDirection(){let t=Math.random()*Math.PI*2,e=Math.random()*2-1,n=Math.sqrt(1-e*e);return this.x=n*Math.cos(t),this.y=e,this.z=n*Math.sin(t),this}*[Symbol.iterator](){yield this.x,yield this.y,yield this.z}},ga=new O,Oo=new mn,Lt=class i{constructor(t,e,n,s,r,a,o,c,l){i.prototype.isMatrix3=!0,this.elements=[1,0,0,0,1,0,0,0,1],t!==void 0&&this.set(t,e,n,s,r,a,o,c,l)}set(t,e,n,s,r,a,o,c,l){let h=this.elements;return h[0]=t,h[1]=s,h[2]=o,h[3]=e,h[4]=r,h[5]=c,h[6]=n,h[7]=a,h[8]=l,this}identity(){return this.set(1,0,0,0,1,0,0,0,1),this}copy(t){let e=this.elements,n=t.elements;return e[0]=n[0],e[1]=n[1],e[2]=n[2],e[3]=n[3],e[4]=n[4],e[5]=n[5],e[6]=n[6],e[7]=n[7],e[8]=n[8],this}extractBasis(t,e,n){return t.setFromMatrix3Column(this,0),e.setFromMatrix3Column(this,1),n.setFromMatrix3Column(this,2),this}setFromMatrix4(t){let e=t.elements;return this.set(e[0],e[4],e[8],e[1],e[5],e[9],e[2],e[6],e[10]),this}multiply(t){return this.multiplyMatrices(this,t)}premultiply(t){return this.multiplyMatrices(t,this)}multiplyMatrices(t,e){let n=t.elements,s=e.elements,r=this.elements,a=n[0],o=n[3],c=n[6],l=n[1],h=n[4],u=n[7],f=n[2],p=n[5],_=n[8],v=s[0],m=s[3],d=s[6],w=s[1],E=s[4],S=s[7],R=s[2],A=s[5],I=s[8];return r[0]=a*v+o*w+c*R,r[3]=a*m+o*E+c*A,r[6]=a*d+o*S+c*I,r[1]=l*v+h*w+u*R,r[4]=l*m+h*E+u*A,r[7]=l*d+h*S+u*I,r[2]=f*v+p*w+_*R,r[5]=f*m+p*E+_*A,r[8]=f*d+p*S+_*I,this}multiplyScalar(t){let e=this.elements;return e[0]*=t,e[3]*=t,e[6]*=t,e[1]*=t,e[4]*=t,e[7]*=t,e[2]*=t,e[5]*=t,e[8]*=t,this}determinant(){let t=this.elements,e=t[0],n=t[1],s=t[2],r=t[3],a=t[4],o=t[5],c=t[6],l=t[7],h=t[8];return e*a*h-e*o*l-n*r*h+n*o*c+s*r*l-s*a*c}invert(){let t=this.elements,e=t[0],n=t[1],s=t[2],r=t[3],a=t[4],o=t[5],c=t[6],l=t[7],h=t[8],u=h*a-o*l,f=o*c-h*r,p=l*r-a*c,_=e*u+n*f+s*p;if(_===0)return this.set(0,0,0,0,0,0,0,0,0);let v=1/_;return t[0]=u*v,t[1]=(s*l-h*n)*v,t[2]=(o*n-s*a)*v,t[3]=f*v,t[4]=(h*e-s*c)*v,t[5]=(s*r-o*e)*v,t[6]=p*v,t[7]=(n*c-l*e)*v,t[8]=(a*e-n*r)*v,this}transpose(){let t,e=this.elements;return t=e[1],e[1]=e[3],e[3]=t,t=e[2],e[2]=e[6],e[6]=t,t=e[5],e[5]=e[7],e[7]=t,this}getNormalMatrix(t){return this.setFromMatrix4(t).invert().transpose()}transposeIntoArray(t){let e=this.elements;return t[0]=e[0],t[1]=e[3],t[2]=e[6],t[3]=e[1],t[4]=e[4],t[5]=e[7],t[6]=e[2],t[7]=e[5],t[8]=e[8],this}setUvTransform(t,e,n,s,r,a,o){let c=Math.cos(r),l=Math.sin(r);return this.set(n*c,n*l,-n*(c*a+l*o)+a+t,-s*l,s*c,-s*(-l*a+c*o)+o+e,0,0,1),this}scale(t,e){return this.premultiply(_a.makeScale(t,e)),this}rotate(t){return this.premultiply(_a.makeRotation(-t)),this}translate(t,e){return this.premultiply(_a.makeTranslation(t,e)),this}makeTranslation(t,e){return t.isVector2?this.set(1,0,t.x,0,1,t.y,0,0,1):this.set(1,0,t,0,1,e,0,0,1),this}makeRotation(t){let e=Math.cos(t),n=Math.sin(t);return this.set(e,-n,0,n,e,0,0,0,1),this}makeScale(t,e){return this.set(t,0,0,0,e,0,0,0,1),this}equals(t){let e=this.elements,n=t.elements;for(let s=0;s<9;s++)if(e[s]!==n[s])return!1;return!0}fromArray(t,e=0){for(let n=0;n<9;n++)this.elements[n]=t[n+e];return this}toArray(t=[],e=0){let n=this.elements;return t[e]=n[0],t[e+1]=n[1],t[e+2]=n[2],t[e+3]=n[3],t[e+4]=n[4],t[e+5]=n[5],t[e+6]=n[6],t[e+7]=n[7],t[e+8]=n[8],t}clone(){return new this.constructor().fromArray(this.elements)}},_a=new Lt;function co(i){for(let t=i.length-1;t>=0;--t)if(i[t]>=65535)return!0;return!1}function Ji(i){return document.createElementNS("http://www.w3.org/1999/xhtml",i)}function Xl(){let i=Ji("canvas");return i.style.display="block",i}var Bo={};function Mi(i){i in Bo||(Bo[i]=!0,console.warn(i))}function ql(i,t,e){return new Promise(function(n,s){function r(){switch(i.clientWaitSync(t,i.SYNC_FLUSH_COMMANDS_BIT,0)){case i.WAIT_FAILED:s();break;case i.TIMEOUT_EXPIRED:setTimeout(r,e);break;default:n()}}setTimeout(r,e)})}var zo=new Lt().set(.4123908,.3575843,.1804808,.212639,.7151687,.0721923,.0193308,.1191948,.9505322),ko=new Lt().set(3.2409699,-1.5373832,-.4986108,-.9692436,1.8759675,.0415551,.0556301,-.203977,1.0569715);function Pc(){let i={enabled:!0,workingColorSpace:Yn,spaces:{},convert:function(s,r,a){return this.enabled===!1||r===a||!r||!a||(this.spaces[r].transfer===qt&&(s.r=dn(s.r),s.g=dn(s.g),s.b=dn(s.b)),this.spaces[r].primaries!==this.spaces[a].primaries&&(s.applyMatrix3(this.spaces[r].toXYZ),s.applyMatrix3(this.spaces[a].fromXYZ)),this.spaces[a].transfer===qt&&(s.r=xi(s.r),s.g=xi(s.g),s.b=xi(s.b))),s},workingToColorSpace:function(s,r){return this.convert(s,this.workingColorSpace,r)},colorSpaceToWorking:function(s,r){return this.convert(s,r,this.workingColorSpace)},getPrimaries:function(s){return this.spaces[s].primaries},getTransfer:function(s){return s===vn?Yi:this.spaces[s].transfer},getToneMappingMode:function(s){return this.spaces[s].outputColorSpaceConfig.toneMappingMode||"standard"},getLuminanceCoefficients:function(s,r=this.workingColorSpace){return s.fromArray(this.spaces[r].luminanceCoefficients)},define:function(s){Object.assign(this.spaces,s)},_getMatrix:function(s,r,a){return s.copy(this.spaces[r].toXYZ).multiply(this.spaces[a].fromXYZ)},_getDrawingBufferColorSpace:function(s){return this.spaces[s].outputColorSpaceConfig.drawingBufferColorSpace},_getUnpackColorSpace:function(s=this.workingColorSpace){return this.spaces[s].workingColorSpaceConfig.unpackColorSpace},fromWorkingColorSpace:function(s,r){return Mi("THREE.ColorManagement: .fromWorkingColorSpace() has been renamed to .workingToColorSpace()."),i.workingToColorSpace(s,r)},toWorkingColorSpace:function(s,r){return Mi("THREE.ColorManagement: .toWorkingColorSpace() has been renamed to .colorSpaceToWorking()."),i.colorSpaceToWorking(s,r)}},t=[.64,.33,.3,.6,.15,.06],e=[.2126,.7152,.0722],n=[.3127,.329];return i.define({[Yn]:{primaries:t,whitePoint:n,transfer:Yi,toXYZ:zo,fromXYZ:ko,luminanceCoefficients:e,workingColorSpaceConfig:{unpackColorSpace:ge},outputColorSpaceConfig:{drawingBufferColorSpace:ge}},[ge]:{primaries:t,whitePoint:n,transfer:qt,toXYZ:zo,fromXYZ:ko,luminanceCoefficients:e,outputColorSpaceConfig:{drawingBufferColorSpace:ge}}}),i}var Vt=Pc();function dn(i){return i<.04045?i*.0773993808:Math.pow(i*.9478672986+.0521327014,2.4)}function xi(i){return i<.0031308?i*12.92:1.055*Math.pow(i,.41666)-.055}var ri,Ys=class{static getDataURL(t,e="image/png"){if(/^data:/i.test(t.src)||typeof HTMLCanvasElement>"u")return t.src;let n;if(t instanceof HTMLCanvasElement)n=t;else{ri===void 0&&(ri=Ji("canvas")),ri.width=t.width,ri.height=t.height;let s=ri.getContext("2d");t instanceof ImageData?s.putImageData(t,0,0):s.drawImage(t,0,0,t.width,t.height),n=ri}return n.toDataURL(e)}static sRGBToLinear(t){if(typeof HTMLImageElement<"u"&&t instanceof HTMLImageElement||typeof HTMLCanvasElement<"u"&&t instanceof HTMLCanvasElement||typeof ImageBitmap<"u"&&t instanceof ImageBitmap){let e=Ji("canvas");e.width=t.width,e.height=t.height;let n=e.getContext("2d");n.drawImage(t,0,0,t.width,t.height);let s=n.getImageData(0,0,t.width,t.height),r=s.data;for(let a=0;a<r.length;a++)r[a]=dn(r[a]/255)*255;return n.putImageData(s,0,0),e}else if(t.data){let e=t.data.slice(0);for(let n=0;n<e.length;n++)e instanceof Uint8Array||e instanceof Uint8ClampedArray?e[n]=Math.floor(dn(e[n]/255)*255):e[n]=dn(e[n]);return{data:e,width:t.width,height:t.height}}else return console.warn("THREE.ImageUtils.sRGBToLinear(): Unsupported image type. No color space conversion applied."),t}},Lc=0,Si=class{constructor(t=null){this.isSource=!0,Object.defineProperty(this,"id",{value:Lc++}),this.uuid=_s(),this.data=t,this.dataReady=!0,this.version=0}getSize(t){let e=this.data;return typeof HTMLVideoElement<"u"&&e instanceof HTMLVideoElement?t.set(e.videoWidth,e.videoHeight,0):e instanceof VideoFrame?t.set(e.displayHeight,e.displayWidth,0):e!==null?t.set(e.width,e.height,e.depth||0):t.set(0,0,0),t}set needsUpdate(t){t===!0&&this.version++}toJSON(t){let e=t===void 0||typeof t=="string";if(!e&&t.images[this.uuid]!==void 0)return t.images[this.uuid];let n={uuid:this.uuid,url:""},s=this.data;if(s!==null){let r;if(Array.isArray(s)){r=[];for(let a=0,o=s.length;a<o;a++)s[a].isDataTexture?r.push(xa(s[a].image)):r.push(xa(s[a]))}else r=xa(s);n.url=r}return e||(t.images[this.uuid]=n),n}};function xa(i){return typeof HTMLImageElement<"u"&&i instanceof HTMLImageElement||typeof HTMLCanvasElement<"u"&&i instanceof HTMLCanvasElement||typeof ImageBitmap<"u"&&i instanceof ImageBitmap?Ys.getDataURL(i):i.data?{data:Array.from(i.data),width:i.width,height:i.height,type:i.data.constructor.name}:(console.warn("THREE.Texture: Unable to serialize Texture."),{})}var Dc=0,va=new O,Te=class i extends pn{constructor(t=i.DEFAULT_IMAGE,e=i.DEFAULT_MAPPING,n=Rn,s=Rn,r=Xe,a=Fn,o=ke,c=Ze,l=i.DEFAULT_ANISOTROPY,h=vn){super(),this.isTexture=!0,Object.defineProperty(this,"id",{value:Dc++}),this.uuid=_s(),this.name="",this.source=new Si(t),this.mipmaps=[],this.mapping=e,this.channel=0,this.wrapS=n,this.wrapT=s,this.magFilter=r,this.minFilter=a,this.anisotropy=l,this.format=o,this.internalFormat=null,this.type=c,this.offset=new Ht(0,0),this.repeat=new Ht(1,1),this.center=new Ht(0,0),this.rotation=0,this.matrixAutoUpdate=!0,this.matrix=new Lt,this.generateMipmaps=!0,this.premultiplyAlpha=!1,this.flipY=!0,this.unpackAlignment=4,this.colorSpace=h,this.userData={},this.updateRanges=[],this.version=0,this.onUpdate=null,this.renderTarget=null,this.isRenderTargetTexture=!1,this.isArrayTexture=!!(t&&t.depth&&t.depth>1),this.pmremVersion=0}get width(){return this.source.getSize(va).x}get height(){return this.source.getSize(va).y}get depth(){return this.source.getSize(va).z}get image(){return this.source.data}set image(t=null){this.source.data=t}updateMatrix(){this.matrix.setUvTransform(this.offset.x,this.offset.y,this.repeat.x,this.repeat.y,this.rotation,this.center.x,this.center.y)}addUpdateRange(t,e){this.updateRanges.push({start:t,count:e})}clearUpdateRanges(){this.updateRanges.length=0}clone(){return new this.constructor().copy(this)}copy(t){return this.name=t.name,this.source=t.source,this.mipmaps=t.mipmaps.slice(0),this.mapping=t.mapping,this.channel=t.channel,this.wrapS=t.wrapS,this.wrapT=t.wrapT,this.magFilter=t.magFilter,this.minFilter=t.minFilter,this.anisotropy=t.anisotropy,this.format=t.format,this.internalFormat=t.internalFormat,this.type=t.type,this.offset.copy(t.offset),this.repeat.copy(t.repeat),this.center.copy(t.center),this.rotation=t.rotation,this.matrixAutoUpdate=t.matrixAutoUpdate,this.matrix.copy(t.matrix),this.generateMipmaps=t.generateMipmaps,this.premultiplyAlpha=t.premultiplyAlpha,this.flipY=t.flipY,this.unpackAlignment=t.unpackAlignment,this.colorSpace=t.colorSpace,this.renderTarget=t.renderTarget,this.isRenderTargetTexture=t.isRenderTargetTexture,this.isArrayTexture=t.isArrayTexture,this.userData=JSON.parse(JSON.stringify(t.userData)),this.needsUpdate=!0,this}setValues(t){for(let e in t){let n=t[e];if(n===void 0){console.warn(`THREE.Texture.setValues(): parameter '${e}' has value of undefined.`);continue}let s=this[e];if(s===void 0){console.warn(`THREE.Texture.setValues(): property '${e}' does not exist.`);continue}s&&n&&s.isVector2&&n.isVector2||s&&n&&s.isVector3&&n.isVector3||s&&n&&s.isMatrix3&&n.isMatrix3?s.copy(n):this[e]=n}}toJSON(t){let e=t===void 0||typeof t=="string";if(!e&&t.textures[this.uuid]!==void 0)return t.textures[this.uuid];let n={metadata:{version:4.7,type:"Texture",generator:"Texture.toJSON"},uuid:this.uuid,name:this.name,image:this.source.toJSON(t).uuid,mapping:this.mapping,channel:this.channel,repeat:[this.repeat.x,this.repeat.y],offset:[this.offset.x,this.offset.y],center:[this.center.x,this.center.y],rotation:this.rotation,wrap:[this.wrapS,this.wrapT],format:this.format,internalFormat:this.internalFormat,type:this.type,colorSpace:this.colorSpace,minFilter:this.minFilter,magFilter:this.magFilter,anisotropy:this.anisotropy,flipY:this.flipY,generateMipmaps:this.generateMipmaps,premultiplyAlpha:this.premultiplyAlpha,unpackAlignment:this.unpackAlignment};return Object.keys(this.userData).length>0&&(n.userData=this.userData),e||(t.textures[this.uuid]=n),n}dispose(){this.dispatchEvent({type:"dispose"})}transformUv(t){if(this.mapping!==Ka)return t;if(t.applyMatrix3(this.matrix),t.x<0||t.x>1)switch(this.wrapS){case vi:t.x=t.x-Math.floor(t.x);break;case Rn:t.x=t.x<0?0:1;break;case Ws:Math.abs(Math.floor(t.x)%2)===1?t.x=Math.ceil(t.x)-t.x:t.x=t.x-Math.floor(t.x);break}if(t.y<0||t.y>1)switch(this.wrapT){case vi:t.y=t.y-Math.floor(t.y);break;case Rn:t.y=t.y<0?0:1;break;case Ws:Math.abs(Math.floor(t.y)%2)===1?t.y=Math.ceil(t.y)-t.y:t.y=t.y-Math.floor(t.y);break}return this.flipY&&(t.y=1-t.y),t}set needsUpdate(t){t===!0&&(this.version++,this.source.needsUpdate=!0)}set needsPMREMUpdate(t){t===!0&&this.pmremVersion++}};Te.DEFAULT_IMAGE=null;Te.DEFAULT_MAPPING=Ka;Te.DEFAULT_ANISOTROPY=1;var ae=class i{constructor(t=0,e=0,n=0,s=1){i.prototype.isVector4=!0,this.x=t,this.y=e,this.z=n,this.w=s}get width(){return this.z}set width(t){this.z=t}get height(){return this.w}set height(t){this.w=t}set(t,e,n,s){return this.x=t,this.y=e,this.z=n,this.w=s,this}setScalar(t){return this.x=t,this.y=t,this.z=t,this.w=t,this}setX(t){return this.x=t,this}setY(t){return this.y=t,this}setZ(t){return this.z=t,this}setW(t){return this.w=t,this}setComponent(t,e){switch(t){case 0:this.x=e;break;case 1:this.y=e;break;case 2:this.z=e;break;case 3:this.w=e;break;default:throw new Error("index is out of range: "+t)}return this}getComponent(t){switch(t){case 0:return this.x;case 1:return this.y;case 2:return this.z;case 3:return this.w;default:throw new Error("index is out of range: "+t)}}clone(){return new this.constructor(this.x,this.y,this.z,this.w)}copy(t){return this.x=t.x,this.y=t.y,this.z=t.z,this.w=t.w!==void 0?t.w:1,this}add(t){return this.x+=t.x,this.y+=t.y,this.z+=t.z,this.w+=t.w,this}addScalar(t){return this.x+=t,this.y+=t,this.z+=t,this.w+=t,this}addVectors(t,e){return this.x=t.x+e.x,this.y=t.y+e.y,this.z=t.z+e.z,this.w=t.w+e.w,this}addScaledVector(t,e){return this.x+=t.x*e,this.y+=t.y*e,this.z+=t.z*e,this.w+=t.w*e,this}sub(t){return this.x-=t.x,this.y-=t.y,this.z-=t.z,this.w-=t.w,this}subScalar(t){return this.x-=t,this.y-=t,this.z-=t,this.w-=t,this}subVectors(t,e){return this.x=t.x-e.x,this.y=t.y-e.y,this.z=t.z-e.z,this.w=t.w-e.w,this}multiply(t){return this.x*=t.x,this.y*=t.y,this.z*=t.z,this.w*=t.w,this}multiplyScalar(t){return this.x*=t,this.y*=t,this.z*=t,this.w*=t,this}applyMatrix4(t){let e=this.x,n=this.y,s=this.z,r=this.w,a=t.elements;return this.x=a[0]*e+a[4]*n+a[8]*s+a[12]*r,this.y=a[1]*e+a[5]*n+a[9]*s+a[13]*r,this.z=a[2]*e+a[6]*n+a[10]*s+a[14]*r,this.w=a[3]*e+a[7]*n+a[11]*s+a[15]*r,this}divide(t){return this.x/=t.x,this.y/=t.y,this.z/=t.z,this.w/=t.w,this}divideScalar(t){return this.multiplyScalar(1/t)}setAxisAngleFromQuaternion(t){this.w=2*Math.acos(t.w);let e=Math.sqrt(1-t.w*t.w);return e<1e-4?(this.x=1,this.y=0,this.z=0):(this.x=t.x/e,this.y=t.y/e,this.z=t.z/e),this}setAxisAngleFromRotationMatrix(t){let e,n,s,r,c=t.elements,l=c[0],h=c[4],u=c[8],f=c[1],p=c[5],_=c[9],v=c[2],m=c[6],d=c[10];if(Math.abs(h-f)<.01&&Math.abs(u-v)<.01&&Math.abs(_-m)<.01){if(Math.abs(h+f)<.1&&Math.abs(u+v)<.1&&Math.abs(_+m)<.1&&Math.abs(l+p+d-3)<.1)return this.set(1,0,0,0),this;e=Math.PI;let E=(l+1)/2,S=(p+1)/2,R=(d+1)/2,A=(h+f)/4,I=(u+v)/4,U=(_+m)/4;return E>S&&E>R?E<.01?(n=0,s=.707106781,r=.707106781):(n=Math.sqrt(E),s=A/n,r=I/n):S>R?S<.01?(n=.707106781,s=0,r=.707106781):(s=Math.sqrt(S),n=A/s,r=U/s):R<.01?(n=.707106781,s=.707106781,r=0):(r=Math.sqrt(R),n=I/r,s=U/r),this.set(n,s,r,e),this}let w=Math.sqrt((m-_)*(m-_)+(u-v)*(u-v)+(f-h)*(f-h));return Math.abs(w)<.001&&(w=1),this.x=(m-_)/w,this.y=(u-v)/w,this.z=(f-h)/w,this.w=Math.acos((l+p+d-1)/2),this}setFromMatrixPosition(t){let e=t.elements;return this.x=e[12],this.y=e[13],this.z=e[14],this.w=e[15],this}min(t){return this.x=Math.min(this.x,t.x),this.y=Math.min(this.y,t.y),this.z=Math.min(this.z,t.z),this.w=Math.min(this.w,t.w),this}max(t){return this.x=Math.max(this.x,t.x),this.y=Math.max(this.y,t.y),this.z=Math.max(this.z,t.z),this.w=Math.max(this.w,t.w),this}clamp(t,e){return this.x=zt(this.x,t.x,e.x),this.y=zt(this.y,t.y,e.y),this.z=zt(this.z,t.z,e.z),this.w=zt(this.w,t.w,e.w),this}clampScalar(t,e){return this.x=zt(this.x,t,e),this.y=zt(this.y,t,e),this.z=zt(this.z,t,e),this.w=zt(this.w,t,e),this}clampLength(t,e){let n=this.length();return this.divideScalar(n||1).multiplyScalar(zt(n,t,e))}floor(){return this.x=Math.floor(this.x),this.y=Math.floor(this.y),this.z=Math.floor(this.z),this.w=Math.floor(this.w),this}ceil(){return this.x=Math.ceil(this.x),this.y=Math.ceil(this.y),this.z=Math.ceil(this.z),this.w=Math.ceil(this.w),this}round(){return this.x=Math.round(this.x),this.y=Math.round(this.y),this.z=Math.round(this.z),this.w=Math.round(this.w),this}roundToZero(){return this.x=Math.trunc(this.x),this.y=Math.trunc(this.y),this.z=Math.trunc(this.z),this.w=Math.trunc(this.w),this}negate(){return this.x=-this.x,this.y=-this.y,this.z=-this.z,this.w=-this.w,this}dot(t){return this.x*t.x+this.y*t.y+this.z*t.z+this.w*t.w}lengthSq(){return this.x*this.x+this.y*this.y+this.z*this.z+this.w*this.w}length(){return Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z+this.w*this.w)}manhattanLength(){return Math.abs(this.x)+Math.abs(this.y)+Math.abs(this.z)+Math.abs(this.w)}normalize(){return this.divideScalar(this.length()||1)}setLength(t){return this.normalize().multiplyScalar(t)}lerp(t,e){return this.x+=(t.x-this.x)*e,this.y+=(t.y-this.y)*e,this.z+=(t.z-this.z)*e,this.w+=(t.w-this.w)*e,this}lerpVectors(t,e,n){return this.x=t.x+(e.x-t.x)*n,this.y=t.y+(e.y-t.y)*n,this.z=t.z+(e.z-t.z)*n,this.w=t.w+(e.w-t.w)*n,this}equals(t){return t.x===this.x&&t.y===this.y&&t.z===this.z&&t.w===this.w}fromArray(t,e=0){return this.x=t[e],this.y=t[e+1],this.z=t[e+2],this.w=t[e+3],this}toArray(t=[],e=0){return t[e]=this.x,t[e+1]=this.y,t[e+2]=this.z,t[e+3]=this.w,t}fromBufferAttribute(t,e){return this.x=t.getX(e),this.y=t.getY(e),this.z=t.getZ(e),this.w=t.getW(e),this}random(){return this.x=Math.random(),this.y=Math.random(),this.z=Math.random(),this.w=Math.random(),this}*[Symbol.iterator](){yield this.x,yield this.y,yield this.z,yield this.w}},Zs=class extends pn{constructor(t=1,e=1,n={}){super(),n=Object.assign({generateMipmaps:!1,internalFormat:null,minFilter:Xe,depthBuffer:!0,stencilBuffer:!1,resolveDepthBuffer:!0,resolveStencilBuffer:!0,depthTexture:null,samples:0,count:1,depth:1,multiview:!1},n),this.isRenderTarget=!0,this.width=t,this.height=e,this.depth=n.depth,this.scissor=new ae(0,0,t,e),this.scissorTest=!1,this.viewport=new ae(0,0,t,e);let s={width:t,height:e,depth:n.depth},r=new Te(s);this.textures=[];let a=n.count;for(let o=0;o<a;o++)this.textures[o]=r.clone(),this.textures[o].isRenderTargetTexture=!0,this.textures[o].renderTarget=this;this._setTextureOptions(n),this.depthBuffer=n.depthBuffer,this.stencilBuffer=n.stencilBuffer,this.resolveDepthBuffer=n.resolveDepthBuffer,this.resolveStencilBuffer=n.resolveStencilBuffer,this._depthTexture=null,this.depthTexture=n.depthTexture,this.samples=n.samples,this.multiview=n.multiview}_setTextureOptions(t={}){let e={minFilter:Xe,generateMipmaps:!1,flipY:!1,internalFormat:null};t.mapping!==void 0&&(e.mapping=t.mapping),t.wrapS!==void 0&&(e.wrapS=t.wrapS),t.wrapT!==void 0&&(e.wrapT=t.wrapT),t.wrapR!==void 0&&(e.wrapR=t.wrapR),t.magFilter!==void 0&&(e.magFilter=t.magFilter),t.minFilter!==void 0&&(e.minFilter=t.minFilter),t.format!==void 0&&(e.format=t.format),t.type!==void 0&&(e.type=t.type),t.anisotropy!==void 0&&(e.anisotropy=t.anisotropy),t.colorSpace!==void 0&&(e.colorSpace=t.colorSpace),t.flipY!==void 0&&(e.flipY=t.flipY),t.generateMipmaps!==void 0&&(e.generateMipmaps=t.generateMipmaps),t.internalFormat!==void 0&&(e.internalFormat=t.internalFormat);for(let n=0;n<this.textures.length;n++)this.textures[n].setValues(e)}get texture(){return this.textures[0]}set texture(t){this.textures[0]=t}set depthTexture(t){this._depthTexture!==null&&(this._depthTexture.renderTarget=null),t!==null&&(t.renderTarget=this),this._depthTexture=t}get depthTexture(){return this._depthTexture}setSize(t,e,n=1){if(this.width!==t||this.height!==e||this.depth!==n){this.width=t,this.height=e,this.depth=n;for(let s=0,r=this.textures.length;s<r;s++)this.textures[s].image.width=t,this.textures[s].image.height=e,this.textures[s].image.depth=n,this.textures[s].isArrayTexture=this.textures[s].image.depth>1;this.dispose()}this.viewport.set(0,0,t,e),this.scissor.set(0,0,t,e)}clone(){return new this.constructor().copy(this)}copy(t){this.width=t.width,this.height=t.height,this.depth=t.depth,this.scissor.copy(t.scissor),this.scissorTest=t.scissorTest,this.viewport.copy(t.viewport),this.textures.length=0;for(let e=0,n=t.textures.length;e<n;e++){this.textures[e]=t.textures[e].clone(),this.textures[e].isRenderTargetTexture=!0,this.textures[e].renderTarget=this;let s=Object.assign({},t.textures[e].image);this.textures[e].source=new Si(s)}return this.depthBuffer=t.depthBuffer,this.stencilBuffer=t.stencilBuffer,this.resolveDepthBuffer=t.resolveDepthBuffer,this.resolveStencilBuffer=t.resolveStencilBuffer,t.depthTexture!==null&&(this.depthTexture=t.depthTexture.clone()),this.samples=t.samples,this}dispose(){this.dispatchEvent({type:"dispose"})}},Qe=class extends Zs{constructor(t=1,e=1,n={}){super(t,e,n),this.isWebGLRenderTarget=!0}},$i=class extends Te{constructor(t=null,e=1,n=1,s=1){super(null),this.isDataArrayTexture=!0,this.image={data:t,width:e,height:n,depth:s},this.magFilter=Ie,this.minFilter=Ie,this.wrapR=Rn,this.generateMipmaps=!1,this.flipY=!1,this.unpackAlignment=1,this.layerUpdates=new Set}addLayerUpdate(t){this.layerUpdates.add(t)}clearLayerUpdates(){this.layerUpdates.clear()}};var Js=class extends Te{constructor(t=null,e=1,n=1,s=1){super(null),this.isData3DTexture=!0,this.image={data:t,width:e,height:n,depth:s},this.magFilter=Ie,this.minFilter=Ie,this.wrapR=Rn,this.generateMipmaps=!1,this.flipY=!1,this.unpackAlignment=1}};var je=class{constructor(t=new O(1/0,1/0,1/0),e=new O(-1/0,-1/0,-1/0)){this.isBox3=!0,this.min=t,this.max=e}set(t,e){return this.min.copy(t),this.max.copy(e),this}setFromArray(t){this.makeEmpty();for(let e=0,n=t.length;e<n;e+=3)this.expandByPoint(Ve.fromArray(t,e));return this}setFromBufferAttribute(t){this.makeEmpty();for(let e=0,n=t.count;e<n;e++)this.expandByPoint(Ve.fromBufferAttribute(t,e));return this}setFromPoints(t){this.makeEmpty();for(let e=0,n=t.length;e<n;e++)this.expandByPoint(t[e]);return this}setFromCenterAndSize(t,e){let n=Ve.copy(e).multiplyScalar(.5);return this.min.copy(t).sub(n),this.max.copy(t).add(n),this}setFromObject(t,e=!1){return this.makeEmpty(),this.expandByObject(t,e)}clone(){return new this.constructor().copy(this)}copy(t){return this.min.copy(t.min),this.max.copy(t.max),this}makeEmpty(){return this.min.x=this.min.y=this.min.z=1/0,this.max.x=this.max.y=this.max.z=-1/0,this}isEmpty(){return this.max.x<this.min.x||this.max.y<this.min.y||this.max.z<this.min.z}getCenter(t){return this.isEmpty()?t.set(0,0,0):t.addVectors(this.min,this.max).multiplyScalar(.5)}getSize(t){return this.isEmpty()?t.set(0,0,0):t.subVectors(this.max,this.min)}expandByPoint(t){return this.min.min(t),this.max.max(t),this}expandByVector(t){return this.min.sub(t),this.max.add(t),this}expandByScalar(t){return this.min.addScalar(-t),this.max.addScalar(t),this}expandByObject(t,e=!1){t.updateWorldMatrix(!1,!1);let n=t.geometry;if(n!==void 0){let r=n.getAttribute("position");if(e===!0&&r!==void 0&&t.isInstancedMesh!==!0)for(let a=0,o=r.count;a<o;a++)t.isMesh===!0?t.getVertexPosition(a,Ve):Ve.fromBufferAttribute(r,a),Ve.applyMatrix4(t.matrixWorld),this.expandByPoint(Ve);else t.boundingBox!==void 0?(t.boundingBox===null&&t.computeBoundingBox(),Ss.copy(t.boundingBox)):(n.boundingBox===null&&n.computeBoundingBox(),Ss.copy(n.boundingBox)),Ss.applyMatrix4(t.matrixWorld),this.union(Ss)}let s=t.children;for(let r=0,a=s.length;r<a;r++)this.expandByObject(s[r],e);return this}containsPoint(t){return t.x>=this.min.x&&t.x<=this.max.x&&t.y>=this.min.y&&t.y<=this.max.y&&t.z>=this.min.z&&t.z<=this.max.z}containsBox(t){return this.min.x<=t.min.x&&t.max.x<=this.max.x&&this.min.y<=t.min.y&&t.max.y<=this.max.y&&this.min.z<=t.min.z&&t.max.z<=this.max.z}getParameter(t,e){return e.set((t.x-this.min.x)/(this.max.x-this.min.x),(t.y-this.min.y)/(this.max.y-this.min.y),(t.z-this.min.z)/(this.max.z-this.min.z))}intersectsBox(t){return t.max.x>=this.min.x&&t.min.x<=this.max.x&&t.max.y>=this.min.y&&t.min.y<=this.max.y&&t.max.z>=this.min.z&&t.min.z<=this.max.z}intersectsSphere(t){return this.clampPoint(t.center,Ve),Ve.distanceToSquared(t.center)<=t.radius*t.radius}intersectsPlane(t){let e,n;return t.normal.x>0?(e=t.normal.x*this.min.x,n=t.normal.x*this.max.x):(e=t.normal.x*this.max.x,n=t.normal.x*this.min.x),t.normal.y>0?(e+=t.normal.y*this.min.y,n+=t.normal.y*this.max.y):(e+=t.normal.y*this.max.y,n+=t.normal.y*this.min.y),t.normal.z>0?(e+=t.normal.z*this.min.z,n+=t.normal.z*this.max.z):(e+=t.normal.z*this.max.z,n+=t.normal.z*this.min.z),e<=-t.constant&&n>=-t.constant}intersectsTriangle(t){if(this.isEmpty())return!1;this.getCenter(ki),bs.subVectors(this.max,ki),ai.subVectors(t.a,ki),oi.subVectors(t.b,ki),li.subVectors(t.c,ki),Mn.subVectors(oi,ai),Sn.subVectors(li,oi),kn.subVectors(ai,li);let e=[0,-Mn.z,Mn.y,0,-Sn.z,Sn.y,0,-kn.z,kn.y,Mn.z,0,-Mn.x,Sn.z,0,-Sn.x,kn.z,0,-kn.x,-Mn.y,Mn.x,0,-Sn.y,Sn.x,0,-kn.y,kn.x,0];return!ya(e,ai,oi,li,bs)||(e=[1,0,0,0,1,0,0,0,1],!ya(e,ai,oi,li,bs))?!1:(Es.crossVectors(Mn,Sn),e=[Es.x,Es.y,Es.z],ya(e,ai,oi,li,bs))}clampPoint(t,e){return e.copy(t).clamp(this.min,this.max)}distanceToPoint(t){return this.clampPoint(t,Ve).distanceTo(t)}getBoundingSphere(t){return this.isEmpty()?t.makeEmpty():(this.getCenter(t.center),t.radius=this.getSize(Ve).length()*.5),t}intersect(t){return this.min.max(t.min),this.max.min(t.max),this.isEmpty()&&this.makeEmpty(),this}union(t){return this.min.min(t.min),this.max.max(t.max),this}applyMatrix4(t){return this.isEmpty()?this:(on[0].set(this.min.x,this.min.y,this.min.z).applyMatrix4(t),on[1].set(this.min.x,this.min.y,this.max.z).applyMatrix4(t),on[2].set(this.min.x,this.max.y,this.min.z).applyMatrix4(t),on[3].set(this.min.x,this.max.y,this.max.z).applyMatrix4(t),on[4].set(this.max.x,this.min.y,this.min.z).applyMatrix4(t),on[5].set(this.max.x,this.min.y,this.max.z).applyMatrix4(t),on[6].set(this.max.x,this.max.y,this.min.z).applyMatrix4(t),on[7].set(this.max.x,this.max.y,this.max.z).applyMatrix4(t),this.setFromPoints(on),this)}translate(t){return this.min.add(t),this.max.add(t),this}equals(t){return t.min.equals(this.min)&&t.max.equals(this.max)}toJSON(){return{min:this.min.toArray(),max:this.max.toArray()}}fromJSON(t){return this.min.fromArray(t.min),this.max.fromArray(t.max),this}},on=[new O,new O,new O,new O,new O,new O,new O,new O],Ve=new O,Ss=new je,ai=new O,oi=new O,li=new O,Mn=new O,Sn=new O,kn=new O,ki=new O,bs=new O,Es=new O,Vn=new O;function ya(i,t,e,n,s){for(let r=0,a=i.length-3;r<=a;r+=3){Vn.fromArray(i,r);let o=s.x*Math.abs(Vn.x)+s.y*Math.abs(Vn.y)+s.z*Math.abs(Vn.z),c=t.dot(Vn),l=e.dot(Vn),h=n.dot(Vn);if(Math.max(-Math.max(c,l,h),Math.min(c,l,h))>o)return!1}return!0}var Uc=new je,Vi=new O,Ma=new O,In=class{constructor(t=new O,e=-1){this.isSphere=!0,this.center=t,this.radius=e}set(t,e){return this.center.copy(t),this.radius=e,this}setFromPoints(t,e){let n=this.center;e!==void 0?n.copy(e):Uc.setFromPoints(t).getCenter(n);let s=0;for(let r=0,a=t.length;r<a;r++)s=Math.max(s,n.distanceToSquared(t[r]));return this.radius=Math.sqrt(s),this}copy(t){return this.center.copy(t.center),this.radius=t.radius,this}isEmpty(){return this.radius<0}makeEmpty(){return this.center.set(0,0,0),this.radius=-1,this}containsPoint(t){return t.distanceToSquared(this.center)<=this.radius*this.radius}distanceToPoint(t){return t.distanceTo(this.center)-this.radius}intersectsSphere(t){let e=this.radius+t.radius;return t.center.distanceToSquared(this.center)<=e*e}intersectsBox(t){return t.intersectsSphere(this)}intersectsPlane(t){return Math.abs(t.distanceToPoint(this.center))<=this.radius}clampPoint(t,e){let n=this.center.distanceToSquared(t);return e.copy(t),n>this.radius*this.radius&&(e.sub(this.center).normalize(),e.multiplyScalar(this.radius).add(this.center)),e}getBoundingBox(t){return this.isEmpty()?(t.makeEmpty(),t):(t.set(this.center,this.center),t.expandByScalar(this.radius),t)}applyMatrix4(t){return this.center.applyMatrix4(t),this.radius=this.radius*t.getMaxScaleOnAxis(),this}translate(t){return this.center.add(t),this}expandByPoint(t){if(this.isEmpty())return this.center.copy(t),this.radius=0,this;Vi.subVectors(t,this.center);let e=Vi.lengthSq();if(e>this.radius*this.radius){let n=Math.sqrt(e),s=(n-this.radius)*.5;this.center.addScaledVector(Vi,s/n),this.radius+=s}return this}union(t){return t.isEmpty()?this:this.isEmpty()?(this.copy(t),this):(this.center.equals(t.center)===!0?this.radius=Math.max(this.radius,t.radius):(Ma.subVectors(t.center,this.center).setLength(t.radius),this.expandByPoint(Vi.copy(t.center).add(Ma)),this.expandByPoint(Vi.copy(t.center).sub(Ma))),this)}equals(t){return t.center.equals(this.center)&&t.radius===this.radius}clone(){return new this.constructor().copy(this)}toJSON(){return{radius:this.radius,center:this.center.toArray()}}fromJSON(t){return this.radius=t.radius,this.center.fromArray(t.center),this}},ln=new O,Sa=new O,Ts=new O,bn=new O,ba=new O,ws=new O,Ea=new O,$s=class{constructor(t=new O,e=new O(0,0,-1)){this.origin=t,this.direction=e}set(t,e){return this.origin.copy(t),this.direction.copy(e),this}copy(t){return this.origin.copy(t.origin),this.direction.copy(t.direction),this}at(t,e){return e.copy(this.origin).addScaledVector(this.direction,t)}lookAt(t){return this.direction.copy(t).sub(this.origin).normalize(),this}recast(t){return this.origin.copy(this.at(t,ln)),this}closestPointToPoint(t,e){e.subVectors(t,this.origin);let n=e.dot(this.direction);return n<0?e.copy(this.origin):e.copy(this.origin).addScaledVector(this.direction,n)}distanceToPoint(t){return Math.sqrt(this.distanceSqToPoint(t))}distanceSqToPoint(t){let e=ln.subVectors(t,this.origin).dot(this.direction);return e<0?this.origin.distanceToSquared(t):(ln.copy(this.origin).addScaledVector(this.direction,e),ln.distanceToSquared(t))}distanceSqToSegment(t,e,n,s){Sa.copy(t).add(e).multiplyScalar(.5),Ts.copy(e).sub(t).normalize(),bn.copy(this.origin).sub(Sa);let r=t.distanceTo(e)*.5,a=-this.direction.dot(Ts),o=bn.dot(this.direction),c=-bn.dot(Ts),l=bn.lengthSq(),h=Math.abs(1-a*a),u,f,p,_;if(h>0)if(u=a*c-o,f=a*o-c,_=r*h,u>=0)if(f>=-_)if(f<=_){let v=1/h;u*=v,f*=v,p=u*(u+a*f+2*o)+f*(a*u+f+2*c)+l}else f=r,u=Math.max(0,-(a*f+o)),p=-u*u+f*(f+2*c)+l;else f=-r,u=Math.max(0,-(a*f+o)),p=-u*u+f*(f+2*c)+l;else f<=-_?(u=Math.max(0,-(-a*r+o)),f=u>0?-r:Math.min(Math.max(-r,-c),r),p=-u*u+f*(f+2*c)+l):f<=_?(u=0,f=Math.min(Math.max(-r,-c),r),p=f*(f+2*c)+l):(u=Math.max(0,-(a*r+o)),f=u>0?r:Math.min(Math.max(-r,-c),r),p=-u*u+f*(f+2*c)+l);else f=a>0?-r:r,u=Math.max(0,-(a*f+o)),p=-u*u+f*(f+2*c)+l;return n&&n.copy(this.origin).addScaledVector(this.direction,u),s&&s.copy(Sa).addScaledVector(Ts,f),p}intersectSphere(t,e){ln.subVectors(t.center,this.origin);let n=ln.dot(this.direction),s=ln.dot(ln)-n*n,r=t.radius*t.radius;if(s>r)return null;let a=Math.sqrt(r-s),o=n-a,c=n+a;return c<0?null:o<0?this.at(c,e):this.at(o,e)}intersectsSphere(t){return t.radius<0?!1:this.distanceSqToPoint(t.center)<=t.radius*t.radius}distanceToPlane(t){let e=t.normal.dot(this.direction);if(e===0)return t.distanceToPoint(this.origin)===0?0:null;let n=-(this.origin.dot(t.normal)+t.constant)/e;return n>=0?n:null}intersectPlane(t,e){let n=this.distanceToPlane(t);return n===null?null:this.at(n,e)}intersectsPlane(t){let e=t.distanceToPoint(this.origin);return e===0||t.normal.dot(this.direction)*e<0}intersectBox(t,e){let n,s,r,a,o,c,l=1/this.direction.x,h=1/this.direction.y,u=1/this.direction.z,f=this.origin;return l>=0?(n=(t.min.x-f.x)*l,s=(t.max.x-f.x)*l):(n=(t.max.x-f.x)*l,s=(t.min.x-f.x)*l),h>=0?(r=(t.min.y-f.y)*h,a=(t.max.y-f.y)*h):(r=(t.max.y-f.y)*h,a=(t.min.y-f.y)*h),n>a||r>s||((r>n||isNaN(n))&&(n=r),(a<s||isNaN(s))&&(s=a),u>=0?(o=(t.min.z-f.z)*u,c=(t.max.z-f.z)*u):(o=(t.max.z-f.z)*u,c=(t.min.z-f.z)*u),n>c||o>s)||((o>n||n!==n)&&(n=o),(c<s||s!==s)&&(s=c),s<0)?null:this.at(n>=0?n:s,e)}intersectsBox(t){return this.intersectBox(t,ln)!==null}intersectTriangle(t,e,n,s,r){ba.subVectors(e,t),ws.subVectors(n,t),Ea.crossVectors(ba,ws);let a=this.direction.dot(Ea),o;if(a>0){if(s)return null;o=1}else if(a<0)o=-1,a=-a;else return null;bn.subVectors(this.origin,t);let c=o*this.direction.dot(ws.crossVectors(bn,ws));if(c<0)return null;let l=o*this.direction.dot(ba.cross(bn));if(l<0||c+l>a)return null;let h=-o*bn.dot(Ea);return h<0?null:this.at(h/a,r)}applyMatrix4(t){return this.origin.applyMatrix4(t),this.direction.transformDirection(t),this}equals(t){return t.origin.equals(this.origin)&&t.direction.equals(this.direction)}clone(){return new this.constructor().copy(this)}},ie=class i{constructor(t,e,n,s,r,a,o,c,l,h,u,f,p,_,v,m){i.prototype.isMatrix4=!0,this.elements=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],t!==void 0&&this.set(t,e,n,s,r,a,o,c,l,h,u,f,p,_,v,m)}set(t,e,n,s,r,a,o,c,l,h,u,f,p,_,v,m){let d=this.elements;return d[0]=t,d[4]=e,d[8]=n,d[12]=s,d[1]=r,d[5]=a,d[9]=o,d[13]=c,d[2]=l,d[6]=h,d[10]=u,d[14]=f,d[3]=p,d[7]=_,d[11]=v,d[15]=m,this}identity(){return this.set(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1),this}clone(){return new i().fromArray(this.elements)}copy(t){let e=this.elements,n=t.elements;return e[0]=n[0],e[1]=n[1],e[2]=n[2],e[3]=n[3],e[4]=n[4],e[5]=n[5],e[6]=n[6],e[7]=n[7],e[8]=n[8],e[9]=n[9],e[10]=n[10],e[11]=n[11],e[12]=n[12],e[13]=n[13],e[14]=n[14],e[15]=n[15],this}copyPosition(t){let e=this.elements,n=t.elements;return e[12]=n[12],e[13]=n[13],e[14]=n[14],this}setFromMatrix3(t){let e=t.elements;return this.set(e[0],e[3],e[6],0,e[1],e[4],e[7],0,e[2],e[5],e[8],0,0,0,0,1),this}extractBasis(t,e,n){return t.setFromMatrixColumn(this,0),e.setFromMatrixColumn(this,1),n.setFromMatrixColumn(this,2),this}makeBasis(t,e,n){return this.set(t.x,e.x,n.x,0,t.y,e.y,n.y,0,t.z,e.z,n.z,0,0,0,0,1),this}extractRotation(t){let e=this.elements,n=t.elements,s=1/ci.setFromMatrixColumn(t,0).length(),r=1/ci.setFromMatrixColumn(t,1).length(),a=1/ci.setFromMatrixColumn(t,2).length();return e[0]=n[0]*s,e[1]=n[1]*s,e[2]=n[2]*s,e[3]=0,e[4]=n[4]*r,e[5]=n[5]*r,e[6]=n[6]*r,e[7]=0,e[8]=n[8]*a,e[9]=n[9]*a,e[10]=n[10]*a,e[11]=0,e[12]=0,e[13]=0,e[14]=0,e[15]=1,this}makeRotationFromEuler(t){let e=this.elements,n=t.x,s=t.y,r=t.z,a=Math.cos(n),o=Math.sin(n),c=Math.cos(s),l=Math.sin(s),h=Math.cos(r),u=Math.sin(r);if(t.order==="XYZ"){let f=a*h,p=a*u,_=o*h,v=o*u;e[0]=c*h,e[4]=-c*u,e[8]=l,e[1]=p+_*l,e[5]=f-v*l,e[9]=-o*c,e[2]=v-f*l,e[6]=_+p*l,e[10]=a*c}else if(t.order==="YXZ"){let f=c*h,p=c*u,_=l*h,v=l*u;e[0]=f+v*o,e[4]=_*o-p,e[8]=a*l,e[1]=a*u,e[5]=a*h,e[9]=-o,e[2]=p*o-_,e[6]=v+f*o,e[10]=a*c}else if(t.order==="ZXY"){let f=c*h,p=c*u,_=l*h,v=l*u;e[0]=f-v*o,e[4]=-a*u,e[8]=_+p*o,e[1]=p+_*o,e[5]=a*h,e[9]=v-f*o,e[2]=-a*l,e[6]=o,e[10]=a*c}else if(t.order==="ZYX"){let f=a*h,p=a*u,_=o*h,v=o*u;e[0]=c*h,e[4]=_*l-p,e[8]=f*l+v,e[1]=c*u,e[5]=v*l+f,e[9]=p*l-_,e[2]=-l,e[6]=o*c,e[10]=a*c}else if(t.order==="YZX"){let f=a*c,p=a*l,_=o*c,v=o*l;e[0]=c*h,e[4]=v-f*u,e[8]=_*u+p,e[1]=u,e[5]=a*h,e[9]=-o*h,e[2]=-l*h,e[6]=p*u+_,e[10]=f-v*u}else if(t.order==="XZY"){let f=a*c,p=a*l,_=o*c,v=o*l;e[0]=c*h,e[4]=-u,e[8]=l*h,e[1]=f*u+v,e[5]=a*h,e[9]=p*u-_,e[2]=_*u-p,e[6]=o*h,e[10]=v*u+f}return e[3]=0,e[7]=0,e[11]=0,e[12]=0,e[13]=0,e[14]=0,e[15]=1,this}makeRotationFromQuaternion(t){return this.compose(Nc,t,Fc)}lookAt(t,e,n){let s=this.elements;return De.subVectors(t,e),De.lengthSq()===0&&(De.z=1),De.normalize(),En.crossVectors(n,De),En.lengthSq()===0&&(Math.abs(n.z)===1?De.x+=1e-4:De.z+=1e-4,De.normalize(),En.crossVectors(n,De)),En.normalize(),As.crossVectors(De,En),s[0]=En.x,s[4]=As.x,s[8]=De.x,s[1]=En.y,s[5]=As.y,s[9]=De.y,s[2]=En.z,s[6]=As.z,s[10]=De.z,this}multiply(t){return this.multiplyMatrices(this,t)}premultiply(t){return this.multiplyMatrices(t,this)}multiplyMatrices(t,e){let n=t.elements,s=e.elements,r=this.elements,a=n[0],o=n[4],c=n[8],l=n[12],h=n[1],u=n[5],f=n[9],p=n[13],_=n[2],v=n[6],m=n[10],d=n[14],w=n[3],E=n[7],S=n[11],R=n[15],A=s[0],I=s[4],U=s[8],M=s[12],y=s[1],P=s[5],F=s[9],k=s[13],G=s[2],q=s[6],W=s[10],et=s[14],V=s[3],rt=s[7],ct=s[11],St=s[15];return r[0]=a*A+o*y+c*G+l*V,r[4]=a*I+o*P+c*q+l*rt,r[8]=a*U+o*F+c*W+l*ct,r[12]=a*M+o*k+c*et+l*St,r[1]=h*A+u*y+f*G+p*V,r[5]=h*I+u*P+f*q+p*rt,r[9]=h*U+u*F+f*W+p*ct,r[13]=h*M+u*k+f*et+p*St,r[2]=_*A+v*y+m*G+d*V,r[6]=_*I+v*P+m*q+d*rt,r[10]=_*U+v*F+m*W+d*ct,r[14]=_*M+v*k+m*et+d*St,r[3]=w*A+E*y+S*G+R*V,r[7]=w*I+E*P+S*q+R*rt,r[11]=w*U+E*F+S*W+R*ct,r[15]=w*M+E*k+S*et+R*St,this}multiplyScalar(t){let e=this.elements;return e[0]*=t,e[4]*=t,e[8]*=t,e[12]*=t,e[1]*=t,e[5]*=t,e[9]*=t,e[13]*=t,e[2]*=t,e[6]*=t,e[10]*=t,e[14]*=t,e[3]*=t,e[7]*=t,e[11]*=t,e[15]*=t,this}determinant(){let t=this.elements,e=t[0],n=t[4],s=t[8],r=t[12],a=t[1],o=t[5],c=t[9],l=t[13],h=t[2],u=t[6],f=t[10],p=t[14],_=t[3],v=t[7],m=t[11],d=t[15];return _*(+r*c*u-s*l*u-r*o*f+n*l*f+s*o*p-n*c*p)+v*(+e*c*p-e*l*f+r*a*f-s*a*p+s*l*h-r*c*h)+m*(+e*l*u-e*o*p-r*a*u+n*a*p+r*o*h-n*l*h)+d*(-s*o*h-e*c*u+e*o*f+s*a*u-n*a*f+n*c*h)}transpose(){let t=this.elements,e;return e=t[1],t[1]=t[4],t[4]=e,e=t[2],t[2]=t[8],t[8]=e,e=t[6],t[6]=t[9],t[9]=e,e=t[3],t[3]=t[12],t[12]=e,e=t[7],t[7]=t[13],t[13]=e,e=t[11],t[11]=t[14],t[14]=e,this}setPosition(t,e,n){let s=this.elements;return t.isVector3?(s[12]=t.x,s[13]=t.y,s[14]=t.z):(s[12]=t,s[13]=e,s[14]=n),this}invert(){let t=this.elements,e=t[0],n=t[1],s=t[2],r=t[3],a=t[4],o=t[5],c=t[6],l=t[7],h=t[8],u=t[9],f=t[10],p=t[11],_=t[12],v=t[13],m=t[14],d=t[15],w=u*m*l-v*f*l+v*c*p-o*m*p-u*c*d+o*f*d,E=_*f*l-h*m*l-_*c*p+a*m*p+h*c*d-a*f*d,S=h*v*l-_*u*l+_*o*p-a*v*p-h*o*d+a*u*d,R=_*u*c-h*v*c-_*o*f+a*v*f+h*o*m-a*u*m,A=e*w+n*E+s*S+r*R;if(A===0)return this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);let I=1/A;return t[0]=w*I,t[1]=(v*f*r-u*m*r-v*s*p+n*m*p+u*s*d-n*f*d)*I,t[2]=(o*m*r-v*c*r+v*s*l-n*m*l-o*s*d+n*c*d)*I,t[3]=(u*c*r-o*f*r-u*s*l+n*f*l+o*s*p-n*c*p)*I,t[4]=E*I,t[5]=(h*m*r-_*f*r+_*s*p-e*m*p-h*s*d+e*f*d)*I,t[6]=(_*c*r-a*m*r-_*s*l+e*m*l+a*s*d-e*c*d)*I,t[7]=(a*f*r-h*c*r+h*s*l-e*f*l-a*s*p+e*c*p)*I,t[8]=S*I,t[9]=(_*u*r-h*v*r-_*n*p+e*v*p+h*n*d-e*u*d)*I,t[10]=(a*v*r-_*o*r+_*n*l-e*v*l-a*n*d+e*o*d)*I,t[11]=(h*o*r-a*u*r-h*n*l+e*u*l+a*n*p-e*o*p)*I,t[12]=R*I,t[13]=(h*v*s-_*u*s+_*n*f-e*v*f-h*n*m+e*u*m)*I,t[14]=(_*o*s-a*v*s-_*n*c+e*v*c+a*n*m-e*o*m)*I,t[15]=(a*u*s-h*o*s+h*n*c-e*u*c-a*n*f+e*o*f)*I,this}scale(t){let e=this.elements,n=t.x,s=t.y,r=t.z;return e[0]*=n,e[4]*=s,e[8]*=r,e[1]*=n,e[5]*=s,e[9]*=r,e[2]*=n,e[6]*=s,e[10]*=r,e[3]*=n,e[7]*=s,e[11]*=r,this}getMaxScaleOnAxis(){let t=this.elements,e=t[0]*t[0]+t[1]*t[1]+t[2]*t[2],n=t[4]*t[4]+t[5]*t[5]+t[6]*t[6],s=t[8]*t[8]+t[9]*t[9]+t[10]*t[10];return Math.sqrt(Math.max(e,n,s))}makeTranslation(t,e,n){return t.isVector3?this.set(1,0,0,t.x,0,1,0,t.y,0,0,1,t.z,0,0,0,1):this.set(1,0,0,t,0,1,0,e,0,0,1,n,0,0,0,1),this}makeRotationX(t){let e=Math.cos(t),n=Math.sin(t);return this.set(1,0,0,0,0,e,-n,0,0,n,e,0,0,0,0,1),this}makeRotationY(t){let e=Math.cos(t),n=Math.sin(t);return this.set(e,0,n,0,0,1,0,0,-n,0,e,0,0,0,0,1),this}makeRotationZ(t){let e=Math.cos(t),n=Math.sin(t);return this.set(e,-n,0,0,n,e,0,0,0,0,1,0,0,0,0,1),this}makeRotationAxis(t,e){let n=Math.cos(e),s=Math.sin(e),r=1-n,a=t.x,o=t.y,c=t.z,l=r*a,h=r*o;return this.set(l*a+n,l*o-s*c,l*c+s*o,0,l*o+s*c,h*o+n,h*c-s*a,0,l*c-s*o,h*c+s*a,r*c*c+n,0,0,0,0,1),this}makeScale(t,e,n){return this.set(t,0,0,0,0,e,0,0,0,0,n,0,0,0,0,1),this}makeShear(t,e,n,s,r,a){return this.set(1,n,r,0,t,1,a,0,e,s,1,0,0,0,0,1),this}compose(t,e,n){let s=this.elements,r=e._x,a=e._y,o=e._z,c=e._w,l=r+r,h=a+a,u=o+o,f=r*l,p=r*h,_=r*u,v=a*h,m=a*u,d=o*u,w=c*l,E=c*h,S=c*u,R=n.x,A=n.y,I=n.z;return s[0]=(1-(v+d))*R,s[1]=(p+S)*R,s[2]=(_-E)*R,s[3]=0,s[4]=(p-S)*A,s[5]=(1-(f+d))*A,s[6]=(m+w)*A,s[7]=0,s[8]=(_+E)*I,s[9]=(m-w)*I,s[10]=(1-(f+v))*I,s[11]=0,s[12]=t.x,s[13]=t.y,s[14]=t.z,s[15]=1,this}decompose(t,e,n){let s=this.elements,r=ci.set(s[0],s[1],s[2]).length(),a=ci.set(s[4],s[5],s[6]).length(),o=ci.set(s[8],s[9],s[10]).length();this.determinant()<0&&(r=-r),t.x=s[12],t.y=s[13],t.z=s[14],He.copy(this);let l=1/r,h=1/a,u=1/o;return He.elements[0]*=l,He.elements[1]*=l,He.elements[2]*=l,He.elements[4]*=h,He.elements[5]*=h,He.elements[6]*=h,He.elements[8]*=u,He.elements[9]*=u,He.elements[10]*=u,e.setFromRotationMatrix(He),n.x=r,n.y=a,n.z=o,this}makePerspective(t,e,n,s,r,a,o=We,c=!1){let l=this.elements,h=2*r/(e-t),u=2*r/(n-s),f=(e+t)/(e-t),p=(n+s)/(n-s),_,v;if(c)_=r/(a-r),v=a*r/(a-r);else if(o===We)_=-(a+r)/(a-r),v=-2*a*r/(a-r);else if(o===Zi)_=-a/(a-r),v=-a*r/(a-r);else throw new Error("THREE.Matrix4.makePerspective(): Invalid coordinate system: "+o);return l[0]=h,l[4]=0,l[8]=f,l[12]=0,l[1]=0,l[5]=u,l[9]=p,l[13]=0,l[2]=0,l[6]=0,l[10]=_,l[14]=v,l[3]=0,l[7]=0,l[11]=-1,l[15]=0,this}makeOrthographic(t,e,n,s,r,a,o=We,c=!1){let l=this.elements,h=2/(e-t),u=2/(n-s),f=-(e+t)/(e-t),p=-(n+s)/(n-s),_,v;if(c)_=1/(a-r),v=a/(a-r);else if(o===We)_=-2/(a-r),v=-(a+r)/(a-r);else if(o===Zi)_=-1/(a-r),v=-r/(a-r);else throw new Error("THREE.Matrix4.makeOrthographic(): Invalid coordinate system: "+o);return l[0]=h,l[4]=0,l[8]=0,l[12]=f,l[1]=0,l[5]=u,l[9]=0,l[13]=p,l[2]=0,l[6]=0,l[10]=_,l[14]=v,l[3]=0,l[7]=0,l[11]=0,l[15]=1,this}equals(t){let e=this.elements,n=t.elements;for(let s=0;s<16;s++)if(e[s]!==n[s])return!1;return!0}fromArray(t,e=0){for(let n=0;n<16;n++)this.elements[n]=t[n+e];return this}toArray(t=[],e=0){let n=this.elements;return t[e]=n[0],t[e+1]=n[1],t[e+2]=n[2],t[e+3]=n[3],t[e+4]=n[4],t[e+5]=n[5],t[e+6]=n[6],t[e+7]=n[7],t[e+8]=n[8],t[e+9]=n[9],t[e+10]=n[10],t[e+11]=n[11],t[e+12]=n[12],t[e+13]=n[13],t[e+14]=n[14],t[e+15]=n[15],t}},ci=new O,He=new ie,Nc=new O(0,0,0),Fc=new O(1,1,1),En=new O,As=new O,De=new O,Vo=new ie,Ho=new mn,qe=class i{constructor(t=0,e=0,n=0,s=i.DEFAULT_ORDER){this.isEuler=!0,this._x=t,this._y=e,this._z=n,this._order=s}get x(){return this._x}set x(t){this._x=t,this._onChangeCallback()}get y(){return this._y}set y(t){this._y=t,this._onChangeCallback()}get z(){return this._z}set z(t){this._z=t,this._onChangeCallback()}get order(){return this._order}set order(t){this._order=t,this._onChangeCallback()}set(t,e,n,s=this._order){return this._x=t,this._y=e,this._z=n,this._order=s,this._onChangeCallback(),this}clone(){return new this.constructor(this._x,this._y,this._z,this._order)}copy(t){return this._x=t._x,this._y=t._y,this._z=t._z,this._order=t._order,this._onChangeCallback(),this}setFromRotationMatrix(t,e=this._order,n=!0){let s=t.elements,r=s[0],a=s[4],o=s[8],c=s[1],l=s[5],h=s[9],u=s[2],f=s[6],p=s[10];switch(e){case"XYZ":this._y=Math.asin(zt(o,-1,1)),Math.abs(o)<.9999999?(this._x=Math.atan2(-h,p),this._z=Math.atan2(-a,r)):(this._x=Math.atan2(f,l),this._z=0);break;case"YXZ":this._x=Math.asin(-zt(h,-1,1)),Math.abs(h)<.9999999?(this._y=Math.atan2(o,p),this._z=Math.atan2(c,l)):(this._y=Math.atan2(-u,r),this._z=0);break;case"ZXY":this._x=Math.asin(zt(f,-1,1)),Math.abs(f)<.9999999?(this._y=Math.atan2(-u,p),this._z=Math.atan2(-a,l)):(this._y=0,this._z=Math.atan2(c,r));break;case"ZYX":this._y=Math.asin(-zt(u,-1,1)),Math.abs(u)<.9999999?(this._x=Math.atan2(f,p),this._z=Math.atan2(c,r)):(this._x=0,this._z=Math.atan2(-a,l));break;case"YZX":this._z=Math.asin(zt(c,-1,1)),Math.abs(c)<.9999999?(this._x=Math.atan2(-h,l),this._y=Math.atan2(-u,r)):(this._x=0,this._y=Math.atan2(o,p));break;case"XZY":this._z=Math.asin(-zt(a,-1,1)),Math.abs(a)<.9999999?(this._x=Math.atan2(f,l),this._y=Math.atan2(o,r)):(this._x=Math.atan2(-h,p),this._y=0);break;default:console.warn("THREE.Euler: .setFromRotationMatrix() encountered an unknown order: "+e)}return this._order=e,n===!0&&this._onChangeCallback(),this}setFromQuaternion(t,e,n){return Vo.makeRotationFromQuaternion(t),this.setFromRotationMatrix(Vo,e,n)}setFromVector3(t,e=this._order){return this.set(t.x,t.y,t.z,e)}reorder(t){return Ho.setFromEuler(this),this.setFromQuaternion(Ho,t)}equals(t){return t._x===this._x&&t._y===this._y&&t._z===this._z&&t._order===this._order}fromArray(t){return this._x=t[0],this._y=t[1],this._z=t[2],t[3]!==void 0&&(this._order=t[3]),this._onChangeCallback(),this}toArray(t=[],e=0){return t[e]=this._x,t[e+1]=this._y,t[e+2]=this._z,t[e+3]=this._order,t}_onChange(t){return this._onChangeCallback=t,this}_onChangeCallback(){}*[Symbol.iterator](){yield this._x,yield this._y,yield this._z,yield this._order}};qe.DEFAULT_ORDER="XYZ";var Ki=class{constructor(){this.mask=1}set(t){this.mask=(1<<t|0)>>>0}enable(t){this.mask|=1<<t|0}enableAll(){this.mask=-1}toggle(t){this.mask^=1<<t|0}disable(t){this.mask&=~(1<<t|0)}disableAll(){this.mask=0}test(t){return(this.mask&t.mask)!==0}isEnabled(t){return(this.mask&(1<<t|0))!==0}},Oc=0,Go=new O,hi=new mn,cn=new ie,Rs=new O,Hi=new O,Bc=new O,zc=new mn,Wo=new O(1,0,0),Xo=new O(0,1,0),qo=new O(0,0,1),Yo={type:"added"},kc={type:"removed"},ui={type:"childadded",child:null},Ta={type:"childremoved",child:null},he=class i extends pn{constructor(){super(),this.isObject3D=!0,Object.defineProperty(this,"id",{value:Oc++}),this.uuid=_s(),this.name="",this.type="Object3D",this.parent=null,this.children=[],this.up=i.DEFAULT_UP.clone();let t=new O,e=new qe,n=new mn,s=new O(1,1,1);function r(){n.setFromEuler(e,!1)}function a(){e.setFromQuaternion(n,void 0,!1)}e._onChange(r),n._onChange(a),Object.defineProperties(this,{position:{configurable:!0,enumerable:!0,value:t},rotation:{configurable:!0,enumerable:!0,value:e},quaternion:{configurable:!0,enumerable:!0,value:n},scale:{configurable:!0,enumerable:!0,value:s},modelViewMatrix:{value:new ie},normalMatrix:{value:new Lt}}),this.matrix=new ie,this.matrixWorld=new ie,this.matrixAutoUpdate=i.DEFAULT_MATRIX_AUTO_UPDATE,this.matrixWorldAutoUpdate=i.DEFAULT_MATRIX_WORLD_AUTO_UPDATE,this.matrixWorldNeedsUpdate=!1,this.layers=new Ki,this.visible=!0,this.castShadow=!1,this.receiveShadow=!1,this.frustumCulled=!0,this.renderOrder=0,this.animations=[],this.customDepthMaterial=void 0,this.customDistanceMaterial=void 0,this.userData={}}onBeforeShadow(){}onAfterShadow(){}onBeforeRender(){}onAfterRender(){}applyMatrix4(t){this.matrixAutoUpdate&&this.updateMatrix(),this.matrix.premultiply(t),this.matrix.decompose(this.position,this.quaternion,this.scale)}applyQuaternion(t){return this.quaternion.premultiply(t),this}setRotationFromAxisAngle(t,e){this.quaternion.setFromAxisAngle(t,e)}setRotationFromEuler(t){this.quaternion.setFromEuler(t,!0)}setRotationFromMatrix(t){this.quaternion.setFromRotationMatrix(t)}setRotationFromQuaternion(t){this.quaternion.copy(t)}rotateOnAxis(t,e){return hi.setFromAxisAngle(t,e),this.quaternion.multiply(hi),this}rotateOnWorldAxis(t,e){return hi.setFromAxisAngle(t,e),this.quaternion.premultiply(hi),this}rotateX(t){return this.rotateOnAxis(Wo,t)}rotateY(t){return this.rotateOnAxis(Xo,t)}rotateZ(t){return this.rotateOnAxis(qo,t)}translateOnAxis(t,e){return Go.copy(t).applyQuaternion(this.quaternion),this.position.add(Go.multiplyScalar(e)),this}translateX(t){return this.translateOnAxis(Wo,t)}translateY(t){return this.translateOnAxis(Xo,t)}translateZ(t){return this.translateOnAxis(qo,t)}localToWorld(t){return this.updateWorldMatrix(!0,!1),t.applyMatrix4(this.matrixWorld)}worldToLocal(t){return this.updateWorldMatrix(!0,!1),t.applyMatrix4(cn.copy(this.matrixWorld).invert())}lookAt(t,e,n){t.isVector3?Rs.copy(t):Rs.set(t,e,n);let s=this.parent;this.updateWorldMatrix(!0,!1),Hi.setFromMatrixPosition(this.matrixWorld),this.isCamera||this.isLight?cn.lookAt(Hi,Rs,this.up):cn.lookAt(Rs,Hi,this.up),this.quaternion.setFromRotationMatrix(cn),s&&(cn.extractRotation(s.matrixWorld),hi.setFromRotationMatrix(cn),this.quaternion.premultiply(hi.invert()))}add(t){if(arguments.length>1){for(let e=0;e<arguments.length;e++)this.add(arguments[e]);return this}return t===this?(console.error("THREE.Object3D.add: object can't be added as a child of itself.",t),this):(t&&t.isObject3D?(t.removeFromParent(),t.parent=this,this.children.push(t),t.dispatchEvent(Yo),ui.child=t,this.dispatchEvent(ui),ui.child=null):console.error("THREE.Object3D.add: object not an instance of THREE.Object3D.",t),this)}remove(t){if(arguments.length>1){for(let n=0;n<arguments.length;n++)this.remove(arguments[n]);return this}let e=this.children.indexOf(t);return e!==-1&&(t.parent=null,this.children.splice(e,1),t.dispatchEvent(kc),Ta.child=t,this.dispatchEvent(Ta),Ta.child=null),this}removeFromParent(){let t=this.parent;return t!==null&&t.remove(this),this}clear(){return this.remove(...this.children)}attach(t){return this.updateWorldMatrix(!0,!1),cn.copy(this.matrixWorld).invert(),t.parent!==null&&(t.parent.updateWorldMatrix(!0,!1),cn.multiply(t.parent.matrixWorld)),t.applyMatrix4(cn),t.removeFromParent(),t.parent=this,this.children.push(t),t.updateWorldMatrix(!1,!0),t.dispatchEvent(Yo),ui.child=t,this.dispatchEvent(ui),ui.child=null,this}getObjectById(t){return this.getObjectByProperty("id",t)}getObjectByName(t){return this.getObjectByProperty("name",t)}getObjectByProperty(t,e){if(this[t]===e)return this;for(let n=0,s=this.children.length;n<s;n++){let a=this.children[n].getObjectByProperty(t,e);if(a!==void 0)return a}}getObjectsByProperty(t,e,n=[]){this[t]===e&&n.push(this);let s=this.children;for(let r=0,a=s.length;r<a;r++)s[r].getObjectsByProperty(t,e,n);return n}getWorldPosition(t){return this.updateWorldMatrix(!0,!1),t.setFromMatrixPosition(this.matrixWorld)}getWorldQuaternion(t){return this.updateWorldMatrix(!0,!1),this.matrixWorld.decompose(Hi,t,Bc),t}getWorldScale(t){return this.updateWorldMatrix(!0,!1),this.matrixWorld.decompose(Hi,zc,t),t}getWorldDirection(t){this.updateWorldMatrix(!0,!1);let e=this.matrixWorld.elements;return t.set(e[8],e[9],e[10]).normalize()}raycast(){}traverse(t){t(this);let e=this.children;for(let n=0,s=e.length;n<s;n++)e[n].traverse(t)}traverseVisible(t){if(this.visible===!1)return;t(this);let e=this.children;for(let n=0,s=e.length;n<s;n++)e[n].traverseVisible(t)}traverseAncestors(t){let e=this.parent;e!==null&&(t(e),e.traverseAncestors(t))}updateMatrix(){this.matrix.compose(this.position,this.quaternion,this.scale),this.matrixWorldNeedsUpdate=!0}updateMatrixWorld(t){this.matrixAutoUpdate&&this.updateMatrix(),(this.matrixWorldNeedsUpdate||t)&&(this.matrixWorldAutoUpdate===!0&&(this.parent===null?this.matrixWorld.copy(this.matrix):this.matrixWorld.multiplyMatrices(this.parent.matrixWorld,this.matrix)),this.matrixWorldNeedsUpdate=!1,t=!0);let e=this.children;for(let n=0,s=e.length;n<s;n++)e[n].updateMatrixWorld(t)}updateWorldMatrix(t,e){let n=this.parent;if(t===!0&&n!==null&&n.updateWorldMatrix(!0,!1),this.matrixAutoUpdate&&this.updateMatrix(),this.matrixWorldAutoUpdate===!0&&(this.parent===null?this.matrixWorld.copy(this.matrix):this.matrixWorld.multiplyMatrices(this.parent.matrixWorld,this.matrix)),e===!0){let s=this.children;for(let r=0,a=s.length;r<a;r++)s[r].updateWorldMatrix(!1,!0)}}toJSON(t){let e=t===void 0||typeof t=="string",n={};e&&(t={geometries:{},materials:{},textures:{},images:{},shapes:{},skeletons:{},animations:{},nodes:{}},n.metadata={version:4.7,type:"Object",generator:"Object3D.toJSON"});let s={};s.uuid=this.uuid,s.type=this.type,this.name!==""&&(s.name=this.name),this.castShadow===!0&&(s.castShadow=!0),this.receiveShadow===!0&&(s.receiveShadow=!0),this.visible===!1&&(s.visible=!1),this.frustumCulled===!1&&(s.frustumCulled=!1),this.renderOrder!==0&&(s.renderOrder=this.renderOrder),Object.keys(this.userData).length>0&&(s.userData=this.userData),s.layers=this.layers.mask,s.matrix=this.matrix.toArray(),s.up=this.up.toArray(),this.matrixAutoUpdate===!1&&(s.matrixAutoUpdate=!1),this.isInstancedMesh&&(s.type="InstancedMesh",s.count=this.count,s.instanceMatrix=this.instanceMatrix.toJSON(),this.instanceColor!==null&&(s.instanceColor=this.instanceColor.toJSON())),this.isBatchedMesh&&(s.type="BatchedMesh",s.perObjectFrustumCulled=this.perObjectFrustumCulled,s.sortObjects=this.sortObjects,s.drawRanges=this._drawRanges,s.reservedRanges=this._reservedRanges,s.geometryInfo=this._geometryInfo.map(o=>({...o,boundingBox:o.boundingBox?o.boundingBox.toJSON():void 0,boundingSphere:o.boundingSphere?o.boundingSphere.toJSON():void 0})),s.instanceInfo=this._instanceInfo.map(o=>({...o})),s.availableInstanceIds=this._availableInstanceIds.slice(),s.availableGeometryIds=this._availableGeometryIds.slice(),s.nextIndexStart=this._nextIndexStart,s.nextVertexStart=this._nextVertexStart,s.geometryCount=this._geometryCount,s.maxInstanceCount=this._maxInstanceCount,s.maxVertexCount=this._maxVertexCount,s.maxIndexCount=this._maxIndexCount,s.geometryInitialized=this._geometryInitialized,s.matricesTexture=this._matricesTexture.toJSON(t),s.indirectTexture=this._indirectTexture.toJSON(t),this._colorsTexture!==null&&(s.colorsTexture=this._colorsTexture.toJSON(t)),this.boundingSphere!==null&&(s.boundingSphere=this.boundingSphere.toJSON()),this.boundingBox!==null&&(s.boundingBox=this.boundingBox.toJSON()));function r(o,c){return o[c.uuid]===void 0&&(o[c.uuid]=c.toJSON(t)),c.uuid}if(this.isScene)this.background&&(this.background.isColor?s.background=this.background.toJSON():this.background.isTexture&&(s.background=this.background.toJSON(t).uuid)),this.environment&&this.environment.isTexture&&this.environment.isRenderTargetTexture!==!0&&(s.environment=this.environment.toJSON(t).uuid);else if(this.isMesh||this.isLine||this.isPoints){s.geometry=r(t.geometries,this.geometry);let o=this.geometry.parameters;if(o!==void 0&&o.shapes!==void 0){let c=o.shapes;if(Array.isArray(c))for(let l=0,h=c.length;l<h;l++){let u=c[l];r(t.shapes,u)}else r(t.shapes,c)}}if(this.isSkinnedMesh&&(s.bindMode=this.bindMode,s.bindMatrix=this.bindMatrix.toArray(),this.skeleton!==void 0&&(r(t.skeletons,this.skeleton),s.skeleton=this.skeleton.uuid)),this.material!==void 0)if(Array.isArray(this.material)){let o=[];for(let c=0,l=this.material.length;c<l;c++)o.push(r(t.materials,this.material[c]));s.material=o}else s.material=r(t.materials,this.material);if(this.children.length>0){s.children=[];for(let o=0;o<this.children.length;o++)s.children.push(this.children[o].toJSON(t).object)}if(this.animations.length>0){s.animations=[];for(let o=0;o<this.animations.length;o++){let c=this.animations[o];s.animations.push(r(t.animations,c))}}if(e){let o=a(t.geometries),c=a(t.materials),l=a(t.textures),h=a(t.images),u=a(t.shapes),f=a(t.skeletons),p=a(t.animations),_=a(t.nodes);o.length>0&&(n.geometries=o),c.length>0&&(n.materials=c),l.length>0&&(n.textures=l),h.length>0&&(n.images=h),u.length>0&&(n.shapes=u),f.length>0&&(n.skeletons=f),p.length>0&&(n.animations=p),_.length>0&&(n.nodes=_)}return n.object=s,n;function a(o){let c=[];for(let l in o){let h=o[l];delete h.metadata,c.push(h)}return c}}clone(t){return new this.constructor().copy(this,t)}copy(t,e=!0){if(this.name=t.name,this.up.copy(t.up),this.position.copy(t.position),this.rotation.order=t.rotation.order,this.quaternion.copy(t.quaternion),this.scale.copy(t.scale),this.matrix.copy(t.matrix),this.matrixWorld.copy(t.matrixWorld),this.matrixAutoUpdate=t.matrixAutoUpdate,this.matrixWorldAutoUpdate=t.matrixWorldAutoUpdate,this.matrixWorldNeedsUpdate=t.matrixWorldNeedsUpdate,this.layers.mask=t.layers.mask,this.visible=t.visible,this.castShadow=t.castShadow,this.receiveShadow=t.receiveShadow,this.frustumCulled=t.frustumCulled,this.renderOrder=t.renderOrder,this.animations=t.animations.slice(),this.userData=JSON.parse(JSON.stringify(t.userData)),e===!0)for(let n=0;n<t.children.length;n++){let s=t.children[n];this.add(s.clone())}return this}};he.DEFAULT_UP=new O(0,1,0);he.DEFAULT_MATRIX_AUTO_UPDATE=!0;he.DEFAULT_MATRIX_WORLD_AUTO_UPDATE=!0;var Ge=new O,hn=new O,wa=new O,un=new O,di=new O,fi=new O,Zo=new O,Aa=new O,Ra=new O,Ca=new O,Ia=new ae,Pa=new ae,La=new ae,An=class i{constructor(t=new O,e=new O,n=new O){this.a=t,this.b=e,this.c=n}static getNormal(t,e,n,s){s.subVectors(n,e),Ge.subVectors(t,e),s.cross(Ge);let r=s.lengthSq();return r>0?s.multiplyScalar(1/Math.sqrt(r)):s.set(0,0,0)}static getBarycoord(t,e,n,s,r){Ge.subVectors(s,e),hn.subVectors(n,e),wa.subVectors(t,e);let a=Ge.dot(Ge),o=Ge.dot(hn),c=Ge.dot(wa),l=hn.dot(hn),h=hn.dot(wa),u=a*l-o*o;if(u===0)return r.set(0,0,0),null;let f=1/u,p=(l*c-o*h)*f,_=(a*h-o*c)*f;return r.set(1-p-_,_,p)}static containsPoint(t,e,n,s){return this.getBarycoord(t,e,n,s,un)===null?!1:un.x>=0&&un.y>=0&&un.x+un.y<=1}static getInterpolation(t,e,n,s,r,a,o,c){return this.getBarycoord(t,e,n,s,un)===null?(c.x=0,c.y=0,"z"in c&&(c.z=0),"w"in c&&(c.w=0),null):(c.setScalar(0),c.addScaledVector(r,un.x),c.addScaledVector(a,un.y),c.addScaledVector(o,un.z),c)}static getInterpolatedAttribute(t,e,n,s,r,a){return Ia.setScalar(0),Pa.setScalar(0),La.setScalar(0),Ia.fromBufferAttribute(t,e),Pa.fromBufferAttribute(t,n),La.fromBufferAttribute(t,s),a.setScalar(0),a.addScaledVector(Ia,r.x),a.addScaledVector(Pa,r.y),a.addScaledVector(La,r.z),a}static isFrontFacing(t,e,n,s){return Ge.subVectors(n,e),hn.subVectors(t,e),Ge.cross(hn).dot(s)<0}set(t,e,n){return this.a.copy(t),this.b.copy(e),this.c.copy(n),this}setFromPointsAndIndices(t,e,n,s){return this.a.copy(t[e]),this.b.copy(t[n]),this.c.copy(t[s]),this}setFromAttributeAndIndices(t,e,n,s){return this.a.fromBufferAttribute(t,e),this.b.fromBufferAttribute(t,n),this.c.fromBufferAttribute(t,s),this}clone(){return new this.constructor().copy(this)}copy(t){return this.a.copy(t.a),this.b.copy(t.b),this.c.copy(t.c),this}getArea(){return Ge.subVectors(this.c,this.b),hn.subVectors(this.a,this.b),Ge.cross(hn).length()*.5}getMidpoint(t){return t.addVectors(this.a,this.b).add(this.c).multiplyScalar(1/3)}getNormal(t){return i.getNormal(this.a,this.b,this.c,t)}getPlane(t){return t.setFromCoplanarPoints(this.a,this.b,this.c)}getBarycoord(t,e){return i.getBarycoord(t,this.a,this.b,this.c,e)}getInterpolation(t,e,n,s,r){return i.getInterpolation(t,this.a,this.b,this.c,e,n,s,r)}containsPoint(t){return i.containsPoint(t,this.a,this.b,this.c)}isFrontFacing(t){return i.isFrontFacing(this.a,this.b,this.c,t)}intersectsBox(t){return t.intersectsTriangle(this)}closestPointToPoint(t,e){let n=this.a,s=this.b,r=this.c,a,o;di.subVectors(s,n),fi.subVectors(r,n),Aa.subVectors(t,n);let c=di.dot(Aa),l=fi.dot(Aa);if(c<=0&&l<=0)return e.copy(n);Ra.subVectors(t,s);let h=di.dot(Ra),u=fi.dot(Ra);if(h>=0&&u<=h)return e.copy(s);let f=c*u-h*l;if(f<=0&&c>=0&&h<=0)return a=c/(c-h),e.copy(n).addScaledVector(di,a);Ca.subVectors(t,r);let p=di.dot(Ca),_=fi.dot(Ca);if(_>=0&&p<=_)return e.copy(r);let v=p*l-c*_;if(v<=0&&l>=0&&_<=0)return o=l/(l-_),e.copy(n).addScaledVector(fi,o);let m=h*_-p*u;if(m<=0&&u-h>=0&&p-_>=0)return Zo.subVectors(r,s),o=(u-h)/(u-h+(p-_)),e.copy(s).addScaledVector(Zo,o);let d=1/(m+v+f);return a=v*d,o=f*d,e.copy(n).addScaledVector(di,a).addScaledVector(fi,o)}equals(t){return t.a.equals(this.a)&&t.b.equals(this.b)&&t.c.equals(this.c)}},Yl={aliceblue:15792383,antiquewhite:16444375,aqua:65535,aquamarine:8388564,azure:15794175,beige:16119260,bisque:16770244,black:0,blanchedalmond:16772045,blue:255,blueviolet:9055202,brown:10824234,burlywood:14596231,cadetblue:6266528,chartreuse:8388352,chocolate:13789470,coral:16744272,cornflowerblue:6591981,cornsilk:16775388,crimson:14423100,cyan:65535,darkblue:139,darkcyan:35723,darkgoldenrod:12092939,darkgray:11119017,darkgreen:25600,darkgrey:11119017,darkkhaki:12433259,darkmagenta:9109643,darkolivegreen:5597999,darkorange:16747520,darkorchid:10040012,darkred:9109504,darksalmon:15308410,darkseagreen:9419919,darkslateblue:4734347,darkslategray:3100495,darkslategrey:3100495,darkturquoise:52945,darkviolet:9699539,deeppink:16716947,deepskyblue:49151,dimgray:6908265,dimgrey:6908265,dodgerblue:2003199,firebrick:11674146,floralwhite:16775920,forestgreen:2263842,fuchsia:16711935,gainsboro:14474460,ghostwhite:16316671,gold:16766720,goldenrod:14329120,gray:8421504,green:32768,greenyellow:11403055,grey:8421504,honeydew:15794160,hotpink:16738740,indianred:13458524,indigo:4915330,ivory:16777200,khaki:15787660,lavender:15132410,lavenderblush:16773365,lawngreen:8190976,lemonchiffon:16775885,lightblue:11393254,lightcoral:15761536,lightcyan:14745599,lightgoldenrodyellow:16448210,lightgray:13882323,lightgreen:9498256,lightgrey:13882323,lightpink:16758465,lightsalmon:16752762,lightseagreen:2142890,lightskyblue:8900346,lightslategray:7833753,lightslategrey:7833753,lightsteelblue:11584734,lightyellow:16777184,lime:65280,limegreen:3329330,linen:16445670,magenta:16711935,maroon:8388608,mediumaquamarine:6737322,mediumblue:205,mediumorchid:12211667,mediumpurple:9662683,mediumseagreen:3978097,mediumslateblue:8087790,mediumspringgreen:64154,mediumturquoise:4772300,mediumvioletred:13047173,midnightblue:1644912,mintcream:16121850,mistyrose:16770273,moccasin:16770229,navajowhite:16768685,navy:128,oldlace:16643558,olive:8421376,olivedrab:7048739,orange:16753920,orangered:16729344,orchid:14315734,palegoldenrod:15657130,palegreen:10025880,paleturquoise:11529966,palevioletred:14381203,papayawhip:16773077,peachpuff:16767673,peru:13468991,pink:16761035,plum:14524637,powderblue:11591910,purple:8388736,rebeccapurple:6697881,red:16711680,rosybrown:12357519,royalblue:4286945,saddlebrown:9127187,salmon:16416882,sandybrown:16032864,seagreen:3050327,seashell:16774638,sienna:10506797,silver:12632256,skyblue:8900331,slateblue:6970061,slategray:7372944,slategrey:7372944,snow:16775930,springgreen:65407,steelblue:4620980,tan:13808780,teal:32896,thistle:14204888,tomato:16737095,turquoise:4251856,violet:15631086,wheat:16113331,white:16777215,whitesmoke:16119285,yellow:16776960,yellowgreen:10145074},Tn={h:0,s:0,l:0},Cs={h:0,s:0,l:0};function Da(i,t,e){return e<0&&(e+=1),e>1&&(e-=1),e<1/6?i+(t-i)*6*e:e<1/2?t:e<2/3?i+(t-i)*6*(2/3-e):i}var Ft=class{constructor(t,e,n){return this.isColor=!0,this.r=1,this.g=1,this.b=1,this.set(t,e,n)}set(t,e,n){if(e===void 0&&n===void 0){let s=t;s&&s.isColor?this.copy(s):typeof s=="number"?this.setHex(s):typeof s=="string"&&this.setStyle(s)}else this.setRGB(t,e,n);return this}setScalar(t){return this.r=t,this.g=t,this.b=t,this}setHex(t,e=ge){return t=Math.floor(t),this.r=(t>>16&255)/255,this.g=(t>>8&255)/255,this.b=(t&255)/255,Vt.colorSpaceToWorking(this,e),this}setRGB(t,e,n,s=Vt.workingColorSpace){return this.r=t,this.g=e,this.b=n,Vt.colorSpaceToWorking(this,s),this}setHSL(t,e,n,s=Vt.workingColorSpace){if(t=Ic(t,1),e=zt(e,0,1),n=zt(n,0,1),e===0)this.r=this.g=this.b=n;else{let r=n<=.5?n*(1+e):n+e-n*e,a=2*n-r;this.r=Da(a,r,t+1/3),this.g=Da(a,r,t),this.b=Da(a,r,t-1/3)}return Vt.colorSpaceToWorking(this,s),this}setStyle(t,e=ge){function n(r){r!==void 0&&parseFloat(r)<1&&console.warn("THREE.Color: Alpha component of "+t+" will be ignored.")}let s;if(s=/^(\w+)\(([^\)]*)\)/.exec(t)){let r,a=s[1],o=s[2];switch(a){case"rgb":case"rgba":if(r=/^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(\d*\.?\d+)\s*)?$/.exec(o))return n(r[4]),this.setRGB(Math.min(255,parseInt(r[1],10))/255,Math.min(255,parseInt(r[2],10))/255,Math.min(255,parseInt(r[3],10))/255,e);if(r=/^\s*(\d+)\%\s*,\s*(\d+)\%\s*,\s*(\d+)\%\s*(?:,\s*(\d*\.?\d+)\s*)?$/.exec(o))return n(r[4]),this.setRGB(Math.min(100,parseInt(r[1],10))/100,Math.min(100,parseInt(r[2],10))/100,Math.min(100,parseInt(r[3],10))/100,e);break;case"hsl":case"hsla":if(r=/^\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\%\s*,\s*(\d*\.?\d+)\%\s*(?:,\s*(\d*\.?\d+)\s*)?$/.exec(o))return n(r[4]),this.setHSL(parseFloat(r[1])/360,parseFloat(r[2])/100,parseFloat(r[3])/100,e);break;default:console.warn("THREE.Color: Unknown color model "+t)}}else if(s=/^\#([A-Fa-f\d]+)$/.exec(t)){let r=s[1],a=r.length;if(a===3)return this.setRGB(parseInt(r.charAt(0),16)/15,parseInt(r.charAt(1),16)/15,parseInt(r.charAt(2),16)/15,e);if(a===6)return this.setHex(parseInt(r,16),e);console.warn("THREE.Color: Invalid hex color "+t)}else if(t&&t.length>0)return this.setColorName(t,e);return this}setColorName(t,e=ge){let n=Yl[t.toLowerCase()];return n!==void 0?this.setHex(n,e):console.warn("THREE.Color: Unknown color "+t),this}clone(){return new this.constructor(this.r,this.g,this.b)}copy(t){return this.r=t.r,this.g=t.g,this.b=t.b,this}copySRGBToLinear(t){return this.r=dn(t.r),this.g=dn(t.g),this.b=dn(t.b),this}copyLinearToSRGB(t){return this.r=xi(t.r),this.g=xi(t.g),this.b=xi(t.b),this}convertSRGBToLinear(){return this.copySRGBToLinear(this),this}convertLinearToSRGB(){return this.copyLinearToSRGB(this),this}getHex(t=ge){return Vt.workingToColorSpace(ye.copy(this),t),Math.round(zt(ye.r*255,0,255))*65536+Math.round(zt(ye.g*255,0,255))*256+Math.round(zt(ye.b*255,0,255))}getHexString(t=ge){return("000000"+this.getHex(t).toString(16)).slice(-6)}getHSL(t,e=Vt.workingColorSpace){Vt.workingToColorSpace(ye.copy(this),e);let n=ye.r,s=ye.g,r=ye.b,a=Math.max(n,s,r),o=Math.min(n,s,r),c,l,h=(o+a)/2;if(o===a)c=0,l=0;else{let u=a-o;switch(l=h<=.5?u/(a+o):u/(2-a-o),a){case n:c=(s-r)/u+(s<r?6:0);break;case s:c=(r-n)/u+2;break;case r:c=(n-s)/u+4;break}c/=6}return t.h=c,t.s=l,t.l=h,t}getRGB(t,e=Vt.workingColorSpace){return Vt.workingToColorSpace(ye.copy(this),e),t.r=ye.r,t.g=ye.g,t.b=ye.b,t}getStyle(t=ge){Vt.workingToColorSpace(ye.copy(this),t);let e=ye.r,n=ye.g,s=ye.b;return t!==ge?`color(${t} ${e.toFixed(3)} ${n.toFixed(3)} ${s.toFixed(3)})`:`rgb(${Math.round(e*255)},${Math.round(n*255)},${Math.round(s*255)})`}offsetHSL(t,e,n){return this.getHSL(Tn),this.setHSL(Tn.h+t,Tn.s+e,Tn.l+n)}add(t){return this.r+=t.r,this.g+=t.g,this.b+=t.b,this}addColors(t,e){return this.r=t.r+e.r,this.g=t.g+e.g,this.b=t.b+e.b,this}addScalar(t){return this.r+=t,this.g+=t,this.b+=t,this}sub(t){return this.r=Math.max(0,this.r-t.r),this.g=Math.max(0,this.g-t.g),this.b=Math.max(0,this.b-t.b),this}multiply(t){return this.r*=t.r,this.g*=t.g,this.b*=t.b,this}multiplyScalar(t){return this.r*=t,this.g*=t,this.b*=t,this}lerp(t,e){return this.r+=(t.r-this.r)*e,this.g+=(t.g-this.g)*e,this.b+=(t.b-this.b)*e,this}lerpColors(t,e,n){return this.r=t.r+(e.r-t.r)*n,this.g=t.g+(e.g-t.g)*n,this.b=t.b+(e.b-t.b)*n,this}lerpHSL(t,e){this.getHSL(Tn),t.getHSL(Cs);let n=ma(Tn.h,Cs.h,e),s=ma(Tn.s,Cs.s,e),r=ma(Tn.l,Cs.l,e);return this.setHSL(n,s,r),this}setFromVector3(t){return this.r=t.x,this.g=t.y,this.b=t.z,this}applyMatrix3(t){let e=this.r,n=this.g,s=this.b,r=t.elements;return this.r=r[0]*e+r[3]*n+r[6]*s,this.g=r[1]*e+r[4]*n+r[7]*s,this.b=r[2]*e+r[5]*n+r[8]*s,this}equals(t){return t.r===this.r&&t.g===this.g&&t.b===this.b}fromArray(t,e=0){return this.r=t[e],this.g=t[e+1],this.b=t[e+2],this}toArray(t=[],e=0){return t[e]=this.r,t[e+1]=this.g,t[e+2]=this.b,t}fromBufferAttribute(t,e){return this.r=t.getX(e),this.g=t.getY(e),this.b=t.getZ(e),this}toJSON(){return this.getHex()}*[Symbol.iterator](){yield this.r,yield this.g,yield this.b}},ye=new Ft;Ft.NAMES=Yl;var Vc=0,Pn=class extends pn{constructor(){super(),this.isMaterial=!0,Object.defineProperty(this,"id",{value:Vc++}),this.uuid=_s(),this.name="",this.type="Material",this.blending=Xn,this.side=fn,this.vertexColors=!1,this.opacity=1,this.transparent=!1,this.alphaHash=!1,this.blendSrc=Hs,this.blendDst=Gs,this.blendEquation=Cn,this.blendSrcAlpha=null,this.blendDstAlpha=null,this.blendEquationAlpha=null,this.blendColor=new Ft(0,0,0),this.blendAlpha=0,this.depthFunc=qn,this.depthTest=!0,this.depthWrite=!0,this.stencilWriteMask=255,this.stencilFunc=Va,this.stencilRef=0,this.stencilFuncMask=255,this.stencilFail=Wn,this.stencilZFail=Wn,this.stencilZPass=Wn,this.stencilWrite=!1,this.clippingPlanes=null,this.clipIntersection=!1,this.clipShadows=!1,this.shadowSide=null,this.colorWrite=!0,this.precision=null,this.polygonOffset=!1,this.polygonOffsetFactor=0,this.polygonOffsetUnits=0,this.dithering=!1,this.alphaToCoverage=!1,this.premultipliedAlpha=!1,this.forceSinglePass=!1,this.allowOverride=!0,this.visible=!0,this.toneMapped=!0,this.userData={},this.version=0,this._alphaTest=0}get alphaTest(){return this._alphaTest}set alphaTest(t){this._alphaTest>0!=t>0&&this.version++,this._alphaTest=t}onBeforeRender(){}onBeforeCompile(){}customProgramCacheKey(){return this.onBeforeCompile.toString()}setValues(t){if(t!==void 0)for(let e in t){let n=t[e];if(n===void 0){console.warn(`THREE.Material: parameter '${e}' has value of undefined.`);continue}let s=this[e];if(s===void 0){console.warn(`THREE.Material: '${e}' is not a property of THREE.${this.type}.`);continue}s&&s.isColor?s.set(n):s&&s.isVector3&&n&&n.isVector3?s.copy(n):this[e]=n}}toJSON(t){let e=t===void 0||typeof t=="string";e&&(t={textures:{},images:{}});let n={metadata:{version:4.7,type:"Material",generator:"Material.toJSON"}};n.uuid=this.uuid,n.type=this.type,this.name!==""&&(n.name=this.name),this.color&&this.color.isColor&&(n.color=this.color.getHex()),this.roughness!==void 0&&(n.roughness=this.roughness),this.metalness!==void 0&&(n.metalness=this.metalness),this.sheen!==void 0&&(n.sheen=this.sheen),this.sheenColor&&this.sheenColor.isColor&&(n.sheenColor=this.sheenColor.getHex()),this.sheenRoughness!==void 0&&(n.sheenRoughness=this.sheenRoughness),this.emissive&&this.emissive.isColor&&(n.emissive=this.emissive.getHex()),this.emissiveIntensity!==void 0&&this.emissiveIntensity!==1&&(n.emissiveIntensity=this.emissiveIntensity),this.specular&&this.specular.isColor&&(n.specular=this.specular.getHex()),this.specularIntensity!==void 0&&(n.specularIntensity=this.specularIntensity),this.specularColor&&this.specularColor.isColor&&(n.specularColor=this.specularColor.getHex()),this.shininess!==void 0&&(n.shininess=this.shininess),this.clearcoat!==void 0&&(n.clearcoat=this.clearcoat),this.clearcoatRoughness!==void 0&&(n.clearcoatRoughness=this.clearcoatRoughness),this.clearcoatMap&&this.clearcoatMap.isTexture&&(n.clearcoatMap=this.clearcoatMap.toJSON(t).uuid),this.clearcoatRoughnessMap&&this.clearcoatRoughnessMap.isTexture&&(n.clearcoatRoughnessMap=this.clearcoatRoughnessMap.toJSON(t).uuid),this.clearcoatNormalMap&&this.clearcoatNormalMap.isTexture&&(n.clearcoatNormalMap=this.clearcoatNormalMap.toJSON(t).uuid,n.clearcoatNormalScale=this.clearcoatNormalScale.toArray()),this.sheenColorMap&&this.sheenColorMap.isTexture&&(n.sheenColorMap=this.sheenColorMap.toJSON(t).uuid),this.sheenRoughnessMap&&this.sheenRoughnessMap.isTexture&&(n.sheenRoughnessMap=this.sheenRoughnessMap.toJSON(t).uuid),this.dispersion!==void 0&&(n.dispersion=this.dispersion),this.iridescence!==void 0&&(n.iridescence=this.iridescence),this.iridescenceIOR!==void 0&&(n.iridescenceIOR=this.iridescenceIOR),this.iridescenceThicknessRange!==void 0&&(n.iridescenceThicknessRange=this.iridescenceThicknessRange),this.iridescenceMap&&this.iridescenceMap.isTexture&&(n.iridescenceMap=this.iridescenceMap.toJSON(t).uuid),this.iridescenceThicknessMap&&this.iridescenceThicknessMap.isTexture&&(n.iridescenceThicknessMap=this.iridescenceThicknessMap.toJSON(t).uuid),this.anisotropy!==void 0&&(n.anisotropy=this.anisotropy),this.anisotropyRotation!==void 0&&(n.anisotropyRotation=this.anisotropyRotation),this.anisotropyMap&&this.anisotropyMap.isTexture&&(n.anisotropyMap=this.anisotropyMap.toJSON(t).uuid),this.map&&this.map.isTexture&&(n.map=this.map.toJSON(t).uuid),this.matcap&&this.matcap.isTexture&&(n.matcap=this.matcap.toJSON(t).uuid),this.alphaMap&&this.alphaMap.isTexture&&(n.alphaMap=this.alphaMap.toJSON(t).uuid),this.lightMap&&this.lightMap.isTexture&&(n.lightMap=this.lightMap.toJSON(t).uuid,n.lightMapIntensity=this.lightMapIntensity),this.aoMap&&this.aoMap.isTexture&&(n.aoMap=this.aoMap.toJSON(t).uuid,n.aoMapIntensity=this.aoMapIntensity),this.bumpMap&&this.bumpMap.isTexture&&(n.bumpMap=this.bumpMap.toJSON(t).uuid,n.bumpScale=this.bumpScale),this.normalMap&&this.normalMap.isTexture&&(n.normalMap=this.normalMap.toJSON(t).uuid,n.normalMapType=this.normalMapType,n.normalScale=this.normalScale.toArray()),this.displacementMap&&this.displacementMap.isTexture&&(n.displacementMap=this.displacementMap.toJSON(t).uuid,n.displacementScale=this.displacementScale,n.displacementBias=this.displacementBias),this.roughnessMap&&this.roughnessMap.isTexture&&(n.roughnessMap=this.roughnessMap.toJSON(t).uuid),this.metalnessMap&&this.metalnessMap.isTexture&&(n.metalnessMap=this.metalnessMap.toJSON(t).uuid),this.emissiveMap&&this.emissiveMap.isTexture&&(n.emissiveMap=this.emissiveMap.toJSON(t).uuid),this.specularMap&&this.specularMap.isTexture&&(n.specularMap=this.specularMap.toJSON(t).uuid),this.specularIntensityMap&&this.specularIntensityMap.isTexture&&(n.specularIntensityMap=this.specularIntensityMap.toJSON(t).uuid),this.specularColorMap&&this.specularColorMap.isTexture&&(n.specularColorMap=this.specularColorMap.toJSON(t).uuid),this.envMap&&this.envMap.isTexture&&(n.envMap=this.envMap.toJSON(t).uuid,this.combine!==void 0&&(n.combine=this.combine)),this.envMapRotation!==void 0&&(n.envMapRotation=this.envMapRotation.toArray()),this.envMapIntensity!==void 0&&(n.envMapIntensity=this.envMapIntensity),this.reflectivity!==void 0&&(n.reflectivity=this.reflectivity),this.refractionRatio!==void 0&&(n.refractionRatio=this.refractionRatio),this.gradientMap&&this.gradientMap.isTexture&&(n.gradientMap=this.gradientMap.toJSON(t).uuid),this.transmission!==void 0&&(n.transmission=this.transmission),this.transmissionMap&&this.transmissionMap.isTexture&&(n.transmissionMap=this.transmissionMap.toJSON(t).uuid),this.thickness!==void 0&&(n.thickness=this.thickness),this.thicknessMap&&this.thicknessMap.isTexture&&(n.thicknessMap=this.thicknessMap.toJSON(t).uuid),this.attenuationDistance!==void 0&&this.attenuationDistance!==1/0&&(n.attenuationDistance=this.attenuationDistance),this.attenuationColor!==void 0&&(n.attenuationColor=this.attenuationColor.getHex()),this.size!==void 0&&(n.size=this.size),this.shadowSide!==null&&(n.shadowSide=this.shadowSide),this.sizeAttenuation!==void 0&&(n.sizeAttenuation=this.sizeAttenuation),this.blending!==Xn&&(n.blending=this.blending),this.side!==fn&&(n.side=this.side),this.vertexColors===!0&&(n.vertexColors=!0),this.opacity<1&&(n.opacity=this.opacity),this.transparent===!0&&(n.transparent=!0),this.blendSrc!==Hs&&(n.blendSrc=this.blendSrc),this.blendDst!==Gs&&(n.blendDst=this.blendDst),this.blendEquation!==Cn&&(n.blendEquation=this.blendEquation),this.blendSrcAlpha!==null&&(n.blendSrcAlpha=this.blendSrcAlpha),this.blendDstAlpha!==null&&(n.blendDstAlpha=this.blendDstAlpha),this.blendEquationAlpha!==null&&(n.blendEquationAlpha=this.blendEquationAlpha),this.blendColor&&this.blendColor.isColor&&(n.blendColor=this.blendColor.getHex()),this.blendAlpha!==0&&(n.blendAlpha=this.blendAlpha),this.depthFunc!==qn&&(n.depthFunc=this.depthFunc),this.depthTest===!1&&(n.depthTest=this.depthTest),this.depthWrite===!1&&(n.depthWrite=this.depthWrite),this.colorWrite===!1&&(n.colorWrite=this.colorWrite),this.stencilWriteMask!==255&&(n.stencilWriteMask=this.stencilWriteMask),this.stencilFunc!==Va&&(n.stencilFunc=this.stencilFunc),this.stencilRef!==0&&(n.stencilRef=this.stencilRef),this.stencilFuncMask!==255&&(n.stencilFuncMask=this.stencilFuncMask),this.stencilFail!==Wn&&(n.stencilFail=this.stencilFail),this.stencilZFail!==Wn&&(n.stencilZFail=this.stencilZFail),this.stencilZPass!==Wn&&(n.stencilZPass=this.stencilZPass),this.stencilWrite===!0&&(n.stencilWrite=this.stencilWrite),this.rotation!==void 0&&this.rotation!==0&&(n.rotation=this.rotation),this.polygonOffset===!0&&(n.polygonOffset=!0),this.polygonOffsetFactor!==0&&(n.polygonOffsetFactor=this.polygonOffsetFactor),this.polygonOffsetUnits!==0&&(n.polygonOffsetUnits=this.polygonOffsetUnits),this.linewidth!==void 0&&this.linewidth!==1&&(n.linewidth=this.linewidth),this.dashSize!==void 0&&(n.dashSize=this.dashSize),this.gapSize!==void 0&&(n.gapSize=this.gapSize),this.scale!==void 0&&(n.scale=this.scale),this.dithering===!0&&(n.dithering=!0),this.alphaTest>0&&(n.alphaTest=this.alphaTest),this.alphaHash===!0&&(n.alphaHash=!0),this.alphaToCoverage===!0&&(n.alphaToCoverage=!0),this.premultipliedAlpha===!0&&(n.premultipliedAlpha=!0),this.forceSinglePass===!0&&(n.forceSinglePass=!0),this.wireframe===!0&&(n.wireframe=!0),this.wireframeLinewidth>1&&(n.wireframeLinewidth=this.wireframeLinewidth),this.wireframeLinecap!=="round"&&(n.wireframeLinecap=this.wireframeLinecap),this.wireframeLinejoin!=="round"&&(n.wireframeLinejoin=this.wireframeLinejoin),this.flatShading===!0&&(n.flatShading=!0),this.visible===!1&&(n.visible=!1),this.toneMapped===!1&&(n.toneMapped=!1),this.fog===!1&&(n.fog=!1),Object.keys(this.userData).length>0&&(n.userData=this.userData);function s(r){let a=[];for(let o in r){let c=r[o];delete c.metadata,a.push(c)}return a}if(e){let r=s(t.textures),a=s(t.images);r.length>0&&(n.textures=r),a.length>0&&(n.images=a)}return n}clone(){return new this.constructor().copy(this)}copy(t){this.name=t.name,this.blending=t.blending,this.side=t.side,this.vertexColors=t.vertexColors,this.opacity=t.opacity,this.transparent=t.transparent,this.blendSrc=t.blendSrc,this.blendDst=t.blendDst,this.blendEquation=t.blendEquation,this.blendSrcAlpha=t.blendSrcAlpha,this.blendDstAlpha=t.blendDstAlpha,this.blendEquationAlpha=t.blendEquationAlpha,this.blendColor.copy(t.blendColor),this.blendAlpha=t.blendAlpha,this.depthFunc=t.depthFunc,this.depthTest=t.depthTest,this.depthWrite=t.depthWrite,this.stencilWriteMask=t.stencilWriteMask,this.stencilFunc=t.stencilFunc,this.stencilRef=t.stencilRef,this.stencilFuncMask=t.stencilFuncMask,this.stencilFail=t.stencilFail,this.stencilZFail=t.stencilZFail,this.stencilZPass=t.stencilZPass,this.stencilWrite=t.stencilWrite;let e=t.clippingPlanes,n=null;if(e!==null){let s=e.length;n=new Array(s);for(let r=0;r!==s;++r)n[r]=e[r].clone()}return this.clippingPlanes=n,this.clipIntersection=t.clipIntersection,this.clipShadows=t.clipShadows,this.shadowSide=t.shadowSide,this.colorWrite=t.colorWrite,this.precision=t.precision,this.polygonOffset=t.polygonOffset,this.polygonOffsetFactor=t.polygonOffsetFactor,this.polygonOffsetUnits=t.polygonOffsetUnits,this.dithering=t.dithering,this.alphaTest=t.alphaTest,this.alphaHash=t.alphaHash,this.alphaToCoverage=t.alphaToCoverage,this.premultipliedAlpha=t.premultipliedAlpha,this.forceSinglePass=t.forceSinglePass,this.visible=t.visible,this.toneMapped=t.toneMapped,this.userData=JSON.parse(JSON.stringify(t.userData)),this}dispose(){this.dispatchEvent({type:"dispose"})}set needsUpdate(t){t===!0&&this.version++}},tn=class extends Pn{constructor(t){super(),this.isMeshBasicMaterial=!0,this.type="MeshBasicMaterial",this.color=new Ft(16777215),this.map=null,this.lightMap=null,this.lightMapIntensity=1,this.aoMap=null,this.aoMapIntensity=1,this.specularMap=null,this.alphaMap=null,this.envMap=null,this.envMapRotation=new qe,this.combine=vr,this.reflectivity=1,this.refractionRatio=.98,this.wireframe=!1,this.wireframeLinewidth=1,this.wireframeLinecap="round",this.wireframeLinejoin="round",this.fog=!0,this.setValues(t)}copy(t){return super.copy(t),this.color.copy(t.color),this.map=t.map,this.lightMap=t.lightMap,this.lightMapIntensity=t.lightMapIntensity,this.aoMap=t.aoMap,this.aoMapIntensity=t.aoMapIntensity,this.specularMap=t.specularMap,this.alphaMap=t.alphaMap,this.envMap=t.envMap,this.envMapRotation.copy(t.envMapRotation),this.combine=t.combine,this.reflectivity=t.reflectivity,this.refractionRatio=t.refractionRatio,this.wireframe=t.wireframe,this.wireframeLinewidth=t.wireframeLinewidth,this.wireframeLinecap=t.wireframeLinecap,this.wireframeLinejoin=t.wireframeLinejoin,this.fog=t.fog,this}};var ce=new O,Is=new Ht,Hc=0,Ce=class{constructor(t,e,n=!1){if(Array.isArray(t))throw new TypeError("THREE.BufferAttribute: array should be a Typed Array.");this.isBufferAttribute=!0,Object.defineProperty(this,"id",{value:Hc++}),this.name="",this.array=t,this.itemSize=e,this.count=t!==void 0?t.length/e:0,this.normalized=n,this.usage=Ha,this.updateRanges=[],this.gpuType=Je,this.version=0}onUploadCallback(){}set needsUpdate(t){t===!0&&this.version++}setUsage(t){return this.usage=t,this}addUpdateRange(t,e){this.updateRanges.push({start:t,count:e})}clearUpdateRanges(){this.updateRanges.length=0}copy(t){return this.name=t.name,this.array=new t.array.constructor(t.array),this.itemSize=t.itemSize,this.count=t.count,this.normalized=t.normalized,this.usage=t.usage,this.gpuType=t.gpuType,this}copyAt(t,e,n){t*=this.itemSize,n*=e.itemSize;for(let s=0,r=this.itemSize;s<r;s++)this.array[t+s]=e.array[n+s];return this}copyArray(t){return this.array.set(t),this}applyMatrix3(t){if(this.itemSize===2)for(let e=0,n=this.count;e<n;e++)Is.fromBufferAttribute(this,e),Is.applyMatrix3(t),this.setXY(e,Is.x,Is.y);else if(this.itemSize===3)for(let e=0,n=this.count;e<n;e++)ce.fromBufferAttribute(this,e),ce.applyMatrix3(t),this.setXYZ(e,ce.x,ce.y,ce.z);return this}applyMatrix4(t){for(let e=0,n=this.count;e<n;e++)ce.fromBufferAttribute(this,e),ce.applyMatrix4(t),this.setXYZ(e,ce.x,ce.y,ce.z);return this}applyNormalMatrix(t){for(let e=0,n=this.count;e<n;e++)ce.fromBufferAttribute(this,e),ce.applyNormalMatrix(t),this.setXYZ(e,ce.x,ce.y,ce.z);return this}transformDirection(t){for(let e=0,n=this.count;e<n;e++)ce.fromBufferAttribute(this,e),ce.transformDirection(t),this.setXYZ(e,ce.x,ce.y,ce.z);return this}set(t,e=0){return this.array.set(t,e),this}getComponent(t,e){let n=this.array[t*this.itemSize+e];return this.normalized&&(n=zi(n,this.array)),n}setComponent(t,e,n){return this.normalized&&(n=Re(n,this.array)),this.array[t*this.itemSize+e]=n,this}getX(t){let e=this.array[t*this.itemSize];return this.normalized&&(e=zi(e,this.array)),e}setX(t,e){return this.normalized&&(e=Re(e,this.array)),this.array[t*this.itemSize]=e,this}getY(t){let e=this.array[t*this.itemSize+1];return this.normalized&&(e=zi(e,this.array)),e}setY(t,e){return this.normalized&&(e=Re(e,this.array)),this.array[t*this.itemSize+1]=e,this}getZ(t){let e=this.array[t*this.itemSize+2];return this.normalized&&(e=zi(e,this.array)),e}setZ(t,e){return this.normalized&&(e=Re(e,this.array)),this.array[t*this.itemSize+2]=e,this}getW(t){let e=this.array[t*this.itemSize+3];return this.normalized&&(e=zi(e,this.array)),e}setW(t,e){return this.normalized&&(e=Re(e,this.array)),this.array[t*this.itemSize+3]=e,this}setXY(t,e,n){return t*=this.itemSize,this.normalized&&(e=Re(e,this.array),n=Re(n,this.array)),this.array[t+0]=e,this.array[t+1]=n,this}setXYZ(t,e,n,s){return t*=this.itemSize,this.normalized&&(e=Re(e,this.array),n=Re(n,this.array),s=Re(s,this.array)),this.array[t+0]=e,this.array[t+1]=n,this.array[t+2]=s,this}setXYZW(t,e,n,s,r){return t*=this.itemSize,this.normalized&&(e=Re(e,this.array),n=Re(n,this.array),s=Re(s,this.array),r=Re(r,this.array)),this.array[t+0]=e,this.array[t+1]=n,this.array[t+2]=s,this.array[t+3]=r,this}onUpload(t){return this.onUploadCallback=t,this}clone(){return new this.constructor(this.array,this.itemSize).copy(this)}toJSON(){let t={itemSize:this.itemSize,type:this.array.constructor.name,array:Array.from(this.array),normalized:this.normalized};return this.name!==""&&(t.name=this.name),this.usage!==Ha&&(t.usage=this.usage),t}};var Qi=class extends Ce{constructor(t,e,n){super(new Uint16Array(t),e,n)}};var ji=class extends Ce{constructor(t,e,n){super(new Uint32Array(t),e,n)}};var Se=class extends Ce{constructor(t,e,n){super(new Float32Array(t),e,n)}},Gc=0,ze=new ie,Ua=new he,pi=new O,Ue=new je,Gi=new je,pe=new O,en=class i extends pn{constructor(){super(),this.isBufferGeometry=!0,Object.defineProperty(this,"id",{value:Gc++}),this.uuid=_s(),this.name="",this.type="BufferGeometry",this.index=null,this.indirect=null,this.attributes={},this.morphAttributes={},this.morphTargetsRelative=!1,this.groups=[],this.boundingBox=null,this.boundingSphere=null,this.drawRange={start:0,count:1/0},this.userData={}}getIndex(){return this.index}setIndex(t){return Array.isArray(t)?this.index=new(co(t)?ji:Qi)(t,1):this.index=t,this}setIndirect(t){return this.indirect=t,this}getIndirect(){return this.indirect}getAttribute(t){return this.attributes[t]}setAttribute(t,e){return this.attributes[t]=e,this}deleteAttribute(t){return delete this.attributes[t],this}hasAttribute(t){return this.attributes[t]!==void 0}addGroup(t,e,n=0){this.groups.push({start:t,count:e,materialIndex:n})}clearGroups(){this.groups=[]}setDrawRange(t,e){this.drawRange.start=t,this.drawRange.count=e}applyMatrix4(t){let e=this.attributes.position;e!==void 0&&(e.applyMatrix4(t),e.needsUpdate=!0);let n=this.attributes.normal;if(n!==void 0){let r=new Lt().getNormalMatrix(t);n.applyNormalMatrix(r),n.needsUpdate=!0}let s=this.attributes.tangent;return s!==void 0&&(s.transformDirection(t),s.needsUpdate=!0),this.boundingBox!==null&&this.computeBoundingBox(),this.boundingSphere!==null&&this.computeBoundingSphere(),this}applyQuaternion(t){return ze.makeRotationFromQuaternion(t),this.applyMatrix4(ze),this}rotateX(t){return ze.makeRotationX(t),this.applyMatrix4(ze),this}rotateY(t){return ze.makeRotationY(t),this.applyMatrix4(ze),this}rotateZ(t){return ze.makeRotationZ(t),this.applyMatrix4(ze),this}translate(t,e,n){return ze.makeTranslation(t,e,n),this.applyMatrix4(ze),this}scale(t,e,n){return ze.makeScale(t,e,n),this.applyMatrix4(ze),this}lookAt(t){return Ua.lookAt(t),Ua.updateMatrix(),this.applyMatrix4(Ua.matrix),this}center(){return this.computeBoundingBox(),this.boundingBox.getCenter(pi).negate(),this.translate(pi.x,pi.y,pi.z),this}setFromPoints(t){let e=this.getAttribute("position");if(e===void 0){let n=[];for(let s=0,r=t.length;s<r;s++){let a=t[s];n.push(a.x,a.y,a.z||0)}this.setAttribute("position",new Se(n,3))}else{let n=Math.min(t.length,e.count);for(let s=0;s<n;s++){let r=t[s];e.setXYZ(s,r.x,r.y,r.z||0)}t.length>e.count&&console.warn("THREE.BufferGeometry: Buffer size too small for points data. Use .dispose() and create a new geometry."),e.needsUpdate=!0}return this}computeBoundingBox(){this.boundingBox===null&&(this.boundingBox=new je);let t=this.attributes.position,e=this.morphAttributes.position;if(t&&t.isGLBufferAttribute){console.error("THREE.BufferGeometry.computeBoundingBox(): GLBufferAttribute requires a manual bounding box.",this),this.boundingBox.set(new O(-1/0,-1/0,-1/0),new O(1/0,1/0,1/0));return}if(t!==void 0){if(this.boundingBox.setFromBufferAttribute(t),e)for(let n=0,s=e.length;n<s;n++){let r=e[n];Ue.setFromBufferAttribute(r),this.morphTargetsRelative?(pe.addVectors(this.boundingBox.min,Ue.min),this.boundingBox.expandByPoint(pe),pe.addVectors(this.boundingBox.max,Ue.max),this.boundingBox.expandByPoint(pe)):(this.boundingBox.expandByPoint(Ue.min),this.boundingBox.expandByPoint(Ue.max))}}else this.boundingBox.makeEmpty();(isNaN(this.boundingBox.min.x)||isNaN(this.boundingBox.min.y)||isNaN(this.boundingBox.min.z))&&console.error('THREE.BufferGeometry.computeBoundingBox(): Computed min/max have NaN values. The "position" attribute is likely to have NaN values.',this)}computeBoundingSphere(){this.boundingSphere===null&&(this.boundingSphere=new In);let t=this.attributes.position,e=this.morphAttributes.position;if(t&&t.isGLBufferAttribute){console.error("THREE.BufferGeometry.computeBoundingSphere(): GLBufferAttribute requires a manual bounding sphere.",this),this.boundingSphere.set(new O,1/0);return}if(t){let n=this.boundingSphere.center;if(Ue.setFromBufferAttribute(t),e)for(let r=0,a=e.length;r<a;r++){let o=e[r];Gi.setFromBufferAttribute(o),this.morphTargetsRelative?(pe.addVectors(Ue.min,Gi.min),Ue.expandByPoint(pe),pe.addVectors(Ue.max,Gi.max),Ue.expandByPoint(pe)):(Ue.expandByPoint(Gi.min),Ue.expandByPoint(Gi.max))}Ue.getCenter(n);let s=0;for(let r=0,a=t.count;r<a;r++)pe.fromBufferAttribute(t,r),s=Math.max(s,n.distanceToSquared(pe));if(e)for(let r=0,a=e.length;r<a;r++){let o=e[r],c=this.morphTargetsRelative;for(let l=0,h=o.count;l<h;l++)pe.fromBufferAttribute(o,l),c&&(pi.fromBufferAttribute(t,l),pe.add(pi)),s=Math.max(s,n.distanceToSquared(pe))}this.boundingSphere.radius=Math.sqrt(s),isNaN(this.boundingSphere.radius)&&console.error('THREE.BufferGeometry.computeBoundingSphere(): Computed radius is NaN. The "position" attribute is likely to have NaN values.',this)}}computeTangents(){let t=this.index,e=this.attributes;if(t===null||e.position===void 0||e.normal===void 0||e.uv===void 0){console.error("THREE.BufferGeometry: .computeTangents() failed. Missing required attributes (index, position, normal or uv)");return}let n=e.position,s=e.normal,r=e.uv;this.hasAttribute("tangent")===!1&&this.setAttribute("tangent",new Ce(new Float32Array(4*n.count),4));let a=this.getAttribute("tangent"),o=[],c=[];for(let U=0;U<n.count;U++)o[U]=new O,c[U]=new O;let l=new O,h=new O,u=new O,f=new Ht,p=new Ht,_=new Ht,v=new O,m=new O;function d(U,M,y){l.fromBufferAttribute(n,U),h.fromBufferAttribute(n,M),u.fromBufferAttribute(n,y),f.fromBufferAttribute(r,U),p.fromBufferAttribute(r,M),_.fromBufferAttribute(r,y),h.sub(l),u.sub(l),p.sub(f),_.sub(f);let P=1/(p.x*_.y-_.x*p.y);isFinite(P)&&(v.copy(h).multiplyScalar(_.y).addScaledVector(u,-p.y).multiplyScalar(P),m.copy(u).multiplyScalar(p.x).addScaledVector(h,-_.x).multiplyScalar(P),o[U].add(v),o[M].add(v),o[y].add(v),c[U].add(m),c[M].add(m),c[y].add(m))}let w=this.groups;w.length===0&&(w=[{start:0,count:t.count}]);for(let U=0,M=w.length;U<M;++U){let y=w[U],P=y.start,F=y.count;for(let k=P,G=P+F;k<G;k+=3)d(t.getX(k+0),t.getX(k+1),t.getX(k+2))}let E=new O,S=new O,R=new O,A=new O;function I(U){R.fromBufferAttribute(s,U),A.copy(R);let M=o[U];E.copy(M),E.sub(R.multiplyScalar(R.dot(M))).normalize(),S.crossVectors(A,M);let P=S.dot(c[U])<0?-1:1;a.setXYZW(U,E.x,E.y,E.z,P)}for(let U=0,M=w.length;U<M;++U){let y=w[U],P=y.start,F=y.count;for(let k=P,G=P+F;k<G;k+=3)I(t.getX(k+0)),I(t.getX(k+1)),I(t.getX(k+2))}}computeVertexNormals(){let t=this.index,e=this.getAttribute("position");if(e!==void 0){let n=this.getAttribute("normal");if(n===void 0)n=new Ce(new Float32Array(e.count*3),3),this.setAttribute("normal",n);else for(let f=0,p=n.count;f<p;f++)n.setXYZ(f,0,0,0);let s=new O,r=new O,a=new O,o=new O,c=new O,l=new O,h=new O,u=new O;if(t)for(let f=0,p=t.count;f<p;f+=3){let _=t.getX(f+0),v=t.getX(f+1),m=t.getX(f+2);s.fromBufferAttribute(e,_),r.fromBufferAttribute(e,v),a.fromBufferAttribute(e,m),h.subVectors(a,r),u.subVectors(s,r),h.cross(u),o.fromBufferAttribute(n,_),c.fromBufferAttribute(n,v),l.fromBufferAttribute(n,m),o.add(h),c.add(h),l.add(h),n.setXYZ(_,o.x,o.y,o.z),n.setXYZ(v,c.x,c.y,c.z),n.setXYZ(m,l.x,l.y,l.z)}else for(let f=0,p=e.count;f<p;f+=3)s.fromBufferAttribute(e,f+0),r.fromBufferAttribute(e,f+1),a.fromBufferAttribute(e,f+2),h.subVectors(a,r),u.subVectors(s,r),h.cross(u),n.setXYZ(f+0,h.x,h.y,h.z),n.setXYZ(f+1,h.x,h.y,h.z),n.setXYZ(f+2,h.x,h.y,h.z);this.normalizeNormals(),n.needsUpdate=!0}}normalizeNormals(){let t=this.attributes.normal;for(let e=0,n=t.count;e<n;e++)pe.fromBufferAttribute(t,e),pe.normalize(),t.setXYZ(e,pe.x,pe.y,pe.z)}toNonIndexed(){function t(o,c){let l=o.array,h=o.itemSize,u=o.normalized,f=new l.constructor(c.length*h),p=0,_=0;for(let v=0,m=c.length;v<m;v++){o.isInterleavedBufferAttribute?p=c[v]*o.data.stride+o.offset:p=c[v]*h;for(let d=0;d<h;d++)f[_++]=l[p++]}return new Ce(f,h,u)}if(this.index===null)return console.warn("THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed."),this;let e=new i,n=this.index.array,s=this.attributes;for(let o in s){let c=s[o],l=t(c,n);e.setAttribute(o,l)}let r=this.morphAttributes;for(let o in r){let c=[],l=r[o];for(let h=0,u=l.length;h<u;h++){let f=l[h],p=t(f,n);c.push(p)}e.morphAttributes[o]=c}e.morphTargetsRelative=this.morphTargetsRelative;let a=this.groups;for(let o=0,c=a.length;o<c;o++){let l=a[o];e.addGroup(l.start,l.count,l.materialIndex)}return e}toJSON(){let t={metadata:{version:4.7,type:"BufferGeometry",generator:"BufferGeometry.toJSON"}};if(t.uuid=this.uuid,t.type=this.type,this.name!==""&&(t.name=this.name),Object.keys(this.userData).length>0&&(t.userData=this.userData),this.parameters!==void 0){let c=this.parameters;for(let l in c)c[l]!==void 0&&(t[l]=c[l]);return t}t.data={attributes:{}};let e=this.index;e!==null&&(t.data.index={type:e.array.constructor.name,array:Array.prototype.slice.call(e.array)});let n=this.attributes;for(let c in n){let l=n[c];t.data.attributes[c]=l.toJSON(t.data)}let s={},r=!1;for(let c in this.morphAttributes){let l=this.morphAttributes[c],h=[];for(let u=0,f=l.length;u<f;u++){let p=l[u];h.push(p.toJSON(t.data))}h.length>0&&(s[c]=h,r=!0)}r&&(t.data.morphAttributes=s,t.data.morphTargetsRelative=this.morphTargetsRelative);let a=this.groups;a.length>0&&(t.data.groups=JSON.parse(JSON.stringify(a)));let o=this.boundingSphere;return o!==null&&(t.data.boundingSphere=o.toJSON()),t}clone(){return new this.constructor().copy(this)}copy(t){this.index=null,this.attributes={},this.morphAttributes={},this.groups=[],this.boundingBox=null,this.boundingSphere=null;let e={};this.name=t.name;let n=t.index;n!==null&&this.setIndex(n.clone());let s=t.attributes;for(let l in s){let h=s[l];this.setAttribute(l,h.clone(e))}let r=t.morphAttributes;for(let l in r){let h=[],u=r[l];for(let f=0,p=u.length;f<p;f++)h.push(u[f].clone(e));this.morphAttributes[l]=h}this.morphTargetsRelative=t.morphTargetsRelative;let a=t.groups;for(let l=0,h=a.length;l<h;l++){let u=a[l];this.addGroup(u.start,u.count,u.materialIndex)}let o=t.boundingBox;o!==null&&(this.boundingBox=o.clone());let c=t.boundingSphere;return c!==null&&(this.boundingSphere=c.clone()),this.drawRange.start=t.drawRange.start,this.drawRange.count=t.drawRange.count,this.userData=t.userData,this}dispose(){this.dispatchEvent({type:"dispose"})}},Jo=new ie,Hn=new $s,Ps=new In,$o=new O,Ls=new O,Ds=new O,Us=new O,Na=new O,Ns=new O,Ko=new O,Fs=new O,Kt=class extends he{constructor(t=new en,e=new tn){super(),this.isMesh=!0,this.type="Mesh",this.geometry=t,this.material=e,this.morphTargetDictionary=void 0,this.morphTargetInfluences=void 0,this.count=1,this.updateMorphTargets()}copy(t,e){return super.copy(t,e),t.morphTargetInfluences!==void 0&&(this.morphTargetInfluences=t.morphTargetInfluences.slice()),t.morphTargetDictionary!==void 0&&(this.morphTargetDictionary=Object.assign({},t.morphTargetDictionary)),this.material=Array.isArray(t.material)?t.material.slice():t.material,this.geometry=t.geometry,this}updateMorphTargets(){let e=this.geometry.morphAttributes,n=Object.keys(e);if(n.length>0){let s=e[n[0]];if(s!==void 0){this.morphTargetInfluences=[],this.morphTargetDictionary={};for(let r=0,a=s.length;r<a;r++){let o=s[r].name||String(r);this.morphTargetInfluences.push(0),this.morphTargetDictionary[o]=r}}}}getVertexPosition(t,e){let n=this.geometry,s=n.attributes.position,r=n.morphAttributes.position,a=n.morphTargetsRelative;e.fromBufferAttribute(s,t);let o=this.morphTargetInfluences;if(r&&o){Ns.set(0,0,0);for(let c=0,l=r.length;c<l;c++){let h=o[c],u=r[c];h!==0&&(Na.fromBufferAttribute(u,t),a?Ns.addScaledVector(Na,h):Ns.addScaledVector(Na.sub(e),h))}e.add(Ns)}return e}raycast(t,e){let n=this.geometry,s=this.material,r=this.matrixWorld;s!==void 0&&(n.boundingSphere===null&&n.computeBoundingSphere(),Ps.copy(n.boundingSphere),Ps.applyMatrix4(r),Hn.copy(t.ray).recast(t.near),!(Ps.containsPoint(Hn.origin)===!1&&(Hn.intersectSphere(Ps,$o)===null||Hn.origin.distanceToSquared($o)>(t.far-t.near)**2))&&(Jo.copy(r).invert(),Hn.copy(t.ray).applyMatrix4(Jo),!(n.boundingBox!==null&&Hn.intersectsBox(n.boundingBox)===!1)&&this._computeIntersections(t,e,Hn)))}_computeIntersections(t,e,n){let s,r=this.geometry,a=this.material,o=r.index,c=r.attributes.position,l=r.attributes.uv,h=r.attributes.uv1,u=r.attributes.normal,f=r.groups,p=r.drawRange;if(o!==null)if(Array.isArray(a))for(let _=0,v=f.length;_<v;_++){let m=f[_],d=a[m.materialIndex],w=Math.max(m.start,p.start),E=Math.min(o.count,Math.min(m.start+m.count,p.start+p.count));for(let S=w,R=E;S<R;S+=3){let A=o.getX(S),I=o.getX(S+1),U=o.getX(S+2);s=Os(this,d,t,n,l,h,u,A,I,U),s&&(s.faceIndex=Math.floor(S/3),s.face.materialIndex=m.materialIndex,e.push(s))}}else{let _=Math.max(0,p.start),v=Math.min(o.count,p.start+p.count);for(let m=_,d=v;m<d;m+=3){let w=o.getX(m),E=o.getX(m+1),S=o.getX(m+2);s=Os(this,a,t,n,l,h,u,w,E,S),s&&(s.faceIndex=Math.floor(m/3),e.push(s))}}else if(c!==void 0)if(Array.isArray(a))for(let _=0,v=f.length;_<v;_++){let m=f[_],d=a[m.materialIndex],w=Math.max(m.start,p.start),E=Math.min(c.count,Math.min(m.start+m.count,p.start+p.count));for(let S=w,R=E;S<R;S+=3){let A=S,I=S+1,U=S+2;s=Os(this,d,t,n,l,h,u,A,I,U),s&&(s.faceIndex=Math.floor(S/3),s.face.materialIndex=m.materialIndex,e.push(s))}}else{let _=Math.max(0,p.start),v=Math.min(c.count,p.start+p.count);for(let m=_,d=v;m<d;m+=3){let w=m,E=m+1,S=m+2;s=Os(this,a,t,n,l,h,u,w,E,S),s&&(s.faceIndex=Math.floor(m/3),e.push(s))}}}};function Wc(i,t,e,n,s,r,a,o){let c;if(t.side===we?c=n.intersectTriangle(a,r,s,!0,o):c=n.intersectTriangle(s,r,a,t.side===fn,o),c===null)return null;Fs.copy(o),Fs.applyMatrix4(i.matrixWorld);let l=e.ray.origin.distanceTo(Fs);return l<e.near||l>e.far?null:{distance:l,point:Fs.clone(),object:i}}function Os(i,t,e,n,s,r,a,o,c,l){i.getVertexPosition(o,Ls),i.getVertexPosition(c,Ds),i.getVertexPosition(l,Us);let h=Wc(i,t,e,n,Ls,Ds,Us,Ko);if(h){let u=new O;An.getBarycoord(Ko,Ls,Ds,Us,u),s&&(h.uv=An.getInterpolatedAttribute(s,o,c,l,u,new Ht)),r&&(h.uv1=An.getInterpolatedAttribute(r,o,c,l,u,new Ht)),a&&(h.normal=An.getInterpolatedAttribute(a,o,c,l,u,new O),h.normal.dot(n.direction)>0&&h.normal.multiplyScalar(-1));let f={a:o,b:c,c:l,normal:new O,materialIndex:0};An.getNormal(Ls,Ds,Us,f.normal),h.face=f,h.barycoord=u}return h}var Ne=class i extends en{constructor(t=1,e=1,n=1,s=1,r=1,a=1){super(),this.type="BoxGeometry",this.parameters={width:t,height:e,depth:n,widthSegments:s,heightSegments:r,depthSegments:a};let o=this;s=Math.floor(s),r=Math.floor(r),a=Math.floor(a);let c=[],l=[],h=[],u=[],f=0,p=0;_("z","y","x",-1,-1,n,e,t,a,r,0),_("z","y","x",1,-1,n,e,-t,a,r,1),_("x","z","y",1,1,t,n,e,s,a,2),_("x","z","y",1,-1,t,n,-e,s,a,3),_("x","y","z",1,-1,t,e,n,s,r,4),_("x","y","z",-1,-1,t,e,-n,s,r,5),this.setIndex(c),this.setAttribute("position",new Se(l,3)),this.setAttribute("normal",new Se(h,3)),this.setAttribute("uv",new Se(u,2));function _(v,m,d,w,E,S,R,A,I,U,M){let y=S/I,P=R/U,F=S/2,k=R/2,G=A/2,q=I+1,W=U+1,et=0,V=0,rt=new O;for(let ct=0;ct<W;ct++){let St=ct*P-k;for(let Ot=0;Ot<q;Ot++){let Jt=Ot*y-F;rt[v]=Jt*w,rt[m]=St*E,rt[d]=G,l.push(rt.x,rt.y,rt.z),rt[v]=0,rt[m]=0,rt[d]=A>0?1:-1,h.push(rt.x,rt.y,rt.z),u.push(Ot/I),u.push(1-ct/U),et+=1}}for(let ct=0;ct<U;ct++)for(let St=0;St<I;St++){let Ot=f+St+q*ct,Jt=f+St+q*(ct+1),te=f+(St+1)+q*(ct+1),Wt=f+(St+1)+q*ct;c.push(Ot,Jt,Wt),c.push(Jt,te,Wt),V+=6}o.addGroup(p,V,M),p+=V,f+=et}}copy(t){return super.copy(t),this.parameters=Object.assign({},t.parameters),this}static fromJSON(t){return new i(t.width,t.height,t.depth,t.widthSegments,t.heightSegments,t.depthSegments)}};function Qn(i){let t={};for(let e in i){t[e]={};for(let n in i[e]){let s=i[e][n];s&&(s.isColor||s.isMatrix3||s.isMatrix4||s.isVector2||s.isVector3||s.isVector4||s.isTexture||s.isQuaternion)?s.isRenderTargetTexture?(console.warn("UniformsUtils: Textures of render targets cannot be cloned via cloneUniforms() or mergeUniforms()."),t[e][n]=null):t[e][n]=s.clone():Array.isArray(s)?t[e][n]=s.slice():t[e][n]=s}}return t}function be(i){let t={};for(let e=0;e<i.length;e++){let n=Qn(i[e]);for(let s in n)t[s]=n[s]}return t}function Xc(i){let t=[];for(let e=0;e<i.length;e++)t.push(i[e].clone());return t}function ho(i){let t=i.getRenderTarget();return t===null?i.outputColorSpace:t.isXRRenderTarget===!0?t.texture.colorSpace:Vt.workingColorSpace}var Zl={clone:Qn,merge:be},qc=`void main() {
 	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 }`,Yc=`void main() {
@@ -5613,12 +5717,12 @@ three/build/three.module.js:
    * SPDX-License-Identifier: MIT
    *)
 */
-```
+``````
 
 ## frontend/scene3d.js
 
-```javascript
-/* Cheat FPS 0.2.3 — local, instanced 3D renderer. Build instructions in README.
+``````javascript
+/* Cheat FPS 0.2.5 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
@@ -5897,11 +6001,11 @@ export class CheatRenderer3D {
     }
 }
 window.CheatRenderer3D=CheatRenderer3D;
-```
+``````
 
 ## frontend/style.css
 
-```css
+``````css
 :root { color-scheme:dark; --bg:#0a1013; --ink:#e6eee9; --acid:#c6ff47; --line:#34433f; }
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; overscroll-behavior:none; }
@@ -6021,20 +6125,20 @@ body.portrait-split .floating { top:70px; }
 
 #previewCaption { position:absolute;bottom:24px;right:30px;color:#d3dfd6c0;font-size:12px;letter-spacing:1px;text-align:right;max-width:55%;text-shadow:0 1px 4px #000;pointer-events:none; }
 #mapLandmark { font-size:12px;color:#aec4bc; }
-```
+``````
 
 ## package-lock.json
 
-```json
+``````json
 {
   "name": "cheat-fps-renderer",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "cheat-fps-renderer",
-      "version": "0.2.3",
+      "version": "0.2.5",
       "devDependencies": {
         "esbuild": "0.28.2",
         "three": "0.180.0"
@@ -6533,14 +6637,14 @@ body.portrait-split .floating { top:70px; }
     }
   }
 }
-```
+``````
 
 ## package.json
 
-```json
+``````json
 {
   "name": "cheat-fps-renderer",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "private": true,
   "description": "Optional build tools; Render serves the already bundled renderer.",
   "scripts": {
@@ -6551,11 +6655,11 @@ body.portrait-split .floating { top:70px; }
     "esbuild": "0.28.2"
   }
 }
-```
+``````
 
 ## render.yaml
 
-```yaml
+``````yaml
 services:
   - type: web
     name: cheat-fps
@@ -6567,27 +6671,251 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11
-```
+``````
 
 ## requirements-dev.txt
 
-```text
+``````text
 -r requirements.txt
 pytest==9.1.1
 httpx==0.28.1
 playwright==1.63.0
-```
+``````
 
 ## requirements.txt
 
-```text
+``````text
 fastapi==0.115.12
 uvicorn[standard]==0.34.2
-```
+``````
+
+## tests/test_aim.py
+
+``````python
+import math
+
+import pytest
+from backend.game import CHEATS, Room
+
+
+def duel(arena='freight'):
+    room=Room('AIM','local',arena)
+    p=room.add('Shooter',0);q=room.add('Target',1)
+    room.state='PLAYING';room.timer=120
+    p.x,p.y,p.yaw,p.pitch=2.5,1.5,.8,.7
+    q.x,q.y=6.5,1.5
+    return room,p,q
+
+
+@pytest.mark.parametrize('action',['tap','hold','ads'])
+def test_aim_corrects_horizontal_and_vertical_angle_without_requiring_ads_for_fire(action):
+    room,p,q=duel();room.command(p,dict(type='toggle',key='aim'))
+    if action=='tap':
+        room.command(p,dict(type='shoot',serial=1))
+        # An entire tap can arrive between ticks. Release must not erase it.
+        room.command(p,dict(type='input',aim=False,fire=False,yaw=.8,pitch=.7))
+    else:room.command(p,dict(type='input',aim=action=='ads',fire=action=='hold',yaw=.8,pitch=.7))
+    room.tick(1/60)
+    assert p.yaw==pytest.approx(0) and p.pitch==pytest.approx(math.atan2(-.15,4))
+    assert q.hp==(100 if action=='ads' else 75)
+    assert p.ammo==(30 if action=='ads' else 29)
+
+
+def test_aim_toggle_off_stops_snapping_and_off_target_taps_miss():
+    room,p,q=duel();room.command(p,dict(type='toggle',key='aim'))
+    room.command(p,dict(type='toggle',key='aim'))
+    room.command(p,dict(type='shoot',serial=1));room.tick(1/60)
+    assert q.hp==100 and p.yaw==pytest.approx(.8)
+
+
+def test_aim_works_for_a_shot_queued_while_the_weapon_is_on_cooldown():
+    room,p,q=duel();p.cheats['aim']=True;p.cooldown=.05
+    room.command(p,dict(type='shoot',serial=1))
+    for _ in range(5):
+        # Fresh look inputs cannot cancel authoritative aim immediately before shooting.
+        room.command(p,dict(type='input',yaw=.8,pitch=.7,aim=False,fire=False))
+        room.tick(1/60)
+    assert q.hp==75 and p.shots==1 and p.ammo==29
+
+
+@pytest.mark.parametrize('kind',['wall','train','behind','dead','teammate','bot'])
+def test_aim_does_not_lock_invalid_or_occluded_targets(kind):
+    room,p,q=duel('railway' if kind=='train' else 'freight');p.cheats['aim']=True
+    p.pitch=0
+    if kind=='wall':p.x,p.y,p.yaw=3.5,3.5,.3;q.x,q.y=6.5,3.5
+    elif kind=='train':p.x,p.y,p.yaw=10,4.5,math.pi/2+.3;q.x,q.y=10,7.5;room.train_time=9
+    elif kind=='behind':p.yaw=math.pi
+    elif kind=='dead':q.hp=0
+    elif kind=='teammate':q.team=p.team
+    elif kind=='bot':p.bot=True
+    before=(p.yaw,p.pitch)
+    room.assist_aim(p)
+    assert (p.yaw,p.pitch)==before
+
+
+def test_centered_enemy_is_preferred_and_aim_can_reacquire_after_death():
+    room,p,q=duel();p.cheats['aim']=True;p.yaw=0
+    # Adding players is correctly limited to lobby; assemble this third slot there.
+    room.state='LOBBY';other=room.add('Other',1);room.state='PLAYING'
+    other.x,other.y=5.5,2.5
+    room.assist_aim(p);assert p.yaw==0
+    q.hp=0;room.assist_aim(p)
+    assert p.yaw==pytest.approx(math.atan2(1,3))
+
+
+def test_only_three_cheats_exist_and_the_removed_toggle_is_ignored():
+    room,p,q=duel()
+    assert CHEATS==('aim','esp','recoil')
+    room.command(p,dict(type='toggle',key='ammo'))
+    assert set(p.cheats)==set(CHEATS)
+
+
+def test_all_remaining_cheats_still_consume_ammo_and_obey_reload():
+    room,p,q=duel();p.cheats=dict.fromkeys(CHEATS,True)
+    for _ in range(30):p.cooldown=0;room.shoot(p)
+    assert p.shots==30 and p.ammo==0
+    p.cooldown=0;room.shoot(p)
+    assert p.shots==30 and p.reload==1.5
+    room.shoot(p);assert p.shots==30 and p.ammo==0
+    q.hp=100;room.tick(1.6)
+    assert p.ammo==30 and p.reload==0
+    p.ammo=12;room.command(p,dict(type='input',reload=True));room.tick(1/60)
+    assert p.reload==1.5
+    room.command(p,dict(type='input'));room.tick(1.6)
+    assert p.ammo==30 and p.reload==0
+``````
+
+## tests/test_aim_browser.py
+
+``````python
+"""Real mobile taps and keyboard fire against authoritative stationary targets."""
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+from urllib.request import urlopen
+
+import pytest
+from test_browser import browser, center, start_split_ai, touch
+
+pytestmark=pytest.mark.skipif(os.getenv('CHEAT_FPS_BROWSER_TESTS')!='1',reason='Opt-in browser checks')
+
+
+@pytest.fixture(scope='module')
+def aim_server():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+    code='''
+import math,uvicorn
+import backend.main as main
+from backend.game import Room,CHEATS
+main.secrets.choice=lambda values:'freight'
+Room.ai=lambda self,p,dt:None
+@main.app.post('/__test/aim/setup')
+def setup():
+    for r in main.rooms.values():
+        people=[p for p in r.players.values() if not p.bot]
+        enemies=[p for p in r.players.values() if p.team==1]
+        for p in r.players.values():
+            p.x,p.y=17.5,8.5;p.hp=100;p.shots=p.hit=0
+            p.cheats=dict.fromkeys(CHEATS,False);p.cooldown=p.kick=p.reload=0;p.ammo=30
+            p.inp={};p.tap_pending=0;p.vx=p.vy=0
+        for i,p in enumerate(people):
+            p.x,p.y,p.yaw,p.pitch=(2.5 if i==0 else 17.5),1.5,(.8 if i==0 else math.pi-.8),.7
+            enemies[i].x,enemies[i].y=(6.5 if i==0 else 13.5),1.5
+        for p in enemies[len(people):]:p.x,p.y=1.5,1.5
+        return {'humans':[p.id for p in people],'targets':[p.id for p in enemies[:len(people)]]}
+    return {}
+uvicorn.run(main.app,host='127.0.0.1',port=PORT,log_level='error')
+'''.replace('PORT',str(port))
+    proc=subprocess.Popen([sys.executable,'-c',code],cwd=Path(__file__).resolve().parents[1],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+    url=f'http://127.0.0.1:{port}'
+    try:
+        for _ in range(100):
+            if proc.poll() is not None:raise RuntimeError(proc.stderr.read().decode())
+            try:urlopen(url+'/health',timeout=.2);break
+            except OSError:time.sleep(.05)
+        else:raise RuntimeError('Server startup timeout')
+        yield url
+    finally:proc.terminate();proc.wait(timeout=5);proc.stderr.close()
+
+
+def reset_targets(page,url):
+    data=page.request.post(url+'/__test/aim/setup').json()
+    page.wait_for_function('state.players.filter(p=>!p.bot).every(p=>p.y===1.5&&!p.cheats.aim&&p.shots===0)')
+    page.evaluate('''() => {resetInput();ids.forEach((id,i)=>{const p=state.players.find(p=>p.id===id),m=motion.get(id);Object.assign(m,{x:p.x,y:p.y,yaw:i?Math.PI-.8:.8,pitch:.7,offsetX:0,offsetY:0,vx:0,vy:0});});transmit();}''')
+    return data
+
+
+@pytest.mark.parametrize('split',[False,True])
+def test_mobile_tap_aim_and_three_cheats_per_player(browser,aim_server,split):
+    context=browser.new_context(viewport={'width':1180,'height':760},has_touch=True,is_mobile=True)
+    errors=[]
+    try:
+        page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(aim_server)
+        if split:start_split_ai(page)
+        else:page.locator('#create').click()
+        page.wait_for_function('state?.state==="PLAYING"');data=reset_targets(page,aim_server)
+        cdp=context.new_cdp_session(page)
+        if not split:
+            page.evaluate('''()=>{const before=ws.onmessage;ws.onmessage=e=>setTimeout(()=>before(e),120)}''')
+        for i,pid in enumerate(data['humans']):
+            assert page.locator(f'.viewport-controls[data-slot="{i}"] [data-game-cheat]').count()==3
+            button=f'[data-game-cheat="aim"][data-slot="{i}"]'
+            page.locator(button).tap()
+            if split:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).cheats.aim',arg=pid)
+            assert page.evaluate('i=>!control(i).ads',i)
+            area=page.locator(f'[data-look="{i}"]').bounding_box();x,y=area['x']+area['width']*.55,area['y']+area['height']*.38
+            touch(cdp,'touchStart',[(40+i,x,y)]);touch(cdp,'touchEnd',[])
+            target=data['targets'][i]
+            try:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).hp===75',arg=target,timeout=5000)
+            except Exception:
+                pytest.fail(str(page.evaluate('''({i,x,y})=>({i,phase:state.state,players:state.players.map(p=>({id:p.id,team:p.team,bot:p.bot,x:p.x,y:p.y,yaw:p.yaw,pitch:p.pitch,hp:p.hp,shots:p.shots,ammo:p.ammo,cheats:p.cheats})),motion:ids.map(id=>motion.get(id)),element:document.elementFromPoint(x,y)?.outerHTML})''',dict(i=i,x=x,y=y))))
+            assert page.evaluate('id=>{const p=state.players.find(p=>p.id===id);return p.shots===1&&p.ammo===29}',pid)
+            assert page.evaluate('(i)=>{const m=motion.get(ids[i]);return Math.abs(wrap(m.yaw-(i?Math.PI:0)))<.05&&m.pitch<0}',i)
+            assert page.evaluate('i=>!!motion.get(ids[i]).lockTarget&&!control(i).ads',i)
+        assert page.locator('[data-game-cheat="ammo"],[data-toggle="ammo"]').count()==0
+        assert page.evaluate('state.players.every(p=>Object.keys(p.cheats).sort().join(",")==="aim,esp,recoil")')
+        page.evaluate('''()=>{window.sentCheatPackets=[];const sendBefore=ws.send.bind(ws);ws.send=raw=>{const d=JSON.parse(raw);if(d.type==='toggle')sentCheatPackets.push(d);sendBefore(raw)}}''')
+        page.keyboard.press('4');page.keyboard.press('0');page.wait_for_timeout(80)
+        assert page.evaluate('sentCheatPackets.length===0')
+        assert not errors,errors
+    finally:context.close()
+
+
+def test_hip_fire_and_ads_work_and_toggle_off_stops_aim(browser,aim_server):
+    context=browser.new_context(viewport={'width':1100,'height':720})
+    errors=[]
+    try:
+        page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(aim_server)
+        page.locator('#create').click();page.wait_for_function('state?.state==="PLAYING"')
+        data=reset_targets(page,aim_server);pid=data['humans'][0];target=data['targets'][0]
+        page.keyboard.press('1');page.wait_for_function('state.players.find(p=>p.id===ids[0]).cheats.aim')
+        page.keyboard.down('Space');page.wait_for_function('state.players.find(p=>p.team===1&&p.y===1.5).hp<100');page.keyboard.up('Space')
+        assert page.evaluate('!control(0).ads&&Math.abs(motion.get(ids[0]).yaw)<.05')
+        data=reset_targets(page,aim_server)
+        # No AIM: an identical off-target tap must miss.
+        page.keyboard.down('Space');page.wait_for_function('state.players.find(p=>p.id===ids[0]).shots>0');page.keyboard.up('Space')
+        assert page.evaluate('id=>state.players.find(p=>p.id===id).hp===100',target)
+        page.keyboard.press('1');page.wait_for_function('state.players.find(p=>p.id===ids[0]).cheats.aim')
+        page.keyboard.down('Shift');page.wait_for_function('Math.abs(motion.get(ids[0]).yaw)<.05')
+        page.keyboard.up('Shift')
+        assert page.evaluate('id=>state.players.find(p=>p.id===id).hp===100',target)
+        # Toggle removal takes effect immediately on subsequent shots.
+        page.keyboard.press('1');page.wait_for_function('!state.players.find(p=>p.id===ids[0]).cheats.aim')
+        page.evaluate('motion.get(ids[0]).yaw=.8;motion.get(ids[0]).pitch=.7')
+        before=page.evaluate('state.players.find(p=>p.id===ids[0]).shots')
+        page.keyboard.down('Space');page.wait_for_function('(n)=>state.players.find(p=>p.id===ids[0]).shots>n',arg=before);page.keyboard.up('Space')
+        assert page.evaluate('id=>state.players.find(p=>p.id===id).hp===100',target)
+        assert not errors,errors
+    finally:context.close()
+``````
 
 ## tests/test_arenas.py
 
-```python
+``````python
 import random
 from collections import deque
 from unittest.mock import patch
@@ -6657,11 +6985,11 @@ def test_catalog_and_local_selection_and_ai_random_choice_are_networked():
                 ws.send_json({'mode':'ai','map_id':'not-a-map','quick':True});w=ws.receive_json()
                 assert w['map_id']==key
                 snap=ws.receive_json();assert snap['arena']==ARENAS[key] and snap['state']=='COUNTDOWN'
-```
+``````
 
 ## tests/test_browser.py
 
-```python
+``````python
 """Optional real Chromium / DOM / Canvas / WebSocket / multi-touch checks.
 AI is paused only in this fixture; normal AI matches are tested in test_game.py.
 """
@@ -6804,7 +7132,6 @@ def test_local_three_devices_with_two_players_each(browser,server_url):
         for page in pages:
             for button in page.locator('[data-ready]').all():button.click()
         host=pages[0];host.wait_for_function('state.players.length===6&&state.players.every(p=>p.ready)')
-        host.locator('#start').click()
         for page in pages:
             page.wait_for_selector('#playUI:not(.hidden)')
             assert page.locator('.joystick').count()==2
@@ -6942,11 +7269,11 @@ def test_five_landmarks_and_local_map_selection(browser,server_url):
         page.locator('#matchMap').select_option('railway');page.wait_for_function('state.map_id==="railway"')
         assert not errors,errors
     finally:context.close()
-```
+``````
 
 ## tests/test_game.py
 
-```python
+``````python
 import math
 import random
 from backend.game import Room, Player, clear, walk
@@ -6989,18 +7316,18 @@ def test_elimination_best_of_five():
     assert len(r.history)==3
 
 
-def test_cheats_ammo_recoil_aim_and_damage():
+def test_cheats_recoil_aim_and_damage():
     r,p=ai_room()
     p.x,p.y,p.yaw=2.5,1.5,.2
     target=next(q for q in r.players.values() if q.team==1)
     target.x,target.y,target.hp=6.5,1.5,100
     for q in r.players.values():q.bot=False
     for key in p.cheats:r.command(p,{'type':'toggle','key':key})
-    p.ammo=0
+    p.ammo=30
     r.command(p,{'type':'input','aim':True,'fire':True})
     r.tick(.01)
     assert abs(p.yaw)<.001
-    assert target.hp==75 and p.ammo==0 and p.kick==0
+    assert target.hp==75 and p.ammo==29 and p.kick==0
     for _ in range(3):
         p.cooldown=0
         r.shoot(p)
@@ -7088,12 +7415,11 @@ def test_six_real_websocket_players():
             code=w['code']
             connections.append((ws,w['ids'][0]))
         for ws,pid in connections:ws.send_json({'id':pid,'type':'ready'})
-        # A state snapshot acknowledges all six readiness changes before start.
+        # The final readiness message automatically starts the match.
         host=connections[0][0]
         for _ in range(30):
             snap=host.receive_json()
             if len(snap.get('players',[]))==6 and all(p['ready'] for p in snap['players']): break
-        host.send_json({'type':'start','id':connections[0][1]})
         for _ in range(30):
             snap=host.receive_json()
             if snap.get('state')=='COUNTDOWN':break
@@ -7137,7 +7463,7 @@ def test_quick_ai_skips_lobby_for_two_humans_and_pings():
             humans=[p for p in snap['players'] if not p['bot']]
             assert len(humans)==2 and all(p['team']==0 for p in humans)
             assert [p['skin'] for p in humans]==['rogue','warden']
-            assert humans[0]['cheats']['ammo'] and humans[1]['cheats']['esp']
+            assert set(humans[0]['cheats'])=={'aim','esp','recoil'} and humans[1]['cheats']['esp']
             assert all(not any(p['cheats'].values()) for p in snap['players'] if p['bot'])
             ws.send_json({'type':'ping','sent':123})
             for _ in range(10):
@@ -7198,11 +7524,176 @@ def test_walk_is_independent_of_render_frame_rate():
         for _ in range(rate):walk(p,1,0,1/rate)
         positions.append(p.x)
     assert max(positions)-min(positions)<.00001
-```
+``````
+
+## tests/test_local_browser.py
+
+``````python
+import os
+import pytest
+from test_browser import browser,server_url
+
+pytestmark=pytest.mark.skipif(os.getenv('CHEAT_FPS_BROWSER_TESTS')!='1',reason='Opt-in browser checks')
+
+
+def open_local(page,url,split=False,code=''):
+    page.goto(url);page.locator('#mode').select_option('local');page.locator('#create').click()
+    if split:page.locator('#split').check()
+    if code:page.locator('#code').fill(code);page.locator('#join').click()
+    else:page.locator('#hostLocal').click()
+    page.wait_for_function('state?.state==="LOBBY"')
+
+
+def test_one_device_split_waits_for_both_ready_then_starts_two_players(browser,server_url):
+    context=browser.new_context(viewport={'width':1180,'height':760},has_touch=True,is_mobile=True)
+    errors=[]
+    try:
+        page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+        open_local(page,server_url,split=True)
+        assert page.locator('[data-ready]').count()==2 and page.locator('#start').is_disabled()
+        a,b=page.evaluate('ids')
+        page.locator(f'[data-ready="{a}"]').tap()
+        page.wait_for_function('state.players.find(p=>p.id===ids[0]).ready')
+        assert page.evaluate('state.state==="LOBBY"&&!state.players.find(p=>p.id===ids[1]).ready')
+        assert page.locator('#start').is_disabled()
+        page.locator(f'[data-ready="{b}"]').tap()
+        page.wait_for_function('state?.state==="COUNTDOWN"')
+        assert page.evaluate('state.players.length===2&&state.players.every(p=>!p.bot)&&[0,1].every(t=>state.players.filter(p=>p.team===t).length===1)')
+        page.wait_for_function('state?.state==="PLAYING"')
+        assert page.locator('.joystick').count()==2 and page.locator('#playUI').is_visible()
+        assert not errors,errors
+    finally:context.close()
+
+
+def test_two_devices_cannot_start_on_one_team_then_auto_start_one_vs_one(browser,server_url):
+    context=browser.new_context(viewport={'width':1180,'height':760})
+    errors=[]
+    try:
+        a=context.new_page();b=context.new_page()
+        for page in [a,b]:page.on('pageerror',lambda e:errors.append(str(e)))
+        open_local(a,server_url);open_local(b,server_url,code=a.evaluate('state.code'))
+        a.wait_for_function('state.players.length===2')
+        a.locator('[data-ready]').click();b.locator('[data-ready]').click()
+        a.wait_for_function('state.players.every(p=>p.ready)')
+        assert a.evaluate('state.state==="LOBBY"&&!state.can_start')
+        assert a.locator('#start').is_disabled() and '각각 1명' in a.locator('#controlsInfo').inner_text()
+        b.locator('[data-team]').select_option('1')
+        b.wait_for_function('state.players.find(p=>p.id===ids[0]).team===1&&!state.players.find(p=>p.id===ids[0]).ready')
+        assert b.evaluate('state.state==="LOBBY"')
+        b.locator('[data-ready]').click()
+        for page in [a,b]:
+            page.wait_for_function('state?.state==="COUNTDOWN"')
+            assert page.evaluate('ids.length===1&&state.players.length===2&&state.players.every(p=>!p.bot)')
+        assert not errors,errors
+    finally:context.close()
+``````
+
+## tests/test_local_start.py
+
+``````python
+from contextlib import ExitStack
+
+import pytest
+from fastapi.testclient import TestClient
+from backend.game import Room
+from backend.main import app
+
+
+@pytest.mark.parametrize('blue,red',[(1,1),(2,1),(1,2),(3,3)])
+def test_any_occupied_teams_start_when_the_last_human_readies_without_filling_bots(blue,red):
+    room=Room('LOCAL','local')
+    players=[room.add(str(i),team) for team,count in [(0,blue),(1,red)] for i in range(count)]
+    for p in players[:-1]:
+        room.command(p,dict(type='ready'))
+        assert room.state=='LOBBY'
+    room.command(players[-1],dict(type='ready'))
+    assert room.state=='COUNTDOWN' and room.round==1
+    assert len(room.players)==blue+red and not any(p.bot for p in players)
+    assert [sum(p.team==t for p in players) for t in (0,1)]==[blue,red]
+
+
+@pytest.mark.parametrize('blue,red',[(1,0),(0,2),(0,0)])
+def test_empty_team_or_empty_lobby_cannot_start_even_if_everyone_readies(blue,red):
+    room=Room('LOCAL','local')
+    for team,count in [(0,blue),(1,red)]:
+        for i in range(count):room.command(room.add(str(i),team),dict(type='ready'))
+    assert room.state=='LOBBY' and not room.snapshot()['can_start']
+    with pytest.raises(ValueError):room.start()
+
+
+def test_one_unready_player_blocks_three_player_match_and_the_host_cannot_bypass_it():
+    room=Room('LOCAL','local');a=room.add('Host',0);b=room.add('Guest',1);c=room.add('Third',0)
+    room.command(a,dict(type='ready'));room.command(b,dict(type='ready'))
+    assert room.state=='LOBBY' and not c.ready
+    with pytest.raises(ValueError):room.command(a,dict(type='start'))
+    room.command(c,dict(type='ready'));assert room.state=='COUNTDOWN'
+
+
+def test_team_change_resets_readiness_and_one_sided_ready_players_stay_in_lobby():
+    room=Room('LOCAL','local');a=room.add('Host',0);b=room.add('Guest',0)
+    room.command(a,dict(type='ready'));room.command(b,dict(type='ready'))
+    assert room.state=='LOBBY' and '각각 1명' in room.snapshot()['start_hint']
+    room.command(b,dict(type='custom',team=1));assert not b.ready
+    assert room.state=='LOBBY' and not room.snapshot()['can_start']
+    room.command(b,dict(type='ready'));assert room.state=='COUNTDOWN'
+
+
+def test_map_change_resets_everyone_before_automatic_start():
+    room=Room('LOCAL','local');a=room.add('Host',0);b=room.add('Guest',1)
+    room.command(a,dict(type='ready'));room.command(a,dict(type='map',map_id='railway'))
+    assert not a.ready and not b.ready
+    room.command(b,dict(type='ready'));assert room.state=='LOBBY'
+    room.command(a,dict(type='ready'));assert room.state=='COUNTDOWN' and room.map_id=='railway'
+
+
+def test_one_vs_one_finishes_a_best_of_five_and_can_return_to_lobby_and_restart():
+    room=Room('LOCAL','local');a=room.add('Host',0);b=room.add('Guest',1)
+    for p in [a,b]:room.command(p,dict(type='ready'))
+    for n in range(3):
+        room.tick(3.1);assert room.state=='PLAYING'
+        b.hp=0;room.tick(.01);assert room.score==[n+1,0]
+        if n<2:room.tick(4.1)
+    assert room.state=='MATCH_END' and len(room.players)==2
+    room.command(a,dict(type='lobby'));assert room.state=='LOBBY' and not any(p.ready for p in room.players.values())
+    for p in [a,b]:room.command(p,dict(type='ready'))
+    assert room.state=='COUNTDOWN' and room.score==[0,0] and room.round==1
+
+
+def until(ws,predicate):
+    for _ in range(60):
+        data=ws.receive_json()
+        if predicate(data):return data
+    raise AssertionError('Expected WebSocket state was not received')
+
+
+def test_real_split_connection_requires_both_players_to_ready_then_auto_starts():
+    with TestClient(app) as client,client.websocket_connect('/ws') as ws:
+        ws.send_json(dict(mode='local',split=True));welcome=ws.receive_json();a,b=welcome['ids']
+        ws.send_json(dict(type='ready',id=a))
+        state=until(ws,lambda d:d.get('type')=='state' and d['players'][0]['ready'])
+        assert state['state']=='LOBBY' and not state['players'][1]['ready'] and not state['can_start']
+        ws.send_json(dict(type='start',id=a));assert until(ws,lambda d:d.get('type')=='error')
+        ws.send_json(dict(type='ready',id=b))
+        state=until(ws,lambda d:d.get('state')=='COUNTDOWN')
+        assert len(state['players'])==2 and all(p['ready'] and not p['bot'] for p in state['players'])
+        assert {p['team'] for p in state['players']}=={0,1}
+
+
+def test_real_separate_connections_can_start_one_vs_one_after_team_assignment():
+    with TestClient(app) as client,ExitStack() as stack:
+        host=stack.enter_context(client.websocket_connect('/ws'));host.send_json(dict(mode='local'))
+        a=host.receive_json();guest=stack.enter_context(client.websocket_connect('/ws'))
+        guest.send_json(dict(code=a['code']));b=guest.receive_json()
+        host.send_json(dict(type='ready',id=a['ids'][0]))
+        guest.send_json(dict(type='custom',team=1,id=b['ids'][0]))
+        guest.send_json(dict(type='ready',id=b['ids'][0]))
+        state=until(host,lambda d:d.get('state')=='COUNTDOWN')
+        assert len(state['players'])==2 and {p['team'] for p in state['players']}=={0,1}
+``````
 
 ## tests/test_train.py
 
-```python
+``````python
 import math
 from unittest.mock import patch
 
@@ -7312,11 +7803,11 @@ def test_train_metadata_and_clock_reach_websocket_clients():
             assert welcome['arena']['train']==C
             assert snapshot['train']==train_pose(0,C)
             assert snapshot['map_id']=='railway' and len(snapshot['players'])==6
-```
+``````
 
 ## tests/test_train_browser.py
 
-```python
+``````python
 """Opt-in checks with real WebSockets and the bundled renderer; no production test APIs."""
 import os
 import socket
@@ -7415,11 +7906,11 @@ def test_three_split_clients_share_train_motion_collision_and_spectating(browser
         assert pages[0].locator('.spectate-button:not(.hidden)').count()==2
         assert not errors,errors
     finally:context.close()
-```
+``````
 
 ## tests/test_webkit.py
 
-```python
+``````python
 """WebKit engine touch routing checks; these do not emulate physical iPad OS UI."""
 import os
 import pytest
@@ -7487,4 +7978,4 @@ def test_webkit_tap_drag_final_position_and_pause(safari):
     assert page.evaluate('contacts.size===0');page.locator('#settingsClose').tap()
     page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(150)
     assert page.evaluate('viewportLayout()[1].y>0&&viewportLayout()[1].w===viewportWidth')
-```
+``````
