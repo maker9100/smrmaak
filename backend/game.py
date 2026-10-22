@@ -8,7 +8,8 @@ from dataclasses import dataclass, field, asdict
 from .arenas import ARENAS, DEFAULT_ARENA, MAP
 from .hazards import train_pose, train_hits, segment_box
 
-CHEATS = ('aim', 'esp', 'recoil', 'ammo')
+CHEATS = ('aim', 'esp', 'recoil')
+AIM_CONE = .95
 MOVE_SPEED = 3.6
 MOVE_ACCEL = 22.0
 
@@ -123,7 +124,7 @@ class Room:
         p = self.players.get(pid)
         if not p: return
         if self.state in ('PLAYING','COUNTDOWN','ROUND_END'):
-            # Keep the six-player roster but never give replacement AI cheats.
+            # Keep the match roster but never give replacement AI cheats.
             p.bot = True
             p.name = p.name[:12] + '·AI'
             p.cheats = dict.fromkeys(CHEATS,False)
@@ -132,11 +133,18 @@ class Room:
         humans = [q.id for q in self.players.values() if not q.bot]
         if self.host == pid: self.host = humans[0] if humans else None
 
-    def start(self):
-        if self.state != 'LOBBY': raise ValueError('대기실에서만 시작할 수 있습니다.')
+    def start_error(self):
+        if self.state != 'LOBBY': return '대기실에서만 시작할 수 있습니다.'
         humans = [p for p in self.players.values() if not p.bot]
-        if not all(p.ready for p in humans): raise ValueError('모든 플레이어가 준비해야 합니다.')
-        if self.mode == 'local' and len(humans) != 6: raise ValueError('로컬 대전은 6명이 필요합니다. 기기당 2인 접속도 가능합니다.')
+        if not humans: return '플레이어가 필요합니다.'
+        if self.mode == 'local' and not all(any(p.team == t for p in humans) for t in (0,1)):
+            return 'BLUE와 RED에 각각 1명 이상 참가해야 합니다.'
+        if not all(p.ready for p in humans): return '참가자 전원이 준비해야 합니다. 분할 화면도 각각 준비해 주세요.'
+        return ''
+
+    def start(self):
+        reason = self.start_error()
+        if reason: raise ValueError(reason)
         if self.mode == 'ai':
             for team in (0,1):
                 while sum(p.team == team for p in self.players.values()) < 3:
@@ -205,7 +213,9 @@ class Room:
             if data.get('map_id') not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
             self.map_id = data['map_id']
             for q in self.players.values(): q.ready = False
-        elif op == 'ready' and self.state == 'LOBBY': p.ready = not p.ready
+        elif op == 'ready' and self.state == 'LOBBY':
+            p.ready = not p.ready
+            if self.mode == 'local' and not self.start_error(): self.start()
         elif op == 'start' and p.id == self.host: self.start()
         elif op == 'lobby' and p.id == self.host and self.state == 'MATCH_END':
             self.players = {i:q for i,q in self.players.items() if not q.bot}
@@ -276,14 +286,26 @@ class Room:
                 return False
         return True
 
+    def assist_aim(self,p):
+        """Acquire a visible enemy before the shot, including queued mobile taps."""
+        if p.bot or p.hp <= 0 or not p.cheats['aim'] or self.state != 'PLAYING': return
+        targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0
+                   and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < AIM_CONE
+                   and self.sight(p.x,p.y,q.x,q.y)]
+        if not targets: return
+        q = min(targets,key=lambda q:(abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)),math.hypot(q.x-p.x,q.y-p.y),q.id))
+        p.yaw = math.atan2(q.y-p.y,q.x-p.x)
+        p.pitch = math.atan2(-.15,math.hypot(q.x-p.x,q.y-p.y))
+
     def shoot(self,p):
-        if p.cooldown > 0 or (p.reload > 0 and not p.cheats['ammo']): return
-        if not p.cheats['ammo'] and p.ammo <= 0:
+        if p.cooldown > 0 or p.reload > 0: return
+        if p.ammo <= 0:
             p.reload = 1.5
             return
         p.cooldown = .30 if p.bot else .115
         p.shots += 1
-        if not p.cheats['ammo']: p.ammo -= 1
+        p.ammo -= 1
+        self.assist_aim(p)
         spread = random.uniform(-.09,.09) if p.bot else (0 if p.cheats['recoil'] else random.uniform(-p.kick,p.kick))
         direction = p.yaw + spread
         candidates = []
@@ -344,13 +366,9 @@ class Room:
                     self.log.append(dict(killer='기차',victim=p.name,team=None,cause='train'))
                     self.log=self.log[-6:]
                     continue
-            if p.cheats['aim'] and p.inp.get('aim'):
-                targets = [q for q in self.players.values() if q.team != p.team and q.hp > 0 and self.sight(p.x,p.y,q.x,q.y) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)) < .65]
-                if targets:
-                    q = min(targets,key=lambda q:abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)))
-                    p.yaw = math.atan2(q.y-p.y,q.x-p.x)
-                    p.pitch = math.atan2(-.15,math.hypot(q.x-p.x,q.y-p.y))
-            if p.inp.get('reload') and not p.cheats['ammo'] and p.ammo < 30 and p.reload == 0: p.reload = 1.5
+            if p.inp.get('aim') or p.inp.get('fire') or p.tap_pending > 0:
+                self.assist_aim(p)
+            if p.inp.get('reload') and p.ammo < 30 and p.reload == 0: p.reload = 1.5
             if p.inp.get('fire') or p.tap_pending > 0:
                 shots = p.shots
                 self.shoot(p)
@@ -376,4 +394,5 @@ class Room:
             for k in ('inp','route','think','stale','tap_pending','tap_serial','reaction'): d.pop(k)
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
-        return dict(type='state',train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        reason = self.start_error()
+        return dict(type='state',can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)

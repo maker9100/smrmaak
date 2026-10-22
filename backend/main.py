@@ -47,7 +47,7 @@ app.mount('/static', StaticFiles(directory=ROOT), name='static')
 async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Control':'no-cache'})
 
 @app.get('/health')
-async def health(): return {'status':'ok','version':'0.2.3','rooms':len(rooms)}
+async def health(): return {'status':'ok','version':'0.2.5','rooms':len(rooms)}
 
 @app.get('/arena')
 async def arena(): return {'map':MAP}
@@ -98,7 +98,7 @@ async def socket(ws:WebSocket):
             room.quick = True
             for pid in owned: room.players[pid].ready = True
             room.start()
-        await ws.send_json({'type':'welcome','version':'0.2.3','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
+        await ws.send_json({'type':'welcome','version':'0.2.5','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))
