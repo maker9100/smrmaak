@@ -46,5 +46,19 @@ ARENAS={
 grid=ARENAS['railway']['grid']
 for y in range(15,20):grid[y]='0'+grid[y][1:-1]+'0'
 ARENAS['railway']['train']=dict(period=24.,warning=3.,start=-14.,end=74.,speed=5.6,y=17.5,length=12.,width=4.,damage=100)
-DEFAULT_ARENA='freight'
+# One lifted container shuttles between two marked landing pads.
+ARENAS['freight']['crane'] = dict(period=20., warning=3., travel=6.,
+    pads=[[27,7,6,2],[27,26,6,2]])
+for x,y,w,h in ARENAS['freight']['crane']['pads']:
+    grid=[list(row) for row in ARENAS['freight']['grid']]
+    for yy in range(y,y+h):
+        for xx in range(x,x+w): grid[yy][xx]='0'
+    ARENAS['freight']['grid']=[''.join(row) for row in grid]
+# Twelve clock-hour shelters surrounding the central tower.
+import math
+ring=[(round(30+14.5*math.cos(i*math.pi/6)-1),round(17.5+14.5*math.sin(i*math.pi/6)-1),2,2) for i in range(12)]
+ARENAS['plaza']['grid']=layout(ring+[(28,15,4,5)])
+ARENAS['plaza']['cover_count']=13
+ARENAS['plaza']['clock']=dict(x=30.,y=17.5,period=24.,inner=3.,length=13.,width=.32,damage=35,hit_interval=1.)
+DEFAULT_ARENA='freight' 
 MAP=ARENAS[DEFAULT_ARENA]['grid']

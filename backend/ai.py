@@ -94,7 +94,7 @@ def update_ai(room,p,dt):
     if not p.brain:
         slot=[q.id for q in room.players.values() if q.team==p.team].index(p.id)
         p.brain=dict(style=('flank','advance','roam')[slot%3],lane=slot%3,mode='patrol',step=0,
-                     plan=0,speed=random.uniform(3.6,4.5),side=random.choice([-1,1]),memory=None,memory_ttl=0,
+                     plan=0,speed=random.uniform(4.1,5.0),side=random.choice([-1,1]),memory=None,memory_ttl=0,
                      goal=None,burst=0,rest=0,stuck=0,smooth=0,target=None,wait=0)
     b=p.brain;b['plan']-=dt;b['memory_ttl']=max(0,b['memory_ttl']-dt);b['rest']=max(0,b['rest']-dt)
     enemies=[q for q in room.players.values() if q.team!=p.team and q.hp>0]
@@ -112,7 +112,30 @@ def update_ai(room,p,dt):
             b['burst']-=dt
             p.inp['fire']=abs(error)<.16 and p.reaction>.65
             if b['burst']<=0:b['rest']=random.uniform(.25,.65)
-    else:p.reaction=0;b['target']=None
+    else:
+        p.reaction=0;b['target']=None
+        # Share only a teammate's recently observed position, never unseen enemy state.
+        if b['memory_ttl']<=0:
+            reports=[a.brain for a in room.players.values() if a.team==p.team and a.id!=p.id and a.hp>0 and a.brain.get('memory_ttl',0)>4 and math.hypot(a.x-p.x,a.y-p.y)<24]
+            if reports:b['memory']=reports[0]['memory'];b['memory_ttl']=3;b['plan']=0
+    if target and p.equip==0:
+        d=math.hypot(target.x-p.x,target.y-p.y)
+        desired='shotgun' if d<10 else 'rifle'
+        if p.magazines.get(desired,0)==0 and p.reserves.get(desired,0)==0:desired='pistol'
+        if p.ammo==0 and p.reserves[p.weapon]==0:
+            desired=next((k for k in ('rifle','pistol','shotgun') if p.magazines[k]>0 or p.reserves[k]>0),desired)
+        if desired!=p.weapon and b['rest']<=0:room.equip_weapon(p,desired);b['rest']=.5
+    if p.ammo==0:p.inp['reload']=True
+    # Reload proactively behind cover, with a route away from pressure.
+    if p.reload>0 and target:b['plan']=min(b['plan'],.15)
+
+    clock=room.arena.get('clock')
+    if clock:
+        dx,dy=p.x-clock['x'],p.y-clock['y'];d=math.hypot(dx,dy)
+        future=(room.train_time+.65)*2*math.pi/clock['period']
+        if clock['inner']<d<clock['length']+1 and abs(angle(math.atan2(dy,dx)-future))<.45:
+            goal=free_point(room,clock['x']+dx/max(.1,d)*15.6,clock['y']+dy/max(.1,d)*15.6)
+            b['mode']='evade_clock';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.7
     config=room.arena.get('train');evade=False
     if config and abs(p.y-config['y'])<3.1:
         from .hazards import train_pose
