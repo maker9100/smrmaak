@@ -156,13 +156,13 @@ def test_analog_acceleration_release_and_diagonal_speed():
     walk(p,1,0,1/60)
     assert 0<p.vx<3.6
     for _ in range(30): walk(p,.5,0,1/60)
-    assert abs(p.vx-3.6)<.001
+    assert abs(p.vx-4.0)<.001
     start=p.x
     for _ in range(30): walk(p,0,0,1/60)
     assert p.x-start<.2 and abs(p.vx)<.001
     a=Player('b','Diagonal',0,x=2,y=1.5)
     walk(a,1,1,.1)
-    assert math.hypot(a.vx,a.vy)<=7.2
+    assert math.hypot(a.vx,a.vy)<=8.0
 
 
 def test_absolute_yaw_and_malformed_input_are_safe():

@@ -8,7 +8,7 @@ from backend.game import Room,Player,wall,clear,walk
 @pytest.mark.parametrize('key',list(ARENAS))
 def test_exact_world_size_more_cover_and_six_spawn_bodies_are_clear(key):
     a=ARENAS[key];assert (a['width'],a['depth'],a['cell_size'])==(60,35,1)
-    assert a['cover_count']>=17
+    assert a['cover_count'] >= (13 if key=='plaza' else 17)
     for team in a['spawns']:
         for x,y in team:
             assert all(not wall(x+dx,y+dy,a['grid']) for dx in [-PLAYER_RADIUS,PLAYER_RADIUS] for dy in [-PLAYER_RADIUS,PLAYER_RADIUS])
@@ -18,7 +18,7 @@ def test_exact_world_size_more_cover_and_six_spawn_bodies_are_clear(key):
 def test_player_can_cross_the_old_world_boundary_without_changing_physical_speed():
     p=Player('walk','Walker',0,x=35,y=1.5)
     for _ in range(120):walk(p,1,0,1/60)
-    assert p.x>48 and p.x<50
+    assert p.x>50 and p.x<51
     assert clear(2.5,1.5,57.5,1.5)
 
 

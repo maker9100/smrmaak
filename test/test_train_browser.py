@@ -55,7 +55,10 @@ uvicorn.run(app,host='127.0.0.1',port=PORT,log_level='error')
 
 @pytest.mark.parametrize('fallback',[False,True])
 def test_three_split_clients_share_train_motion_collision_and_spectating(browser,train_server,fallback):
-    context=browser.new_context(viewport={'width':1100,'height':720},has_touch=True,is_mobile=True)
+    # Three clients share one software GPU in CI. Low quality and a small
+    # framebuffer isolate synchronization; high/balanced are tested separately.
+    context=browser.new_context(viewport={'width':480,'height':320},has_touch=True,is_mobile=True)
+    context.add_init_script("localStorage.setItem('cheat-fps-options',JSON.stringify({quality:6}))")
     errors=[]
     try:
         pages=[context.new_page() for _ in range(3)]
@@ -78,7 +81,9 @@ def test_three_split_clients_share_train_motion_collision_and_spectating(browser
         starts=[page.evaluate('renderTrain.x') for page in pages]
         pages[0].wait_for_timeout(300)
         for i,page in enumerate(pages):
-            assert page.evaluate('renderTrain.x')>starts[i]+.3
+            # Animation delivery can be slower on a shared software GPU;
+            # speed is asserted against the server clock in test_train.py.
+            page.wait_for_function('(x)=>renderTrain.active&&renderTrain.x>x+.3',arg=starts[i],timeout=15000)
             if not fallback:
                 assert page.evaluate('renderer3d.trainRoot.visible&&Math.abs(renderer3d.trainRoot.position.x-(renderTrain.x-renderer3d.mapWidth/2))<.001')
             else:

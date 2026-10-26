@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import pytest
-from test_browser import browser, center, start_split_ai, touch
+from test_browser import browser, center, start_split_ai, touch, tap
 
 pytestmark=pytest.mark.skipif(os.getenv('CHEAT_FPS_BROWSER_TESTS')!='1',reason='Opt-in browser checks')
 
@@ -78,9 +78,9 @@ def test_mobile_tap_aim_and_three_cheats_per_player(browser,aim_server,split):
             if split:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).cheats.aim',arg=pid)
             assert page.evaluate('i=>!control(i).ads',i)
             area=page.locator(f'[data-look="{i}"]').bounding_box();x,y=area['x']+area['width']*.55,area['y']+area['height']*.38
-            touch(cdp,'touchStart',[(40+i,x,y)]);touch(cdp,'touchEnd',[])
+            tap(cdp,x,y,40+i)
             target=data['targets'][i]
-            try:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).hp===75',arg=target,timeout=5000)
+            try:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).hp===75',arg=target,timeout=15000)
             except Exception:
                 pytest.fail(str(page.evaluate('''({i,x,y})=>({i,phase:state.state,players:state.players.map(p=>({id:p.id,team:p.team,bot:p.bot,x:p.x,y:p.y,yaw:p.yaw,pitch:p.pitch,hp:p.hp,shots:p.shots,ammo:p.ammo,cheats:p.cheats})),motion:ids.map(id=>motion.get(id)),element:document.elementFromPoint(x,y)?.outerHTML})''',dict(i=i,x=x,y=y))))
             assert page.evaluate('id=>{const p=state.players.find(p=>p.id===id);return p.shots===1&&p.ammo===29}',pid)

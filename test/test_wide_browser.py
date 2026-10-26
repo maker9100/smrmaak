@@ -17,13 +17,13 @@ def test_five_expanded_maps_render_and_use_the_full_world_coordinates(browser,se
                 const a=arenaCatalog[i];showPreview(i);loadArena(a);
                 const r=renderer3d;
                 const floor=r.staticRoot.children.find(o=>o.geometry?.type==='PlaneGeometry'&&o.geometry.parameters.width===60);
-                const walls=r.staticRoot.children.find(o=>o.isInstancedMesh);
+                const walls=r.staticRoot.children.filter(o=>o.name.startsWith('architecture-'));
                 const mark=r.staticRoot.getObjectByName('landmark-'+a.id);
                 const train=trainAt(a.train,3+44/5.6);r.updateTrain(train);
                 const cameraPlayer={id:'probe',x:45.5,y:1.5,yaw:0,pitch:0,hp:100,cheats:{recoil:false},reload:0};
                 r.begin([],performance.now());r.render(cameraPlayer,{x:0,y:0,w:1200,h:760},1.12,performance.now());
                 const result={size:[r.mapWidth,r.mapDepth],floor:[floor.geometry.parameters.width,floor.geometry.parameters.height],
-                    capacityOk:walls.count<=walls.instanceMatrix.count,landmark:[mark.position.x,mark.position.z],
+                    capacityOk:walls.length>0&&walls.every(o=>Array.from(o.geometry.attributes.position.array).every(Number.isFinite)),landmark:[mark.position.x,mark.position.z],
                     camera:[r.camera.position.x,r.camera.position.y,r.camera.position.z],ray:ray(45.5,1.5,0).d,
                     train:a.train?{visible:r.trainRoot.visible,x:r.trainRoot.position.x,y:train.y}:null};
                 r.preview(performance.now());return result;

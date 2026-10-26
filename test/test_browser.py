@@ -65,6 +65,13 @@ def game(browser,server_url):
 def touch(cdp,kind,points):
     cdp.send('Input.dispatchTouchEvent',dict(type=kind,touchPoints=[dict(id=p[0],x=p[1],y=p[2],radiusX=3,radiusY=3,force=1) for p in points]))
 
+def tap(cdp,x,y,identifier=95):
+    # Keep the physical contact at 30 ms even if a software GPU makes the
+    # two CDP round trips take seconds. The browser creates real TouchEvents.
+    stamp=time.time()
+    cdp.send('Input.dispatchTouchEvent',dict(type='touchStart',timestamp=stamp,touchPoints=[dict(id=identifier,x=x,y=y,radiusX=3,radiusY=3,force=1)]))
+    cdp.send('Input.dispatchTouchEvent',dict(type='touchEnd',timestamp=stamp+.03,touchPoints=[]))
+
 def center(page,selector):
     b=page.locator(selector).bounding_box();return b['x']+b['width']/2,b['y']+b['height']/2
 
@@ -89,7 +96,8 @@ def test_tap_drag_long_press_cancel_and_blur(game):
     touch(cdp,'touchStart',[(4,280,280)]);touch(cdp,'touchMove',[(4,430,280)]);touch(cdp,'touchEnd',[])
     page.wait_for_timeout(150)
     assert shots(page)==before and abs(page.evaluate('motion.get(ids[0]).yaw')-yaw)>.3
-    touch(cdp,'touchStart',[(5,280,280)]);touch(cdp,'touchEnd',[]);page.wait_for_timeout(150)
+    tap(cdp,280,280,5)
+    page.wait_for_function('(n)=>state.players.find(p=>p.id===ids[0]).shots===n',arg=before[0]+1,timeout=15000)
     assert shots(page)[0]==before[0]+1
     a=center(page,'[data-stick="0"]');touch(cdp,'touchStart',[(6,*a)]);touch(cdp,'touchMove',[(6,a[0],a[1]-30)])
     page.wait_for_timeout(1400)
