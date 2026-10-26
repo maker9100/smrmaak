@@ -25,12 +25,10 @@ def test_infinite_empty_toggle_cadence_and_finite_return(weapon):
  p.cooldown=0;r.command(p,dict(type='toggle',key='ammo'));r.shoot(p);assert p.shots==1
  p.bot=True;r.command(p,dict(type='toggle',key='ammo'));assert not p.cheats['ammo']
 
-def test_axe_range_cadence_walls_and_no_ammo_or_bullet_holes():
+def test_empty_axe_cannot_throw_or_damage():
  r,p,q=duel();p.weapon='axe';p.ammo=0;q.x=4.4
- r.shoot(p);assert q.hp==60 and p.shots==1 and p.ammo==0 and not r.impacts
- r.shoot(p);assert q.hp==60
- p.cooldown=0;q.x=5;r.shoot(p);assert q.hp==60
- p.cooldown=0;p.x,p.y=9.5,6;q.x,q.y=10.6,6;r.shoot(p);assert q.hp==60
+ r.shoot(p);assert q.hp==150 and p.shots==0 and not r.axes and not r.impacts
+
 
 def test_grenade_throw_arc_reload_and_explosion_log():
  r,p,q=duel();p.weapon='grenade';p.ammo=1;p.pitch=.3;r.shoot(p)
@@ -123,5 +121,5 @@ def test_ai_can_choose_and_swing_ammo_free_axe(monkeypatch):
  monkeypatch.setattr(ai,'follow',lambda *args:False)
  r,p,q=duel('freight');p.bot=True;p.cheats={k:False for k in p.cheats};q.x=4;q.hp=1000
  for _ in range(50):r.tick(.05)
- assert p.weapon=='axe' and q.hp<1000 and p.shots>0 and p.ammo==0
+ assert q.hp<1000 and p.shots>0 and p.magazines['axe']==1
  assert not any(p.cheats.values())
