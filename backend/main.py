@@ -63,7 +63,7 @@ async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Contr
 @app.get('/health')
 async def health():
     healthy=simulation_task is not None and not simulation_task.done()
-    return JSONResponse({'status':'ok' if healthy else 'error','version':'0.7.0','build':'0.7.0-g1','rooms':len(rooms)},status_code=200 if healthy else 503)
+    return JSONResponse({'status':'ok' if healthy else 'error','version':'0.7.0','build':'0.7.0-g2','rooms':len(rooms)},status_code=200 if healthy else 503)
 
 @app.get('/arena')
 async def arena(): return {'map':MAP}
@@ -118,7 +118,7 @@ async def socket(ws:WebSocket):
             room.quick = True
             for pid in owned: room.players[pid].ready = True
             room.start()
-        await ws.send_json({'type':'welcome','version':'0.7.0','build':'0.7.0-g1','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
+        await ws.send_json({'type':'welcome','version':'0.7.0','build':'0.7.0-g2','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))

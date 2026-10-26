@@ -124,7 +124,8 @@ def update_ai(room,p,dt):
         d=math.hypot(target.x-p.x,target.y-p.y)
         desired='axe' if d<1.9 else 'shotgun' if d<10 else 'rifle'
         if 8<d<20 and p.magazines.get('grenade',0)+p.reserves.get('grenade',0)>0 and room.train_time>b.get('grenade_at',8):
-            desired='grenade';b['grenade_at']=room.train_time+12;b['grenade_shots']=p.shots
+            desired='grenade';b['pending_grenade']=True;b['grenade_at']=room.train_time+12;b['grenade_shots']=p.shots
+        if b.get('pending_grenade') and p.magazines['grenade']+p.reserves['grenade']>0:desired='grenade'
         if p.weapon=='grenade' and p.shots==b.get('grenade_shots',-1) and (p.ammo>0 or p.reserves['grenade']>0):desired='grenade'
         if WEAPONS[desired]['kind']!='melee' and p.magazines[desired]+p.reserves[desired]==0:
             desired=next((k for k in ('rifle','pistol','shotgun') if p.magazines[k]+p.reserves[k]>0),'axe')

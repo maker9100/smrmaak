@@ -17,7 +17,7 @@ def ray_box(origin,direction,bounds,limit):
 
 def bullet_impact(room,p,yaw,pitch,limit):
     direction=(math.cos(yaw)*math.cos(pitch),math.sin(yaw)*math.cos(pitch),math.sin(pitch))
-    origin=(p.x,p.y,1.5);best=None
+    origin=(p.x,p.y,p.z+(.975 if p.crouch else 1.5));best=None
     def test(bounds,surface='world',anchor=None,angle=0):
         nonlocal best
         o,d=origin,direction
@@ -53,7 +53,7 @@ def bullet_impact(room,p,yaw,pitch,limit):
     if direction[2]<-.001:
         dist=-origin[2]/direction[2]
         if 0<dist<=limit and (best is None or dist<best['distance']):
-            best=dict(x=origin[0]+direction[0]*dist,y=origin[1]+direction[1]*dist,z=0,nx=0,ny=0,nz=1,surface='world',anchor=None,distance=dist,ox=p.x,oy=p.y,oz=1.5,dx=direction[0],dy=direction[1],dz=direction[2])
+            best=dict(x=origin[0]+direction[0]*dist,y=origin[1]+direction[1]*dist,z=0,nx=0,ny=0,nz=1,surface='world',anchor=None,distance=dist,ox=p.x,oy=p.y,oz=origin[2],dx=direction[0],dy=direction[1],dz=direction[2])
     for bounds in room.arena.get('ballistic_solids',[]):test(bounds)
     if room.arena.get('train'):
         from .hazards import train_pose

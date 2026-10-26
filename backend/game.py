@@ -51,7 +51,7 @@ def move(p, dx, dy, grid=MAP):
 def walk(p, f, s, dt, aiming=False, grid=MAP):
     """Accelerate along a normalized analog input, with friction on release."""
     length = max(1, math.hypot(f, s))
-    speed = (5.7 if aiming else MOVE_SPEED)*profile(p.skin)['speed']
+    speed = (5.7 if aiming else MOVE_SPEED)*profile(p.skin)['speed']*(.55 if p.crouch else 1)
     tx = (math.cos(p.yaw)*f-math.sin(p.yaw)*s)*speed/length
     ty = (math.sin(p.yaw)*f+math.cos(p.yaw)*s)*speed/length
     blend = 1-math.exp(-MOVE_ACCEL*dt)
@@ -77,6 +77,10 @@ class Player:
     y: float = 2.5
     yaw: float = 0
     pitch: float = 0
+    z: float = 0
+    vz: float = 0
+    crouch: bool = False
+    jump_held: bool = False
     vx: float = 0
     vy: float = 0
     seq: int = 0
@@ -104,6 +108,7 @@ class Player:
     reload: float = 0
     cooldown: float = 0
     kick: float = 0
+    shot_weapon: str = "rifle"
     shots: int = 0
     hit: int = 0
     ready: bool = False
@@ -120,6 +125,7 @@ class Room:
         if map_id not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
         self.map_id = map_id
         self.players = {}
+        self.axes=[]
         self.host = None
         self.state = 'LOBBY'
         self.timer = 0
@@ -136,7 +142,7 @@ class Room:
         self.crane_state = None
         self.heat_zones = []
         self.next_heat = 4.
-        self.grenades=[];self.explosions=[];self.impacts=[];self.effect_serial=0
+        self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[];self.effect_serial=0
 
     @property
     def arena(self): return ARENAS[self.map_id]
@@ -214,12 +220,13 @@ class Room:
                 p.reserves = {k:v['reserve'] for k,v in WEAPONS.items()}
                 p.hazard_cooldown = p.heat_cooldown = 0
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = profile(p.skin)['hp'],WEAPONS[p.weapon]['capacity'],0,0,0
+                p.z=p.vz=0;p.crouch=p.jump_held=False
                 p.shield=0;p.shield_unlocked=False;p.damage_age=0;p.shield_regen=0
                 p.equip = 0
                 p.inp,p.route = {},[]
                 p.vx,p.vy,p.stale = 0,0,0
                 p.pitch,p.input_age,p.tap_pending,p.reaction = 0,0,0,0
-        self.grenades=[];self.explosions=[];self.impacts=[]
+        self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[]
         self.message = f'ROUND {self.round}'
 
     def finish(self, winner, reason):
@@ -236,7 +243,7 @@ class Room:
                 v = data.get(key,0)
                 return max(-1,min(1,float(v))) if isinstance(v,(int,float)) and math.isfinite(v) else 0
             p.inp = {k:num(k) for k in ('f','s','turn')}
-            p.inp.update({k:data.get(k) is True for k in ('fire','aim','reload')})
+            p.inp.update({k:data.get(k) is True for k in ('fire','aim','reload','jump','crouch')})
             yaw = data.get('yaw')
             if isinstance(yaw,(int,float)) and math.isfinite(yaw) and not p.bot and p.hp > 0:
                 p.yaw = angle(yaw)
@@ -333,10 +340,11 @@ class Room:
         if not targets: return
         q = min(targets,key=lambda q:(abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw)),math.hypot(q.x-p.x,q.y-p.y),q.id))
         p.yaw = math.atan2(q.y-p.y,q.x-p.x)
-        p.pitch = math.atan2(-.3,math.hypot(q.x-p.x,q.y-p.y))
+        p.pitch = math.atan2(q.z+1.2*(.65 if q.crouch else 1)-p.z-(.975 if p.crouch else 1.5),math.hypot(q.x-p.x,q.y-p.y))
 
     def equip_weapon(self,p,key):
         if not isinstance(key,str) or key not in WEAPONS or key == p.weapon or p.equip > 0: return
+        if not self.available(p,key):return
         p.magazines[p.weapon] = p.ammo
         p.weapon = key
         p.ammo = p.magazines[key]
@@ -355,7 +363,7 @@ class Room:
         spec = WEAPONS[p.weapon]
         if spec['kind']=='melee':
             self.swing_axe(p);return
-        infinite=not p.bot and p.cheats.get('ammo',False)
+        infinite=p.weapon!='axe' and not p.bot and p.cheats.get('ammo',False)
         if infinite:p.reload=0
         if p.weapon == 'shotgun' and p.ammo > 0 and p.reload > 0 and p.cooldown == 0 and p.equip == 0:
             p.reload = 0
@@ -364,14 +372,18 @@ class Room:
             self.reload_weapon(p)
             return
         p.cooldown = max(.30,spec['interval']) if p.bot else spec['interval']
+        p.shot_weapon=p.weapon
         p.shots += 1
         if not infinite:p.ammo -= 1
         p.magazines[p.weapon] = p.ammo
         self.assist_aim(p)
+        if p.weapon=='axe':
+            self.throw_axe(p);self.auto_weapon(p);return
         if spec['kind']=='grenade':
+            p.brain['pending_grenade']=False
             self.throw_grenade(p);return
         recoil = random.uniform(-.09,.09) if p.bot else (0 if p.cheats['recoil'] else random.uniform(-p.kick,p.kick))
-        damage = {}
+        damage = {};self._head_target=None
         # Each pellet traces independently, hits the nearest visible enemy and
         # never penetrates walls, the train, or another enemy. No client hit list.
         for i in range(spec['pellets']):
@@ -386,21 +398,25 @@ class Room:
             for q in self.players.values():
                 if q.hp <= 0 or q.team == p.team: continue
                 d = math.hypot(q.x-p.x,q.y-p.y)
-                height = 1.5 + math.tan(p.pitch+vertical)*d
-                if d <= spec['range'] and 0 < height < 1.96 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.56,d) and self.sight(p.x,p.y,q.x,q.y):
+                scale=.65 if q.crouch else 1
+                height = p.z+( .975 if p.crouch else 1.5)+math.tan(p.pitch+vertical)*d-q.z
+                if d <= spec['range'] and 0 < height < 1.96*scale and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction)) <= math.atan2(.56,d) :
                     candidates.append((d,q))
             impact=bullet_impact(self,p,direction,p.pitch+vertical,spec['range'])
-            if impact and candidates:candidates=[c for c in candidates if c[0]<impact['distance']+.12]
+            if impact and candidates:candidates=[c for c in candidates if c[0]/max(.01,math.cos(p.pitch+vertical))<impact['distance']+.12]
             if not candidates and impact:self.add_impact(impact)
             if candidates:
                 d,q = min(candidates,key=lambda z:z[0])
                 falloff = max(.2,1-max(0,d-7)/25) if p.weapon == 'shotgun' else 1
-                amount = max(1,round(spec['damage']*falloff*(.64 if p.bot else 1)))
+                height=p.z+(.975 if p.crouch else 1.5)+math.tan(p.pitch+vertical)*d-q.z
+                head=p.weapon in ('rifle','pistol') and height>=1.56*(.65 if q.crouch else 1) and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-direction))<=math.atan2(.16,d)
+                amount = max(1,round(spec['damage']*falloff*(.64 if p.bot else 1)*(2 if head else 1)))
+                if head:self._head_target=q.id
                 damage[q.id] = damage.get(q.id,0) + amount
         if not p.cheats['recoil']: p.kick = min(.13,p.kick+spec['recoil'])
         for pid,amount in damage.items():
             q = self.players[pid]
-            self.weapon_damage(p,q,amount,p.weapon)
+            self.weapon_damage(p,q,amount,p.weapon,headshot=q.id==self._head_target)
 
     def tick(self,dt):
         if self.state in ('COUNTDOWN','ROUND_END'):
@@ -416,10 +432,20 @@ class Room:
         self.update_mechanisms()
         self.update_heat()
         self.update_grenades(dt)
+        self.update_axes(dt)
         train_config = self.arena.get('train')
         for p in list(self.players.values()):
             if p.hp <= 0: continue
             old_position = (p.x,p.y)
+            p.crouch=bool(p.inp.get("crouch"))
+            jump=bool(p.inp.get("jump"))
+            if jump and not p.jump_held and p.z<=0:
+                height=1.1*({"scout":1.2,"guard":.9}.get(p.skin,1))
+                p.vz=math.sqrt(2*18*height)
+            p.jump_held=jump
+            if p.z>0 or p.vz>0:
+                p.z=max(0,p.z+p.vz*dt-9*dt*dt);p.vz-=18*dt
+                if p.z==0:p.vz=0
             p.heat_cooldown = max(0,p.heat_cooldown-dt)
             p.hazard_cooldown = max(0,p.hazard_cooldown-dt)
             p.cooldown = max(0,p.cooldown-dt)
@@ -462,6 +488,7 @@ class Room:
                 self.shoot(p)
                 if p.shots > shots: p.tap_pending = 0
             p.tap_pending = max(0,p.tap_pending-dt)
+            if p.ammo==0 and p.reserves[p.weapon]==0:self.auto_weapon(p)
         alive = [sum(p.hp>0 and p.team==t for p in self.players.values()) for t in (0,1)]
         if alive == [0,0]:
             self.round -= 1
@@ -533,28 +560,61 @@ class Room:
             if blood:p.blood_seq+=1
         return p.hp<=0
 
-    def weapon_damage(self,attacker,target,amount,weapon):
+    def weapon_damage(self,attacker,target,amount,weapon,headshot=False):
         if target.hp<=0:return
         self.apply_damage(target,amount,True)
         if attacker and attacker.id!=target.id:attacker.hit+=1
         if target.hp<=0:
-            target.deaths+=1;target.vx=target.vy=0;target.inp={}
+            target.deaths+=1;target.z=target.vz=0;target.vx=target.vy=0;target.inp={}
             if attacker and attacker.id!=target.id:attacker.kills+=1
-            self.log.append(dict(killer=attacker.name if attacker else '수류탄',victim=target.name,team=attacker.team if attacker else None,weapon=weapon));self.log=self.log[-6:]
+            self.log.append(dict(killer=attacker.name if attacker else '수류탄',victim=target.name,team=attacker.team if attacker else None,weapon=weapon,headshot=headshot));self.log=self.log[-6:]
 
     def add_impact(self,impact):
         self.effect_serial+=1;self.impacts.append(dict(id=self.effect_serial,time=round(self.train_time,3),**{k:round(v,4) if isinstance(v,float) else v for k,v in impact.items()}));self.impacts=self.impacts[-128:]
 
-    def swing_axe(self,p):
-        if p.cooldown>0 or p.equip>0:return
-        p.cooldown=WEAPONS['axe']['interval'];p.shots+=1
-        candidates=[(math.hypot(q.x-p.x,q.y-p.y),q) for q in self.players.values() if q.team!=p.team and q.hp>0
-            and math.hypot(q.x-p.x,q.y-p.y)<=2.2 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw))<.72 and self.sight(p.x,p.y,q.x,q.y)]
-        if candidates:self.weapon_damage(p,min(candidates,key=lambda a:a[0])[1],90,'axe')
+    def available(self,p,key):
+        if key!='axe' and p.cheats.get('ammo') and not p.bot:return True
+        return (p.ammo if key==p.weapon else p.magazines[key])+p.reserves[key]>0
+
+    def auto_weapon(self,p):
+        if self.available(p,p.weapon):return
+        for key in ('rifle','pistol','shotgun','grenade','axe'):
+            if self.available(p,key):self.equip_weapon(p,key);break
+
+    def throw_axe(self,p):
+        self.effect_serial+=1
+        self.axes.append(dict(id=self.effect_serial,owner=p.id,x=p.x,y=p.y,z=p.z+(.975 if p.crouch else 1.5),vx=17*math.cos(p.yaw)*math.cos(p.pitch),vy=17*math.sin(p.yaw)*math.cos(p.pitch),vz=2+17*math.sin(p.pitch),ground=False))
+
+    def update_axes(self,dt):
+        remaining=[]
+        for a in self.axes:
+            owner=self.players.get(a['owner'])
+            if not owner:continue
+            retrieved=False
+            if not a['ground']:
+                for _ in range(max(1,math.ceil(dt/.015))):
+                    h=dt/max(1,math.ceil(dt/.015));a['vz']-=12*h
+                    x,y,z=a['x']+a['vx']*h,a['y']+a['vy']*h,a['z']+a['vz']*h
+                    if self.projectile_blocked(x,y,z):a['vx']=a['vy']=0
+                    else:a['x'],a['y']=x,y
+                    a['z']=z
+                    for q in self.players.values():
+                        scale=.65 if q.crouch else 1
+                        if q.id!=owner.id and q.hp>0 and math.hypot(q.x-a['x'],q.y-a['y'])<.5 and q.z<a['z']<q.z+1.96*scale:
+                            if q.team!=owner.team:self.weapon_damage(owner,q,90*(2 if a['z']>q.z+1.56*scale else 1),'axe',headshot=a['z']>q.z+1.56*scale)
+                            retrieved=True;break
+                    if retrieved:break
+                    if a['z']<=.08:a['z']=.08;a['ground']=True;a['vx']=a['vy']=a['vz']=0;break
+            elif owner.hp>0 and owner.z<.5 and math.hypot(owner.x-a['x'],owner.y-a['y'])<1.25:retrieved=True
+            if retrieved:
+                owner.magazines['axe']=1
+                if owner.weapon=='axe':owner.ammo=1
+            else:remaining.append(a)
+        self.axes=remaining
 
     def throw_grenade(self,p):
         self.effect_serial+=1;speed=13*math.cos(p.pitch)
-        self.grenades.append(dict(id=self.effect_serial,owner=p.id,team=p.team,x=p.x,y=p.y,z=1.35,vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=4.2+math.sin(p.pitch)*8,fuse=2.5))
+        self.grenades.append(dict(id=self.effect_serial,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.9 if p.crouch else 1.35),vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=4.2+math.sin(p.pitch)*8,fuse=2.5))
         if p.ammo==0:self.reload_weapon(p)
 
     def projectile_blocked(self,x,y,z):
@@ -571,8 +631,8 @@ class Room:
         return False
 
     def blast_clear(self,g,q):
-        steps=max(1,math.ceil(math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(.9-g['z'])**2)/.15))
-        return all(not self.projectile_blocked(g['x']+(q.x-g['x'])*i/steps,g['y']+(q.y-g['y'])*i/steps,g['z']+(.9-g['z'])*i/steps) for i in range(1,steps+1))
+        steps=max(1,math.ceil(math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(q.z+(.585 if q.crouch else .9)-g['z'])**2)/.15))
+        return all(not self.projectile_blocked(g['x']+(q.x-g['x'])*i/steps,g['y']+(q.y-g['y'])*i/steps,g['z']+(q.z+(.585 if q.crouch else .9)-g['z'])*i/steps) for i in range(1,steps+1))
 
     def update_grenades(self,dt):
         self.explosions=[e for e in self.explosions if self.train_time-e['time']<2]
@@ -594,7 +654,7 @@ class Room:
             attacker=self.players.get(g['owner'])
             for q in self.players.values():
                 if q.hp<=0 or (q.team==g['team'] and q.id!=g['owner']):continue
-                distance=math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(.9-g['z'])**2)
+                distance=math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(q.z+(.585 if q.crouch else .9)-g['z'])**2)
                 if distance>6 or not self.blast_clear(g,q):continue
                 amount=round(160*max(.12,1-distance/6));self.weapon_damage(attacker,q,amount,'grenade')
         self.grenades=remaining
@@ -603,7 +663,7 @@ class Room:
         if p.hp<=0: return
         self.apply_damage(p,amount)
         if p.hp==0:
-            p.deaths+=1;p.vx=p.vy=0;p.inp={}
+            p.deaths+=1;p.z=p.vz=0;p.vx=p.vy=0;p.inp={}
             self.log.append(dict(killer=name,victim=p.name,team=None,cause=cause))
             self.log=self.log[-6:]
 
@@ -623,7 +683,7 @@ class Room:
         self.heat_zones=[dict(x=x,y=y,radius=2.8,start=self.train_time+2,end=self.train_time+6) for x,y in selected]
 
     def heat_hit(self,p,old,t0,t1):
-        if profile(p.skin)['heat_immune'] or p.heat_cooldown>0 or t1<=t0:return False
+        if p.z>.28 or profile(p.skin)['heat_immune'] or p.heat_cooldown>0 or t1<=t0:return False
         for z in self.heat_zones:
             start,end=max(t0,z['start']),min(t1,z['end'])
             if end<=start:continue
@@ -639,7 +699,7 @@ class Room:
 
     def clock_hit(self,p,old,t0,t1):
         cfg=self.arena.get('clock')
-        if not cfg or p.hazard_cooldown>0: return False
+        if not cfg or p.hazard_cooldown>0 or p.z>1.15: return False
         # Sweep player and rotating hand at <= .04 radians and .2 m intervals.
         steps=max(1,math.ceil((t1-t0)*2*math.pi/cfg['period']/.04),math.ceil(math.dist(old,(p.x,p.y))/.2))
         for i in range(steps+1):
@@ -649,7 +709,7 @@ class Room:
             if cfg['inner']-PLAYER_RADIUS<along<cfg['length']+PLAYER_RADIUS and abs(across)<cfg['width']/2+PLAYER_RADIUS and not wall(p.x,p.y,self.map):
                 self.apply_damage(p,cfg['damage']);p.hazard_cooldown=cfg['hit_interval']
                 if p.hp==0:
-                    p.deaths+=1;p.vx=p.vy=0;p.inp={}
+                    p.deaths+=1;p.z=p.vz=0;p.vx=p.vy=0;p.inp={}
                     self.log.append(dict(killer='시계탑 시침',victim=p.name,team=None,cause='clock'));self.log=self.log[-6:]
                     return True
                 break
@@ -664,4 +724,4 @@ class Room:
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
         reason = self.start_error()
-        return dict(type='state',grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',axes=self.axes,grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
