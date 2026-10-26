@@ -73,7 +73,8 @@ def follow(room,p,goal,dt,look):
                 del p.route[:i];break
     x,y=p.route[0];dx,dy=x-p.x,y-p.y;distance=math.hypot(dx,dy)
     if distance<.07:p.route.pop(0);return True
-    speed=brain['speed']*(.74 if look else 1)
+    from .roles import profile
+    speed=brain['speed']*(.74 if look else 1)*profile(p.skin)['speed']
     step=min(distance,speed*dt);mx,my=dx/distance*step,dy/distance*step
     for ally in room.players.values():
         if ally.id==p.id or ally.team!=p.team or ally.hp<=0:continue
@@ -137,7 +138,7 @@ def update_ai(room,p,dt):
             goal=free_point(room,clock['x']+dx/max(.1,d)*15.6,clock['y']+dy/max(.1,d)*15.6)
             b['mode']='evade_clock';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.7
     for zone in room.heat_zones:
-        if zone['end']<=room.train_time:continue
+        if p.skin=='glowsquid' or zone['end']<=room.train_time:continue
         dx,dy=p.x-zone['x'],p.y-zone['y'];distance=math.hypot(dx,dy)
         if distance<zone['radius']+1.2:
             if distance<.1:dx,dy,distance=1,0,1
@@ -161,7 +162,7 @@ def update_ai(room,p,dt):
     elif b['plan']<=0 or (not p.route and b['wait']<=0):
         if target:
             d=math.hypot(target.x-p.x,target.y-p.y)
-            if p.hp<45 or p.reload>0:mode='retreat'
+            if p.hp<{'scout':150,'guard':300,'glowsquid':200}.get(p.skin,200)*.3 or p.reload>0:mode='retreat'
             elif d>22:mode=random.choice(['advance','advance','flank'])
             elif d<8:mode=random.choice(['retreat','strafe'])
             else:mode=random.choice(['strafe','flank','cover','advance']+(['flank'] if b['style']=='flank' else []))

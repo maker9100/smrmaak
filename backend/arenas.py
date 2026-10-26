@@ -45,7 +45,7 @@ ARENAS={
 # Keep a four-metre, continuous crossing through the end walls.
 grid=ARENAS['railway']['grid']
 for y in range(15,20):grid[y]='0'+grid[y][1:-1]+'0'
-ARENAS['railway']['train']=dict(period=24.,warning=3.,start=-14.,end=74.,speed=5.6,y=17.5,length=12.,width=4.,damage=100)
+ARENAS['railway']['train']=dict(period=24.,warning=3.,start=-14.,end=74.,speed=5.6,y=17.5,length=12.,width=4.,damage=1000)
 # One lifted container shuttles between two marked landing pads.
 ARENAS['freight']['crane'] = dict(period=20., warning=3., travel=6.,
     pads=[[27,7,6,2],[27,26,6,2]])

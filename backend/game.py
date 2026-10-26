@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, asdict
 from .arenas import ARENAS, DEFAULT_ARENA, MAP, PLAYER_RADIUS
 from .hazards import train_pose, train_hits, segment_box
 from .weapons import WEAPONS
+from .roles import ROLES, profile
 
 CHEATS = ('aim', 'esp', 'recoil')
 AIM_CONE = .95
@@ -49,7 +50,7 @@ def move(p, dx, dy, grid=MAP):
 def walk(p, f, s, dt, aiming=False, grid=MAP):
     """Accelerate along a normalized analog input, with friction on release."""
     length = max(1, math.hypot(f, s))
-    speed = 5.7 if aiming else MOVE_SPEED
+    speed = (5.7 if aiming else MOVE_SPEED)*profile(p.skin)['speed']
     tx = (math.cos(p.yaw)*f-math.sin(p.yaw)*s)*speed/length
     ty = (math.sin(p.yaw)*f+math.cos(p.yaw)*s)*speed/length
     blend = 1-math.exp(-MOVE_ACCEL*dt)
@@ -82,7 +83,7 @@ class Player:
     tap_serial: int = 0
     tap_pending: float = 0
     reaction: float = 0
-    hp: int = 100
+    hp: int = 200
     kills: int = 0
     deaths: int = 0
     weapon: str = 'rifle'
@@ -143,6 +144,7 @@ class Room:
         if sum(p.team == team for p in self.players.values()) >= 3:
             raise ValueError('방이 가득 찼습니다.')
         p = Player(secrets.token_hex(4), name[:16] or '치터', team, bot)
+        p.hp = profile(p.skin)['hp']
         self.players[p.id] = p
         if self.host is None and not bot: self.host = p.id
         return p
@@ -176,7 +178,9 @@ class Room:
             for team in (0,1):
                 while sum(p.team == team for p in self.players.values()) < 3:
                     i = sum(p.team == team for p in self.players.values())
-                    self.add('GUARD '+str(len(self.players)+1),team,True).skin = ('scout','warden','rogue')[i]
+                    used = {p.skin for p in self.players.values() if p.team==team}
+                    skin = next((key for key in ROLES if key not in used),tuple(ROLES)[i])
+                    self.add(profile(skin)['name']+' AI '+str(len(self.players)+1),team,True).skin = skin
         self.score, self.history, self.round, self.log = [0,0], [], 0, []
         for p in self.players.values(): p.kills = p.deaths = 0
         self.new_round()
@@ -200,7 +204,7 @@ class Room:
                 p.magazines = {k:v['capacity'] for k,v in WEAPONS.items()}
                 p.reserves = {k:v['reserve'] for k,v in WEAPONS.items()}
                 p.hazard_cooldown = p.heat_cooldown = 0
-                p.hp,p.ammo,p.reload,p.cooldown,p.kick = 100,WEAPONS[p.weapon]['capacity'],0,0,0
+                p.hp,p.ammo,p.reload,p.cooldown,p.kick = profile(p.skin)['hp'],WEAPONS[p.weapon]['capacity'],0,0,0
                 p.equip = 0
                 p.inp,p.route = {},[]
                 p.vx,p.vy,p.stale = 0,0,0
@@ -247,7 +251,8 @@ class Room:
             p.cheats[data['key']] = not p.cheats[data['key']]
         elif op == 'custom' and self.state == 'LOBBY':
             p.name = str(data.get('name',p.name))[:16] or '치터'
-            if data.get('skin') in ('scout','warden','rogue'): p.skin = data['skin']
+            if isinstance(data.get('skin'),str) and data['skin'] in ROLES:
+                p.skin = data['skin'];p.hp = profile(p.skin)['hp']
             team = data.get('team',p.team)
             if team in (0,1) and team != p.team and self.mode == 'local':
                 if sum(q.team == team for q in self.players.values()) >= 3: raise ValueError('그 팀은 가득 찼습니다.')
@@ -481,7 +486,7 @@ class Room:
         if self.state == 'PLAYING' and previous_lift>lift and lift<1.9:
             for p in self.players.values():
                 if p.hp>0 and x-PLAYER_RADIUS<p.x<x+source[2]+PLAYER_RADIUS and y-PLAYER_RADIUS<p.y<y+source[3]+PLAYER_RADIUS:
-                    self.environment_damage(p,100,'컨테이너 압사','crane')
+                    self.environment_damage(p,p.hp,'컨테이너 압사','crane')
         # Raised loads stop blocking floor travel/shots; low loads use conservative cells.
         grid=[list(row) for row in self.arena['grid']]
         if lift<2.1:
@@ -518,7 +523,7 @@ class Room:
         self.heat_zones=[dict(x=x,y=y,radius=2.8,start=self.train_time+2,end=self.train_time+6) for x,y in selected]
 
     def heat_hit(self,p,old,t0,t1):
-        if p.heat_cooldown>0 or t1<=t0:return False
+        if profile(p.skin)['heat_immune'] or p.heat_cooldown>0 or t1<=t0:return False
         for z in self.heat_zones:
             start,end=max(t0,z['start']),min(t1,z['end'])
             if end<=start:continue
@@ -554,6 +559,7 @@ class Room:
         players = []
         for p in self.players.values():
             d = asdict(p)
+            d.update(max_hp=profile(p.skin)['hp'],speed_multiplier=profile(p.skin)['speed'],role_name=profile(p.skin)['name'])
             for k in ('inp','route','think','stale','tap_pending','tap_serial','reaction','brain'): d.pop(k)
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
