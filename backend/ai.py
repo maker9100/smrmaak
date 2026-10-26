@@ -2,6 +2,7 @@
 import math
 import random
 from .game import angle, wall, move, clear
+from .weapons import WEAPONS
 
 
 def free_point(room,x,y):
@@ -121,11 +122,14 @@ def update_ai(room,p,dt):
             if reports:b['memory']=reports[0]['memory'];b['memory_ttl']=3;b['plan']=0
     if target and p.equip==0:
         d=math.hypot(target.x-p.x,target.y-p.y)
-        desired='shotgun' if d<10 else 'rifle'
-        if p.magazines.get(desired,0)==0 and p.reserves.get(desired,0)==0:desired='pistol'
-        if p.ammo==0 and p.reserves[p.weapon]==0:
-            desired=next((k for k in ('rifle','pistol','shotgun') if p.magazines[k]>0 or p.reserves[k]>0),desired)
+        desired='axe' if d<1.9 else 'shotgun' if d<10 else 'rifle'
+        if 8<d<20 and p.magazines.get('grenade',0)+p.reserves.get('grenade',0)>0 and room.train_time>b.get('grenade_at',8):
+            desired='grenade';b['grenade_at']=room.train_time+12;b['grenade_shots']=p.shots
+        if p.weapon=='grenade' and p.shots==b.get('grenade_shots',-1) and (p.ammo>0 or p.reserves['grenade']>0):desired='grenade'
+        if WEAPONS[desired]['kind']!='melee' and p.magazines[desired]+p.reserves[desired]==0:
+            desired=next((k for k in ('rifle','pistol','shotgun') if p.magazines[k]+p.reserves[k]>0),'axe')
         if desired!=p.weapon and b['rest']<=0:room.equip_weapon(p,desired);b['rest']=.5
+    if p.weapon=='grenade' and b.get('grenade_fired',-1)!=p.shots and p.ammo==0:b['grenade_fired']=p.shots;b['rest']=.9
     if p.ammo==0:p.inp['reload']=True
     # Reload proactively behind cover, with a route away from pressure.
     if p.reload>0 and target:b['plan']=min(b['plan'],.15)
@@ -154,7 +158,7 @@ def update_ai(room,p,dt):
     if config and abs(p.y-config['y'])<3.1:
         from .hazards import train_pose
         train=train_pose(room.train_time,config)
-        evade=train['warning'] or (train['active'] and abs(train['x']-p.x)<14)
+        evade=train['warning'] or (train['active'] and train['x']-38<p.x<train['x']+14)
     if evade:
         mode='evade_train';goal=free_point(room,p.x+random.uniform(-1,1),config['y']+(-5 if p.y<config['y'] else 5));p.inp['fire']=False
         if b['mode']!=mode or not p.route:b['mode']=mode;b['goal']=goal;p.route=room.path(p,goal)
@@ -172,5 +176,14 @@ def update_ai(room,p,dt):
             mode='search';goal=free_point(room,*b['memory'])
         else:mode='patrol';goal=patrol_goal(room,p,b)
         b['mode']=mode;b['goal']=goal;b['plan']=random.uniform(.9,1.8);p.route=room.path(p,goal);b['wait']=random.uniform(.15,.45)
+    shield=room.arena.get('shield')
+    if shield and not p.shield_unlocked and b['mode'] not in ('retreat','evade_train'):
+        goal=free_point(room,shield['x']+(-6 if p.team==0 else 6),shield['y']);b['mode']='seek_shield';b['goal']=goal
+        if not p.route or b['plan']<=0:p.route=room.path(p,goal);b['plan']=1
+    for g in room.grenades:
+        dx,dy=p.x-g['x'],p.y-g['y'];distance=math.hypot(dx,dy)
+        if g['fuse']<1.1 and distance<5 and (g['owner']==p.id or room.sight(p.x,p.y,g['x'],g['y'])):
+            if distance<.1:dx,dy,distance=1,0,1
+            goal=free_point(room,g['x']+dx/distance*8,g['y']+dy/distance*8);b['mode']='evade_grenade';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.5
     if p.route:follow(room,p,b['goal'],dt,bool(target))
     else:b['wait']-=dt

@@ -40,5 +40,7 @@ def train_hits(t0, t1, old, new, config):
         ay = old[1]+(new[1]-old[1])*u-config['y']
         by = old[1]+(new[1]-old[1])*v-config['y']
         hx,hy = config['length']/2+PLAYER_RADIUS,config['width']/2+PLAYER_RADIUS
-        if segment_box(ax,ay,bx,by,-hx,-hy,hx,hy): return True
+        for car in config.get('cars',[dict(offset=0,length=config['length'],width=config['width'])]):
+            hx,hy=car['length']/2+PLAYER_RADIUS,car['width']/2+PLAYER_RADIUS
+            if segment_box(ax-car['offset'],ay,bx-car['offset'],by,-hx,-hy,hx,hy):return True
     return False

@@ -2,15 +2,18 @@ import asyncio
 import contextlib
 import json
 import secrets
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from .game import Room, MAP
 from .roles import ROLES
 from .arenas import ARENAS, DEFAULT_ARENA
 
+logger=logging.getLogger('cheat-fps')
+simulation_task=None
 rooms = {}
 peers = {}
 ROOT = Path(__file__).resolve().parent.parent / 'frontend'
@@ -23,12 +26,21 @@ async def simulation():
         await asyncio.sleep(1/60)
         now = loop.time()
         dt,last = min(.1,now-last),now
-        for room in list(rooms.values()): room.tick(dt)
+        failed=[]
+        for code,room in list(rooms.items()):
+            try:room.tick(dt)
+            except Exception:
+                logger.exception('Match %s failed',code);failed.append(code)
+        for ws,peer in list(peers.items()):
+            if peer['room'].code in failed:
+                with contextlib.suppress(Exception):await ws.send_json({'type':'error','message':'경기 처리 오류가 발생했다. 게임을 다시 시작해 주세요.'});await ws.close(code=1011)
+        for code in failed:rooms.pop(code,None)
         accumulator += dt
         if accumulator >= 1/30:
             accumulator %= 1/30
-            snapshots = {code:room.snapshot() for code,room in rooms.items()}
+            snapshots = {code:json.dumps(room.snapshot(),separators=(',',':'),ensure_ascii=False) for code,room in rooms.items()}
             for ws,peer in list(peers.items()):
+                if peer['room'].code not in snapshots:continue
                 q = peer['queue']
                 if q.full():
                     with contextlib.suppress(asyncio.QueueEmpty): q.get_nowait()
@@ -36,7 +48,8 @@ async def simulation():
 
 @asynccontextmanager
 async def lifespan(app):
-    task = asyncio.create_task(simulation())
+    global simulation_task
+    task = simulation_task = asyncio.create_task(simulation())
     yield
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError): await task
@@ -48,7 +61,9 @@ app.mount('/static', StaticFiles(directory=ROOT), name='static')
 async def index(): return FileResponse(ROOT / 'index.html',headers={'Cache-Control':'no-cache'})
 
 @app.get('/health')
-async def health(): return {'status':'ok','version':'0.6.5','rooms':len(rooms)}
+async def health():
+    healthy=simulation_task is not None and not simulation_task.done()
+    return JSONResponse({'status':'ok' if healthy else 'error','version':'0.7.0','rooms':len(rooms)},status_code=200 if healthy else 503)
 
 @app.get('/arena')
 async def arena(): return {'map':MAP}
@@ -62,7 +77,7 @@ async def arenas(): return {'arenas':list(ARENAS.values())}
 async def sender(ws,queue):
     while True:
         data = await queue.get()
-        await asyncio.wait_for(ws.send_json(data),timeout=5)
+        await asyncio.wait_for(ws.send_text(data) if isinstance(data,str) else ws.send_json(data),timeout=5)
 
 @app.websocket('/ws')
 async def socket(ws:WebSocket):
@@ -103,7 +118,7 @@ async def socket(ws:WebSocket):
             room.quick = True
             for pid in owned: room.players[pid].ready = True
             room.start()
-        await ws.send_json({'type':'welcome','version':'0.6.5','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
+        await ws.send_json({'type':'welcome','version':'0.7.0','ids':owned,'map':room.map,'map_id':room.map_id,'arena':room.arena,'code':code,'quick':room.quick})
         queue = asyncio.Queue(maxsize=3)
         peers[ws] = {'room':room,'queue':queue}
         task = asyncio.create_task(sender(ws,queue))
