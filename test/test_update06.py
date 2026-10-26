@@ -40,5 +40,5 @@ def test_heat_sweeps_crossing_and_does_not_hit_outside():
 
 
 def test_other_maps_never_spawn_heat():
- for key in ['freight','plaza','observatory','railway']:
+ for key in ['freight','plaza','glory','railway']:
   r,p,q=room(key);r.train_time=40;r.update_heat();assert not r.heat_zones

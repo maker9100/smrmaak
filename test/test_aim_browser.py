@@ -72,7 +72,7 @@ def test_mobile_tap_aim_and_three_cheats_per_player(browser,aim_server,split):
         if not split:
             page.evaluate('''()=>{const before=ws.onmessage;ws.onmessage=e=>setTimeout(()=>before(e),120)}''')
         for i,pid in enumerate(data['humans']):
-            assert page.locator(f'.viewport-controls[data-slot="{i}"] [data-game-cheat]').count()==3
+            assert page.locator(f'.viewport-controls[data-slot="{i}"] [data-game-cheat]').count()==4
             button=f'[data-game-cheat="aim"][data-slot="{i}"]'
             page.locator(button).tap()
             if split:page.wait_for_function('(id)=>state.players.find(p=>p.id===id).cheats.aim',arg=pid)
@@ -86,7 +86,7 @@ def test_mobile_tap_aim_and_three_cheats_per_player(browser,aim_server,split):
             assert page.evaluate('id=>{const p=state.players.find(p=>p.id===id);return p.shots===1&&p.ammo===29}',pid)
             assert page.evaluate('(i)=>{const m=motion.get(ids[i]);return Math.abs(wrap(m.yaw-(i?Math.PI:0)))<.05&&m.pitch<0}',i)
             assert page.evaluate('i=>!!motion.get(ids[i]).lockTarget&&!control(i).ads',i)
-        assert page.locator('[data-game-cheat="ammo"],[data-toggle="ammo"]').count()==0
+        assert page.locator('[data-game-cheat="ammo"],[data-toggle="ammo"]').count()==2
         assert page.evaluate('state.players.every(p=>Object.keys(p.cheats).sort().join(",")==="aim,esp,recoil")')
         page.evaluate('''()=>{window.sentCheatPackets=[];const sendBefore=ws.send.bind(ws);ws.send=raw=>{const d=JSON.parse(raw);if(d.type==='toggle')sentCheatPackets.push(d);sendBefore(raw)}}''')
         page.keyboard.press('4');page.keyboard.press('0');page.wait_for_timeout(80)

@@ -30,7 +30,7 @@ def test_live_weapon_switch_fire_reload_and_split_ownership(browser,server_url):
         page.keyboard.press('o');page.keyboard.press('8');page.wait_for_function('state.players.find(p=>p.id===ids[1]).weapon==="pistol"')
         assert page.evaluate('state.players.find(p=>p.id===ids[0]).weapon')=='rifle'
         models=page.evaluate('''()=>Object.fromEntries(Object.entries(renderer3d.weaponModels).map(([key,m])=>[key,{parts:(()=>{let n=0;m.root.traverse(o=>{if(o.isMesh)n++;});return n;})(),flash:!!m.flash,light:!!m.light}]))''')
-        assert set(models)=={'rifle','shotgun','pistol'}
+        assert set(models)=={'axe','pistol','rifle','shotgun','grenade'}
         assert all(m['parts']>20 and m['flash'] and m['light'] for m in models.values())
         assert not errors,errors
     finally:context.close()
@@ -43,7 +43,7 @@ def test_articulated_operator_and_all_landmark_details(browser,server_url):
         page.goto(server_url);page.wait_for_function('arenaCatalog.length===5&&renderer3d?.mapKey',timeout=60000)
         data=page.evaluate('''()=>{
             lastPreview=performance.now()+1e6;const r=renderer3d;r.resize(736,500,6);
-            const maps=arenaCatalog.map(a=>{r.loadMap(a.grid,a);const l=r.staticRoot.getObjectByName('landmark-'+a.id);return {id:a.id,parts:l.userData.detailParts||0,diesel:!!l.getObjectByName('diesel-locomotive')};});
+            const maps=arenaCatalog.map(a=>{r.loadMap(a.grid,a);const l=r.staticRoot.getObjectByName('landmark-'+a.id);return {id:a.id,parts:l.userData.detailParts||0,statue:!!l.getObjectByName('statue-null'),diesel:!!l.getObjectByName('diesel-locomotive')};});
             const p={id:'inspect',skin:'scout',team:0,x:7,y:17.5,yaw:0,pitch:0,vx:5,vy:0,hp:100,shots:0,reload:0,weapon:'shotgun',cheats:{recoil:false}};
             r.inspect([p],1000,p);const a=r.actors.get(p.id),first=a.legs[0].boot.position.toArray();
             p.x+=.6;r.inspect([p],1100,p);const second=a.legs[0].boot.position.toArray();
@@ -53,7 +53,7 @@ def test_articulated_operator_and_all_landmark_details(browser,server_url):
             p.hp=0;r.inspect([p],1200,p);r.inspect([p],1800,p);
             return {maps,finite,feet,bones,first,second,parts:a.records.length,fall:a.root.rotation.z};
         }''')
-        assert all(m['parts']>=40 or m['diesel'] for m in data['maps'])
+        assert all(m['parts']>=40 or m['diesel'] or m['statue'] for m in data['maps'])
         assert data['finite'] and data['feet'] and data['bones'],data
         assert data['first']!=data['second'] and data['parts']>=100 and data['fall']>1.5
         assert not errors,errors

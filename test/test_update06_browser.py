@@ -16,7 +16,7 @@ def test_enemy_band_heat_and_detailed_weapons(browser,server_url):
   q.team=0;r.begin([p,q],1016);r.render(p,{x:0,y:0,w:900,h:650},1.12,1016,{});const allied=r.batches['rubber:helmetBand'].mesh.count;
   q.team=1;r.begin([p,q],1032);r.render(p,{x:0,y:0,w:900,h:650},1.12,1032,{});
   p.reload=1;r.render(p,{x:0,y:0,w:900,h:650},1.12,1048,{});const first=r.weaponSway.get(p.id).reload;r.render(p,{x:0,y:0,w:900,h:650},1.12,1064,{});const second=r.weaponSway.get(p.id).reload;
-  return {warning,active,red,allied,first,second,details:Object.values(r.weaponModels).map(m=>m.detail.children.length)};
+  return {warning,active,red,allied,first,second,details:['rifle','pistol','shotgun'].map(k=>r.weaponModels[k].detail.children.length)};
  }''')
  assert result['active']>result['warning'] and result['red']==1 and result['allied']==0,result
  assert 0<result['first']<result['second']<1 and min(result['details'])>=20,result

@@ -275,15 +275,15 @@ def test_five_landmarks_and_local_map_selection(browser,server_url):
     try:
         page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(server_url);page.wait_for_function('arenaCatalog.length===5&&renderer3d?.mapKey')
-        for i,key in enumerate(['freight','foundry','plaza','observatory','railway']):
+        for i,key in enumerate(['freight','foundry','plaza','glory','railway']):
             result=page.evaluate("""i=>{lastPreview=performance.now()+100000;showPreview(i);renderer3d.preview(performance.now());return {id:renderer3d.arenaId,landmark:!!renderer3d.staticRoot.getObjectByName('landmark-'+arenaCatalog[i].id),same:renderer3d.mapKey===arenaCatalog[i].grid.join('')}}""",i)
             assert result==dict(id=key,landmark=True,same=True)
             page.screenshot(path=str(Path(__file__).resolve().parents[2]/f'qa/map-{key}.png'))
         page.locator('#mode').select_option('local');page.locator('#create').click()
         assert page.locator('#mapChoice option').count()==5
-        page.locator('#mapChoice').select_option('observatory');page.locator('#hostLocal').click()
+        page.locator('#mapChoice').select_option('glory');page.locator('#hostLocal').click()
         page.wait_for_function('state?.map_id==="observatory"')
-        assert page.locator('#matchMap').input_value()=='observatory'
+        assert page.locator('#matchMap').input_value()=='glory'
         page.locator('#matchMap').select_option('railway');page.wait_for_function('state.map_id==="railway"')
         assert not errors,errors
     finally:context.close()

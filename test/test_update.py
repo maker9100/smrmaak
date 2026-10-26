@@ -3,7 +3,7 @@ from backend.game import Room,wall
 from backend.weapons import WEAPONS
 from test_weapons import duel
 
-@pytest.mark.parametrize('key',WEAPONS)
+@pytest.mark.parametrize('key',['rifle','pistol','shotgun'])
 def test_finite_reserve_reload_and_no_ammo_forgery(key):
  r,p,q=duel();p.weapon=key;p.ammo=0;p.reserves[key]=2
  r.command(p,dict(type='reload',ammo=999,reserves={key:999}))

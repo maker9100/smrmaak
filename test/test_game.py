@@ -46,7 +46,7 @@ def test_cheats_recoil_aim_and_damage():
     target=next(q for q in r.players.values() if q.team==1)
     target.x,target.y,target.hp=6.5,1.5,100
     for q in r.players.values():q.bot=False
-    for key in p.cheats:r.command(p,{'type':'toggle','key':key})
+    for key in ('aim','esp','recoil'):r.command(p,{'type':'toggle','key':key})
     p.ammo=30
     r.command(p,{'type':'input','aim':True,'fire':True})
     r.tick(.01)
@@ -187,7 +187,7 @@ def test_quick_ai_skips_lobby_for_two_humans_and_pings():
             humans=[p for p in snap['players'] if not p['bot']]
             assert len(humans)==2 and all(p['team']==0 for p in humans)
             assert [p['skin'] for p in humans]==['glowsquid','guard']
-            assert set(humans[0]['cheats'])=={'aim','esp','recoil'} and humans[1]['cheats']['esp']
+            assert set(humans[0]['cheats'])=={'aim','esp','recoil','ammo'} and humans[1]['cheats']['esp']
             assert all(not any(p['cheats'].values()) for p in snap['players'] if p['bot'])
             ws.send_json({'type':'ping','sent':123})
             for _ in range(10):

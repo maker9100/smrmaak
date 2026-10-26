@@ -70,15 +70,15 @@ def test_centered_enemy_is_preferred_and_aim_can_reacquire_after_death():
     assert p.yaw==pytest.approx(math.atan2(1,3))
 
 
-def test_only_three_cheats_exist_and_the_removed_toggle_is_ignored():
+def test_four_cheats_include_restored_ammo_toggle():
     room,p,q=duel()
-    assert CHEATS==('aim','esp','recoil')
+    assert CHEATS==('aim','esp','recoil','ammo')
     room.command(p,dict(type='toggle',key='ammo'))
-    assert set(p.cheats)==set(CHEATS)
+    assert set(p.cheats)==set(CHEATS) and p.cheats['ammo']
 
 
 def test_all_remaining_cheats_still_consume_ammo_and_obey_reload():
-    room,p,q=duel();p.cheats=dict.fromkeys(CHEATS,True)
+    room,p,q=duel();p.cheats=dict.fromkeys(CHEATS,True);p.cheats['ammo']=False
     for _ in range(30):p.cooldown=0;room.shoot(p)
     assert p.shots==30 and p.ammo==0
     p.cooldown=0;room.shoot(p)

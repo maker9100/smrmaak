@@ -24,8 +24,8 @@ def test_train_warning_travel_wait_and_reset():
     assert train_pose(0,C)['warning'] and not train_pose(2.99,C)['active']
     assert train_pose(3,C)['x']==-14 and train_pose(3,C)['active']
     assert train_pose(8,C)['x']==pytest.approx(14)
-    assert not train_pose(20,C)['active'] and not train_pose(20,C)['warning']
-    assert train_pose(24,C)['warning'] and train_pose(27,C)['x']==-14
+    assert not train_pose(24,C)['active'] and not train_pose(24,C)['warning']
+    assert train_pose(28,C)['warning'] and train_pose(31,C)['x']==-14
 
 
 def test_continuous_collision_catches_a_train_crossing_between_ticks():
@@ -43,6 +43,7 @@ def test_offmap_reset_does_not_sweep_through_the_arena():
 @pytest.mark.parametrize('bot',[False,True])
 def test_train_kills_humans_and_noncheating_ai_once_without_kill_credit(bot):
     room,players=match();victim=players[0]
+    for other in players[1:]:other.y=9.5
     victim.bot=bot;victim.x,victim.y=30,17.5;room.train_time=HIT_TIME
     with patch.object(room,'ai',return_value=None):
         room.tick(1/60);room.tick(1/60)
@@ -87,7 +88,7 @@ def test_train_blocks_sight_and_bullets_and_the_crossing_is_clear_between_passes
     assert clear(p.x,p.y,q.x,q.y,room.map)
     room.train_time=HIT_TIME;assert not room.sight(p.x,p.y,q.x,q.y)
     room.shoot(p);assert q.hp==150
-    room.train_time=20;p.cooldown=0;assert room.sight(p.x,p.y,q.x,q.y)
+    room.train_time=24;p.cooldown=0;assert room.sight(p.x,p.y,q.x,q.y)
     room.shoot(p);assert q.hp==125
 
 
