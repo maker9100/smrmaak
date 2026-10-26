@@ -14,7 +14,7 @@ def test_mechanisms_effects_environment_and_pose(browser,server_url):
    const r=renderer3d,a=arenaCatalog.find(a=>a.id===key);r.loadMap(a.grid,a);r.resize(1000,650,2);r.updateMechanisms(5,{x:27,y:16.5,w:6,h:2,lift:7});
    const p={id:'test',skin:'scout',team:0,x:25,y:22,yaw:-Math.PI/2,pitch:0,hp:100,vx:0,vy:0,shots:0,reload:0,weapon:'rifle',cheats:{recoil:false}};
    r.inspect([p],1000,{x:30,y:17.5,height:4},1.15,.48,45);
-   return {id:r.mechanisms.id,load:r.mechanisms.load?.position.y,hand:r.mechanisms.hand?.rotation.y,statue:!!r.staticRoot.getObjectByName('statue-null'),env:!!r.staticRoot.getObjectByName('environment-'+key)};
+   return {id:r.mechanisms.id,load:r.mechanisms.load?.position.y,hand:r.mechanisms.hand?.rotation.y,statue:!!r.staticRoot.getObjectByName('golden-monument'),env:!!r.staticRoot.getObjectByName('environment-'+key)};
   }''',key)
   assert data['env']
   if key=='freight':assert data['load']==7

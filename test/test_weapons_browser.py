@@ -43,7 +43,7 @@ def test_articulated_operator_and_all_landmark_details(browser,server_url):
         page.goto(server_url);page.wait_for_function('arenaCatalog.length===5&&renderer3d?.mapKey',timeout=60000)
         data=page.evaluate('''()=>{
             lastPreview=performance.now()+1e6;const r=renderer3d;r.resize(736,500,6);
-            const maps=arenaCatalog.map(a=>{r.loadMap(a.grid,a);const l=r.staticRoot.getObjectByName('landmark-'+a.id);return {id:a.id,parts:l.userData.detailParts||0,statue:!!l.getObjectByName('statue-null'),diesel:!!l.getObjectByName('diesel-locomotive')};});
+            const maps=arenaCatalog.map(a=>{r.loadMap(a.grid,a);const l=r.staticRoot.getObjectByName('landmark-'+a.id);return {id:a.id,parts:l.userData.detailParts||0,statue:!!l.getObjectByName('golden-monument'),diesel:!!l.getObjectByName('diesel-locomotive')};});
             const p={id:'inspect',skin:'scout',team:0,x:7,y:17.5,yaw:0,pitch:0,vx:5,vy:0,hp:100,shots:0,reload:0,weapon:'shotgun',cheats:{recoil:false}};
             r.inspect([p],1000,p);const a=r.actors.get(p.id),first=a.legs[0].boot.position.toArray();
             p.x+=.6;r.inspect([p],1100,p);const second=a.legs[0].boot.position.toArray();

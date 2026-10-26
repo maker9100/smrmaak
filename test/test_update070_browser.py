@@ -38,6 +38,10 @@ async def act(name:str):
    r.grenades[-1].update(x=5.5,y=1.5,z=.12,vx=0,vy=0,vz=0,fuse=.4)
   elif name=='glory':
    r.map_id='glory';r.new_round();r.state='PLAYING';p.x,p.y=24,17.5;r.update_shield(p,.1)
+  elif name=='shield_partial':r.apply_damage(p,25,True)
+  elif name=='shield_break':r.apply_damage(p,p.shield,True)
+  elif name=='shield_restore':p.damage_age=6;r.update_shield(p,1)
+  elif name=='shield_lethal':r.weapon_damage(q,p,p.hp+p.shield,'rifle')
   elif name=='spectate':
    ally=next(a for a in r.players.values() if a.team==p.team and a.id!=p.id);ally.x,ally.y,ally.yaw=7.5,17.5,0
    r.weapon_damage(q,p,1000,'rifle')
@@ -82,7 +86,7 @@ def test_real_blood_decals_grenade_glory_shield_third_person_and_bodies(browser,
  page.request.post(update_server+'/__test/act/marks');page.wait_for_function('renderer3d.worldEffects.decals.count>0')
  page.evaluate("()=>{window.sawSmoke=false;const fx=renderer3d.worldEffects,original=fx.update.bind(fx);fx.update=(...a)=>{original(...a);if(fx.smoke.count>0)window.sawSmoke=true;};}");page.request.post(update_server+'/__test/act/grenade');page.wait_for_function('window.sawSmoke')
  page.request.post(update_server+'/__test/act/glory');page.wait_for_function('state.map_id==="glory"&&state.players.find(p=>p.id===ids[0]).shield===100')
- assert page.evaluate('!!renderer3d.staticRoot.getObjectByName("statue-null")')
+ assert page.evaluate('!!renderer3d.staticRoot.getObjectByName("golden-monument")')
  page.request.post(update_server+'/__test/act/spectate');page.wait_for_function('state.players.find(p=>p.id===ids[0]).hp===0')
  page.wait_for_function('renderer3d.camera.position.y>1.65')
  data=page.evaluate('''()=>{const r=renderer3d,roster=interpolated(performance.now()),owner=roster.find(p=>p.id===ids[0]),p=roster.find(p=>p.team===owner.team&&p.hp>0),now=performance.now()+8000;r.begin(roster,now);r.render({...p,spectating:true},{x:0,y:0,w:900,h:650},1.12,now,{});return {head:r.batches['skin:head'].mesh.count,dead:r.actors.get(owner.id).hp,camera:r.camera.position.toArray(),target:[p.x,p.y]};}''')

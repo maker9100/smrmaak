@@ -89,6 +89,13 @@ def test_only_five_current_maps_and_glory_metadata():
  assert ARENAS['glory']['shield']['capacity']==100
  assert len(ARENAS['railway']['train']['cars'])==3
 
+def test_golden_statue_stops_high_bullets_and_grenades_above_pedestal():
+ r,p,q=duel('glory');p.x,p.y=24,17.5
+ hit=bullet_impact(r,p,0,math.atan2(3.2,6),20)
+ assert hit and hit['surface']=='world' and hit['z']>3.9
+ assert r.projectile_blocked(30,17.5,4.5)
+ assert not r.projectile_blocked(26,17.5,4.5)
+
 def test_grenade_four_total_then_empty_and_client_cannot_refill():
  r,p,q=duel();p.weapon='grenade';p.ammo=1;q.x,q.y=55,1.5
  for n in range(4):
