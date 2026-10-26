@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import {buildGoldenMonument,animateMonument} from './monument.js';
 import {ART,dressArenas,finishLandmark} from './art-direction.js';
+import {AxeEffects} from './axe-effects.js';
 import {WorldEffects} from './world-effects.js';
 import {CombatEffects} from './combat-effects.js';
 import {environment,machinery,animateMachinery,finishEnvironment} from './environment.js';
@@ -51,7 +52,7 @@ export class CheatRenderer3D {
         this.prepareReflections();this.localLights=[];this.quality=0;this.lastShadow=-1000;this.shadowDirty=true;this.setQuality(4);
         const shadowMat=new THREE.MeshBasicMaterial({map:contactTexture(),transparent:true,depthWrite:false,opacity:.65});
         this.actorShadows=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,1.1),shadowMat,6);this.actorShadows.count=0;this.actorShadows.frustumCulled=false;this.scene.add(this.actorShadows);
-        this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
+        this.axeEffects=new AxeEffects(this.scene);this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
         canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;});
         canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections(this.arenaId||'freight');this.shadowDirty=true;this.lost=false;});
     }
@@ -183,7 +184,7 @@ export class CheatRenderer3D {
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
     setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
     updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);animateMonument(this.monumentFlag,time);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
-    updateWorldEffects(data,now){this.worldEffects.update(data,now);}
+    updateWorldEffects(data,now){this.worldEffects.update(data,now);this.axeEffects.update(data.axes||[],now);}
     updateTrain(train){
         this.trainSnapshot=train;
         if(!this.trainRoot)return;
@@ -227,7 +228,7 @@ export class CheatRenderer3D {
         // A stable vertical FOV avoids a telescope view in tall split panes.
         const vertical=Math.max(56,Math.min(82,2*Math.atan(Math.tan(fov/2)/aspect)*180/Math.PI));
         camera.aspect=aspect;camera.fov=vertical*(fov<1?.88:1);camera.updateProjectionMatrix();
-        camera.position.set(p.x,1.5,p.y);camera.lookAt(p.x+Math.cos(p.yaw)*Math.cos(pitch),1.5+Math.sin(pitch),p.y+Math.sin(p.yaw)*Math.cos(pitch));camera.updateMatrixWorld();
+        const eye=(p.z||0)+(p.crouch?.975:1.5);camera.position.set(p.x,eye,p.y);camera.lookAt(p.x+Math.cos(p.yaw)*Math.cos(pitch),eye+Math.sin(pitch),p.y+Math.sin(p.yaw)*Math.cos(pitch));camera.updateMatrixWorld();
         if(p.spectating){
             let distance=.15;const yaw=p.yaw,grid=this.collisionGrid;
             for(let d=.15;d<=3.8;d+=.1){const x=p.x-Math.cos(yaw)*d,z=p.y-Math.sin(yaw)*d;
@@ -235,15 +236,15 @@ export class CheatRenderer3D {
                 const t=this.trainSnapshot;if(t?.active&&(t.cars||[]).some(c=>Math.abs(x-(t.x+c.offset))<c.length/2+.2&&Math.abs(z-t.y)<c.width/2+.2))break;
                 distance=d;
             }
-            camera.position.set(p.x-Math.cos(yaw)*distance,1.65+distance*.18,p.y-Math.sin(yaw)*distance);camera.lookAt(p.x+Math.cos(yaw)*1.4,p.hp>0?1.15:.45,p.y+Math.sin(yaw)*1.4);camera.updateMatrixWorld();
+            camera.position.set(p.x-Math.cos(yaw)*distance,(p.z||0)+1.65+distance*.18,p.y-Math.sin(yaw)*distance);camera.lookAt(p.x+Math.cos(yaw)*1.4,p.hp>0?1.15:.45,p.y+Math.sin(yaw)*1.4);camera.updateMatrixWorld();
         }
         for(const batch of Object.values(this.batches))batch.mesh.count=0;
         for(const [id,a] of this.actors){if(id===p.id&&!p.spectating)continue;for(const part of a.records){if(part.weapon&&part.weapon!==a.weapon)continue;if(part.enemyBand&&a.team===p.team)continue;const key=part.surface+':'+part.geometry;if(!this.batches[key]){this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));this.batches[key].mesh.castShadow=this.quality!==6;}this.batches[key].add(part.node.matrixWorld,part.tint);}}
         for(const batch of Object.values(this.batches))batch.commit();
         this.combatEffects.view(p.spectating?null:p.id,now);
         r.render(this.scene,camera);
-        if(p.hp>0&&!p.spectating){
-            const shot=now-(fx?.shotAt||0),moving=Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),stride=p.stride||now*.008;
+        if(p.hp>0&&!p.spectating&&((p.weapon!=='axe'&&p.cheats.ammo)||p.ammo>0||(p.reserves?.[p.weapon]||0)>0)){
+            const shot=now-(fx?.shotWeapon&&fx.shotWeapon!==p.weapon?-10000:fx?.shotAt||0),moving=Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),stride=p.stride||now*.008;
             const key=p.weapon||'rifle',duration=key==='shotgun'?.7:key==='pistol'?1.25:key==='grenade'?.75:1.5;
             const model=this.weaponModels[key]||this.weaponModels.rifle,weapon=model.root;this.activeWeapon=key;
             for(const m of Object.values(this.weaponModels))m.root.visible=m===model;
@@ -285,7 +286,7 @@ export class CheatRenderer3D {
         r.render(this.scene,c);
     }
     project(q,rect){
-        const foot=new THREE.Vector3(q.x,.03,q.y).project(this.camera),head=new THREE.Vector3(q.x,2.02,q.y).project(this.camera);
+        const foot=new THREE.Vector3(q.x,(q.z||0)+.03,q.y).project(this.camera),head=new THREE.Vector3(q.x,(q.z||0)+2.02*(q.crouch?.65:1),q.y).project(this.camera);
         if(head.z>1||head.z< -1)return null;
         return {x:(head.x+1)*rect.w/2,top:(1-head.y)*rect.h/2,bottom:(1-foot.y)*rect.h/2};
     }

@@ -138,3 +138,6 @@ body.portrait-split .floating { top:70px; }
 .shield-value{display:block;height:24px;line-height:21px;}
 .shield-track{height:5px;width:100%;background:#24424b;overflow:hidden;}
 .shield-track span{display:block;height:100%;background:#69d9f3;}
+
+.stance-actions{position:absolute;right:14px;bottom:235px;display:flex;gap:6px;pointer-events:auto}.stance-actions button{min-height:44px;padding:8px;background:#102723df;font-size:12px}.weapon-selector button.empty{color:#ff5353;border-color:#a33030;background:#321b1be8}.weapon-selector button:disabled{opacity:.85}
+@media(max-height:530px){.stance-actions{bottom:160px}}

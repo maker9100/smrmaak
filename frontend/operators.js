@@ -140,7 +140,7 @@ export function animateOperator(a,p,dt,now){
     if(p.hp<a.lastHp)a.hurtTime=now;
     if(p.hp<=0&&a.lastHp>0)a.dead=now;if(p.hp>0)a.dead=0;a.lastHp=p.hp;
     a.blood_seq=p.blood_seq||0;a.shield_seq=p.shield_seq||0;
-    a.weapon=p.weapon||'rifle';a.root.position.set(p.x,0,p.y);a.root.rotation.set(0,Math.PI/2-p.yaw,0);
+    a.weapon=p.weapon||'rifle';a.shotWeapon=p.shot_weapon||a.weapon;a.root.position.set(p.x,p.z||0,p.y);if(!a.baseScaleY)a.baseScaleY=a.root.scale.y;a.root.scale.y=a.baseScaleY*(p.crouch?.65:1);a.root.rotation.set(0,Math.PI/2-p.yaw,0);
     const blend=1-Math.exp(-dt*14);a.speed=lerp(a.speed,Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),blend);
     const forward=((p.vx||0)*Math.cos(p.yaw)+(p.vy||0)*Math.sin(p.yaw))/7.2;
     const lateral=(-(p.vx||0)*Math.sin(p.yaw)+(p.vy||0)*Math.cos(p.yaw))/7.2;

@@ -15,7 +15,7 @@ export class CombatEffects{
    if(blood||spark)for(let j=0;j<14;j++){this.particles[this.particleCursor]={p:a.root.position.clone().add(new THREE.Vector3((Math.random()-.5)*.2,1.15+Math.random()*.35,0)),v:new THREE.Vector3((Math.random()-.5)*3,Math.random()*2,(Math.random()-.5)*3),life:.6+Math.random()*.3,blood};this.particleCursor=(this.particleCursor+1)%192;}
    this.damageSeen.set(id,{blood:a.blood_seq,shield:a.shield_seq});
    let f=this.flashes.get(id);if(!f){const mesh=new THREE.Mesh(this.geometry,this.fire);mesh.visible=false;this.scene.add(mesh);f={mesh,shots:a.lastShots,until:0};this.flashes.set(id,f);}
-   if(a.lastShots>f.shots&&!['axe','grenade'].includes(a.weapon)){
+   if(a.lastShots>f.shots&&!['axe','grenade'].includes(a.shotWeapon||a.weapon)){
     f.until=now+85;
     const pos=a.gun.localToWorld(new THREE.Vector3(.08,.04,.15));
     const right=new THREE.Vector3(1,0,0).applyQuaternion(a.root.quaternion);

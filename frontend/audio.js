@@ -6,7 +6,7 @@
   setListeners(list){this.listeners=list;}
   buffer(type,key){
    const c=this.context,id=type+':'+key;if(this.buffers.has(id))return this.buffers.get(id);
-   const duration=type==='explosion'?.9:type==='reload'?.5:type==='ambient'?.6:type==='shot'?(key==='shotgun'?.42:.22):.15;
+   const duration=type==='explosion'?.9:type==='reload'?.5:type==='ambient'?.6:type==='shot'?(key==='shotgun'?.65:key==='pistol'?.36:.43):.15;
    const b=c.createBuffer(1,Math.ceil(c.sampleRate*duration),c.sampleRate),d=b.getChannelData(0);let low=0;
    for(let i=0;i<d.length;i++){
     const t=i/c.sampleRate,n=Math.random()*2-1;low=low*.92+n*.08;
@@ -18,7 +18,7 @@
     else if(type==='hurt')d[i]=low*Math.exp(-t*14);
     else if(type==='ambient')d[i]=key==='freight'?low*.3:low*.4+Math.sin(t*2*Math.PI*52)*.08;
     else if(type==='explosion')d[i]=(low*2+Math.sin(t*2*Math.PI*(62-t*32))*.3)*Math.exp(-t*4.5);
-    else d[i]=(n*.55+Math.sin(t*2*Math.PI*(key==='shotgun'?64:key==='pistol'?145:105))*.4)*Math.exp(-t*10);
+    else{const weight=key==='shotgun'?1:key==='pistol'?.55:.75,crack=(n-low)*Math.exp(-t/(key==='pistol'?.004:.006)),body=low*5*weight*Math.exp(-t/(key==='shotgun'?.105:.055)),bolt=n*.16*Math.exp(-Math.abs(t-.038)*230),echo=low*weight*.55*Math.exp(-Math.abs(t-.095)*24);d[i]=Math.tanh((crack*.9+body+bolt+echo)*1.4)*Math.min(1,t/.0003);}
    }
    this.buffers.set(id,b);return b;
   }
@@ -30,7 +30,7 @@
     pan=Math.sin(Math.atan2(source.y-listener.y,source.x-listener.x)-(listener.yaw||0))*.8;
    }
    const b=this.buffer(type,key),s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter(),p=c.createStereoPanner(),t=c.currentTime;
-   s.buffer=b;f.type='lowpass';f.frequency.value=type==='shot'?4500:type==='step'?650:type==='ambient'?400:1800;p.pan.value=pan;
+   s.buffer=b;f.type='lowpass';f.frequency.value=type==='shot'?(key==='pistol'?7200:key==='shotgun'?4400:6200):type==='step'?650:type==='ambient'?400:1800;p.pan.value=pan;
    const scale=type==='explosion'?.8:type==='shot'?.48:type==='ambient'?.1:type==='step'?.5:.18;
    g.gain.setValueAtTime(Math.max(.0001,gain*this.volume*scale),t);g.gain.exponentialRampToValueAtTime(.0001,t+b.duration);
    s.connect(f);f.connect(g);g.connect(p);p.connect(c.destination);this.voices++;s.onended=()=>{this.voices--;s.disconnect();f.disconnect();g.disconnect();p.disconnect();};s.start();
