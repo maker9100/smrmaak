@@ -1,39 +1,51 @@
-# v0.6.5 검증
+# v0.7.0 검증
+
+2026-10-26, 로컬 Python 3.12에서 실행. Render용 Python 설정은 3.11.11이다. GitHub/Render 원격 배포는 수행하지 않았다.
 
 ## 서버 / 게임 규칙
 
-2026-10-26: 아래 검사 146개 통과. Starlette 의존성의 deprecation 경고 1개가 있었고 실행 오류는 없었다.
-
 ```bash
-python -m pytest tests/test_roles.py tests/test_game.py tests/test_aim.py tests/test_train.py tests/test_wide_ai.py tests/test_local_start.py tests/test_arenas.py tests/test_weapons.py tests/test_update.py tests/test_update06.py -q
+python -m pytest -q
 ```
 
-- 세 보직별 최대 체력, 걷기/조준 이속과 대각선 정규화, 마찰, 라운드 초기화
-- 인간/AI의 Glowsquid 화상 면역, 총알·압사·열차 피해 유지
-- AI팀 보직 채움, AI 치트 미사용, 모든 맵 AI 전투/이동과 라운드 처리
-- 클라이언트의 체력·속도·경기 중 보직 변경 요청 무시, 잘못된 보직 입력 안전 처리
-- WebSocket 보직 선택과 최대 체력 동기화, 로컬 팀/준비 조건
-- 기존 에임, 무기/탄약/장전, 열차, 크레인, 시침, 화상 장판 회귀 검사
+**162 통과·32 건너뜀·실패 0**, 11.66초. 건너뛴 항목은 기본 실행에서 비활성인 브라우저/WebKit 검사다. Starlette 의존성의 deprecation 경고 1개가 있었다.
 
-보직과 관계없는 피해 단위 검사는 명시적인 100 HP 표적을 사용하고, 새 보직 검사에서는 실제 클래스 최대 체력을 사용한다. 기존 이동 검사와 생존 체력 기대값을 새 규칙에 맞췄다.
+- 보직 체력·이속·화상 면역·ESP 상태·라운드 초기화와 클라이언트 수치 위조 거부.
+- AI 시야·기억·다양한 경로·전술·치트 미사용, 전 맵 전투와 라운드 진행.
+- 5슬롯·독립 탄약·전환/발사 대기·산탄총 장전 중단.
+- 도끼 거리·벽 차폐·연타 제한·무탄약 공격, AI 도끼 선택/공격.
+- 수류탄 중력·튕김·폭발·킬 로그·벽 차폐·자해·아군 피해 제외. 총 4개 소진 후 공격/위조 보충 거부. AI 예비 수류탄 재장전과 반복 투척.
+- 네 총기/투척 무기의 잔탄 0 무한 탄창·발사 간격·해제·AI 사용 거부.
+- 실드 선흡수·혈액/실드 이벤트 분리·정수 체력·서서히 회복·재진입 즉시 충전 방지·라운드 초기화.
+- Guard와 실드를 포함한 압사 즉사, 열차 세 차량 충돌·시야·뒤 화차 탄흔.
+- 벽 탄흔 충돌점·법선·128개 제한, 사망자 유지·다음 라운드 초기화.
+- 로컬 최소 인원·각자 준비·WebSocket·에임·기존 기믹 회귀 검사.
 
 ## 브라우저
 
-실제 Headless Chromium + SwiftShader WebGL에서 8개 통과.
+Headless Chromium + SwiftShader WebGL에서 **11개 고유 검사 통과**. 기존 8개와 새 v0.7 검사 3개를 따로 실행했다. 마지막 그래픽 변경 후 그래픽 검사 2개를 추가 재실행해 통과했다.
 
 ```bash
 CHEAT_FPS_BROWSER_TESTS=1 CHEAT_FPS_BROWSER=/absolute/path/to/chromium python -m pytest tests/test_roles_browser.py tests/test_graphics_browser.py tests/test_weapons_browser.py tests/test_update06_browser.py -q
+CHEAT_FPS_BROWSER_TESTS=1 CHEAT_FPS_BROWSER=/absolute/path/to/chromium python -m pytest tests/test_update070_browser.py -q
 ```
 
-- 모바일 크기에서 보직 선택, AI 즉시 시작, 선택 보관, HP/속도 동기화
-- 로컬 2인에서 보직을 각각 고르고 각각 준비한 뒤 시작
-- 서로 다른 세 인간 모델·두 팔/두 다리·기존 조준/보행 애니메이션
-- 각 뷰포트의 Glowsquid 파란 장판/다른 보직 빨간 장판, 상대 ESP 두 형광색 점멸
-- 5개 맵 반복 전환 시 재질/자원 수 안정, 품질 변경
-- 무기 변경·발사·장전·분할 소유권, 적 헬멧 빨간 띠, 장전 보간
+- 모바일 크기 보직 선택·AI 바로 시작, 분할 화면 독립 보직·준비·HUD.
+- 세 인체·헬멧 띠·보행/조준/장전 보간, 뷰포트별 장판 색·상대 ESP 점멸.
+- 5개 맵을 3회 반복 전환해 재질·자원 수 안정, 품질 변경.
+- 키보드 1~5·실제 무기 모델 전환·무한 수류탄·입력 후 AudioContext 실행.
+- 실제 혈액 입자·벽 탄흔·폭발 연기 생성.
+- NULL 받침·100 실드, 3인칭 관전 카메라, 사망 8초 후 시체 유지.
+- 화차 두 량, 열차 이동에 따른 탄흔 위치 이동.
+- 연결 종료 코드 1012 후 상태 초기화·메뉴 실제 맵 미리보기 복구·시작 버튼 활성화.
+- 390px 모바일 Canvas 호환 모드의 5무기·관전·연결 종료 복구와 가로 넘침 없음.
 
-JS 구문 검사, 렌더러 번들 생성, Python 컴파일, ZIP 내부 전체 파일 일치 검사도 완료했다.
+새 브라우저 검사의 서버는 효과를 재현하기 위해 AI 이동을 멈추고 테스트 전용 경로로 상황을 만든다. 실제 AI 전투·준비·승패는 서버 검사에서 확인한다.
 
-## 한계
+## 정적 / 패키지
 
-실제 iPadOS Safari나 개별 기기의 FPS를 측정한 결과가 아니다. 브라우저 GPU가 WebGL2를 제공하지 않으면 Canvas 호환 모드가 사용된다. GitHub/Render 원격 배포는 수행하지 않았으며 배포 방법은 README.md와 UPDATING.md에 있다.
+배포 번들 생성, JavaScript 구문 검사, Python 컴파일과 ZIP 무결성·내부 파일 바이트 일치 검사를 수행했다. 전체 소스·배포 번들과 전체 코드 문서를 포함하고 node_modules·가상환경·캐시는 제외한다.
+
+## 확인 범위
+
+실제 iPadOS Safari·물리 모바일 GPU·다수 원격 사용자의 FPS/지연 측정은 하지 않았다. 코드로 생성한 Three.js 그래픽이며 Source 엔진 자산과 동등한 품질을 검증하지 않았다. 시체는 쓰러짐 애니메이션 후 고정하며 물리 래그돌은 아니다. 혈액은 순간 피격 입자이며 바닥에 영구 혈흔을 남기지는 않는다. 탄흔은 최근 128개, 시체는 다음 라운드까지 유지한다.

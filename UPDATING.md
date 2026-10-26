@@ -1,11 +1,18 @@
-# v0.6.5 보직 업데이트 설치
+# v0.7.0 업데이트 설치
 
-1. ZIP을 풀고 backend/와 frontend/ 폴더를 모두 교체한다. 루트의 requirements.txt, render.yaml 등도 함께 반영한다.
-2. backend/main.py와 frontend/index.html의 폴더 구조를 유지한다. 내부 파일을 모두 루트에 펼치지 않는다.
-3. Render가 연결된 GitHub 브랜치에 커밋한다. 자동 배포가 켜져 있으면 배포가 시작되고, 꺼져 있으면 Manual Deploy를 실행한다.
-4. 탭을 새로고침한 후 메뉴/설정과 서버 /health의 버전이 모두 0.6.5인지 확인한다.
-5. AI전은 보직을 고른 뒤 게임 시작. 로컬전은 참가자가 보직을 고르고 각자 준비한다.
+1. ZIP을 풀고 backend/와 frontend/ 전체를 교체한다. 루트 requirements.txt, render.yaml, .python-version도 반영한다. 새 frontend/audio.js, world-effects.js, renderer3d.js와 backend/combat.py를 빠뜨리지 않는다.
+2. backend/main.py와 frontend/index.html의 폴더 구조를 유지한다. 내부 파일을 모두 루트에 펼치면 backend.main을 찾지 못한다. GitHub의 backend라는 일반 파일과 폴더를 혼동하지 않는다.
+3. Render 연결 브랜치에 커밋한다. 자동 배포가 켜져 있으면 기다리고, 꺼져 있으면 Manual Deploy를 실행한다. 이 ZIP 제공 과정에서 GitHub/Render를 직접 변경하지 않았다.
+4. Python 런타임, 빈 Root Directory, Build Command `pip install -r requirements.txt`를 확인한다. Start Command는 아래 한 줄만 입력한다. uvicorn 명령을 두 번 붙이면 unexpected extra arguments 오류가 난다.
 
-보직: Scout HP 150/+20%, Guard HP 300/−25%, Glowsquid HP 200/+15%/제련소 화상 면역. 기본 체력 기준은 200이다. 같은 기기 2인도 보직을 각각 고를 수 있다.
+```bash
+uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
+```
 
-이번 파일은 v0.6.0 기반 보직 릴리스다. 서버 재시작 시 진행 중 경기는 초기화된다. 이 다운로드 제공 과정에서 GitHub/Render를 직접 변경하지 않았다.
+5. Blueprint와 .python-version은 Python 3.11.11이다. 기존 서비스 Environment에 PYTHON_VERSION이 있다면 그 값도 3.11.11로 맞춘다. 파일 변경만으로 기존 환경 변수는 바뀌지 않는다.
+6. 배포 완료 후 새로고침한다. /health의 version, 메뉴/설정 모두 0.7.0이어야 한다. 재시작하면 기존 방은 사라진다. 다시 시작하고 맵 미리보기가 나타나는지 확인한다.
+7. 슬롯은 1 도끼 / 2 권총 / 3 AR / 4 산탄총 / 5 수류탄이다. 수류탄 1/3은 준비 1+예비 3개, 무한 탄창은 B 또는 ∞ AMMO 버튼이다.
+
+AI전은 보직 선택 후 바로 시작한다. 로컬전은 양 팀 1명 이상·전원 준비 시 시작하며 같은 기기 2명도 각각 준비한다. 영광의 동상은 천문관측소를 대체한다. 시체는 다음 라운드까지, 탄흔은 방당 최근 128개를 다음 라운드까지 유지한다.
+
+실제 검증은 VALIDATION.md, 모든 코드·설정의 전체 내용은 SOURCE-CODE.md에 있다.
