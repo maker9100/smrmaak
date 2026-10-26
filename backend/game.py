@@ -88,6 +88,7 @@ class Player:
     weapon: str = 'rifle'
     magazines: dict = field(default_factory=lambda:{k:v['capacity'] for k,v in WEAPONS.items()})
     reserves: dict = field(default_factory=lambda:{k:v['reserve'] for k,v in WEAPONS.items()})
+    heat_cooldown: float = 0
     hazard_cooldown: float = 0
     equip: float = 0
     ammo: int = 30
@@ -124,6 +125,8 @@ class Room:
         self.crane_index = 0
         self.crane_cycle = 0
         self.crane_state = None
+        self.heat_zones = []
+        self.next_heat = 4.
 
     @property
     def arena(self): return ARENAS[self.map_id]
@@ -181,6 +184,10 @@ class Room:
     def new_round(self):
         self.train_time = 0.
         self.dynamic_grid = None
+        self.crane_state = None
+        self.mechanism_time = 0
+        self.heat_zones = []
+        self.next_heat = 4.
         self.crane_index = self.crane_cycle = 0
         self.update_mechanisms()
         self.round += 1
@@ -192,7 +199,7 @@ class Room:
                 p.brain = {}
                 p.magazines = {k:v['capacity'] for k,v in WEAPONS.items()}
                 p.reserves = {k:v['reserve'] for k,v in WEAPONS.items()}
-                p.hazard_cooldown = 0
+                p.hazard_cooldown = p.heat_cooldown = 0
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = 100,WEAPONS[p.weapon]['capacity'],0,0,0
                 p.equip = 0
                 p.inp,p.route = {},[]
@@ -385,10 +392,12 @@ class Room:
         train_before = self.train_time
         self.train_time += dt
         self.update_mechanisms()
+        self.update_heat()
         train_config = self.arena.get('train')
         for p in list(self.players.values()):
             if p.hp <= 0: continue
             old_position = (p.x,p.y)
+            p.heat_cooldown = max(0,p.heat_cooldown-dt)
             p.hazard_cooldown = max(0,p.hazard_cooldown-dt)
             p.cooldown = max(0,p.cooldown-dt)
             p.equip = max(0,p.equip-dt)
@@ -423,6 +432,8 @@ class Room:
                     self.log.append(dict(killer='기차',victim=p.name,team=None,cause='train'))
                     self.log=self.log[-6:]
                     continue
+            if self.heat_hit(p,old_position,train_before,self.train_time):
+                continue
             if self.clock_hit(p,old_position,train_before,self.train_time):
                 continue
             if p.inp.get('aim') or p.inp.get('fire') or p.tap_pending > 0:
@@ -457,17 +468,20 @@ class Room:
         moving=phase>=cfg['warning'] and cycle>=self.crane_cycle
         progress=min(1,max(0,(phase-cfg['warning'])/cfg['travel'])) if moving else 0
         blocked=any(p.hp>0 and target[0]-.5<p.x<target[0]+target[2]+.5 and target[1]-.5<p.y<target[1]+target[3]+.5 for p in self.players.values())
-        if moving and progress>=1 and not blocked and descent<=0:
+        if moving and progress>=1 and descent<=0:
             self.crane_index=1-self.crane_index;self.crane_cycle=int(t/cfg['period'])+1
             source=cfg['pads'][self.crane_index];moving=False;progress=0
-        # If the pad is occupied, hold the load overhead and retry next tick.
+        # Load descends on schedule; the landing zone is dangerous to both teams.
         travel=max(0,min(1,(progress-.2)/.6))
         x=source[0]+(target[0]-source[0])*travel
         y=source[1]+(target[1]-source[1])*travel
         lift=min(1,progress*5,(1-progress)*5)*7 if moving else 0
-        if moving and progress>=.8 and blocked: lift=max(3.5,lift)
-        elif moving and progress>=1: lift=descent
+        if moving and progress>=1: lift=descent
         self.crane_state=dict(x=x,y=y,w=source[2],h=source[3],lift=lift,moving=moving,blocked=blocked,warning=0<=phase<cfg['warning'],progress=progress)
+        if self.state == 'PLAYING' and previous_lift>lift and lift<1.9:
+            for p in self.players.values():
+                if p.hp>0 and x-PLAYER_RADIUS<p.x<x+source[2]+PLAYER_RADIUS and y-PLAYER_RADIUS<p.y<y+source[3]+PLAYER_RADIUS:
+                    self.environment_damage(p,100,'컨테이너 압사','crane')
         # Raised loads stop blocking floor travel/shots; low loads use conservative cells.
         grid=[list(row) for row in self.arena['grid']]
         if lift<2.1:
@@ -479,6 +493,44 @@ class Room:
             for p in self.players.values():
                 p.route=[]
                 if p.brain: p.brain['plan']=0
+
+    def environment_damage(self,p,amount,name,cause):
+        if p.hp<=0: return
+        p.hp=max(0,p.hp-amount)
+        if p.hp==0:
+            p.deaths+=1;p.vx=p.vy=0;p.inp={}
+            self.log.append(dict(killer=name,victim=p.name,team=None,cause=cause))
+            self.log=self.log[-6:]
+
+    def update_heat(self):
+        self.heat_zones=[z for z in self.heat_zones if z['end']>self.train_time]
+        if self.map_id!='foundry' or self.train_time<self.next_heat: return
+        self.next_heat=self.train_time+8
+        candidates=[]
+        for y in range(4,31):
+            for x in range(4,56):
+                if all(not wall(x+.5+dx,y+.5+dy,self.map) for dx,dy in [(0,0),(2.8,0),(-2.8,0),(0,2.8),(0,-2.8),(2,2),(-2,2),(2,-2),(-2,-2)]):candidates.append((x+.5,y+.5))
+        random.shuffle(candidates)
+        selected=[]
+        for x,y in candidates:
+            if all(math.hypot(x-a,y-b)>6 for a,b in selected):selected.append((x,y))
+            if len(selected)==3:break
+        self.heat_zones=[dict(x=x,y=y,radius=2.8,start=self.train_time+2,end=self.train_time+6) for x,y in selected]
+
+    def heat_hit(self,p,old,t0,t1):
+        if p.heat_cooldown>0 or t1<=t0:return False
+        for z in self.heat_zones:
+            start,end=max(t0,z['start']),min(t1,z['end'])
+            if end<=start:continue
+            u,v=(start-t0)/(t1-t0),(end-t0)/(t1-t0)
+            ax=old[0]+(p.x-old[0])*u;ay=old[1]+(p.y-old[1])*u
+            bx=old[0]+(p.x-old[0])*v;by=old[1]+(p.y-old[1])*v
+            dx,dy=bx-ax,by-ay
+            f=max(0,min(1,((z['x']-ax)*dx+(z['y']-ay)*dy)/max(1e-9,dx*dx+dy*dy)))
+            if math.hypot(ax+f*dx-z['x'],ay+f*dy-z['y'])<z['radius']+PLAYER_RADIUS:
+                self.environment_damage(p,25,'용융 철 장판','heat');p.heat_cooldown=.5
+                return p.hp<=0
+        return False
 
     def clock_hit(self,p,old,t0,t1):
         cfg=self.arena.get('clock')
@@ -506,4 +558,4 @@ class Room:
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
         reason = self.start_error()
-        return dict(type='state',world_time=self.train_time,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)

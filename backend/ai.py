@@ -136,6 +136,19 @@ def update_ai(room,p,dt):
         if clock['inner']<d<clock['length']+1 and abs(angle(math.atan2(dy,dx)-future))<.45:
             goal=free_point(room,clock['x']+dx/max(.1,d)*15.6,clock['y']+dy/max(.1,d)*15.6)
             b['mode']='evade_clock';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.7
+    for zone in room.heat_zones:
+        if zone['end']<=room.train_time:continue
+        dx,dy=p.x-zone['x'],p.y-zone['y'];distance=math.hypot(dx,dy)
+        if distance<zone['radius']+1.2:
+            if distance<.1:dx,dy,distance=1,0,1
+            goal=free_point(room,zone['x']+dx/distance*5,zone['y']+dy/distance*5)
+            b['mode']='evade_heat';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.6
+    crane=room.crane_state
+    if crane and crane['moving'] and crane['progress']>.5:
+        landing=room.arena['crane']['pads'][1-room.crane_index]
+        if landing[0]-1<p.x<landing[0]+landing[2]+1 and landing[1]-1<p.y<landing[1]+landing[3]+1:
+            goal=free_point(room,p.x,landing[1]-2 if p.y<landing[1]+landing[3]/2 else landing[1]+landing[3]+2)
+            b['mode']='evade_crane';b['goal']=goal;p.route=room.path(p,goal);b['plan']=.5
     config=room.arena.get('train');evade=False
     if config and abs(p.y-config['y'])<3.1:
         from .hazards import train_pose
