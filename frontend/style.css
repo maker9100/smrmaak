@@ -125,3 +125,5 @@ body.portrait-split .floating { top:70px; }
 .weapon-selector button.selected{background:#79602add;border-color:#ffe0a0;color:#ffe3a1;box-shadow:inset 0 -3px #ffc85a}
 .weapon-selector b{align-self:flex-start;font-size:15px}.gun-symbol{display:block;position:relative;height:7px;width:58px;background:currentColor;margin:7px 0 12px;border-radius:2px}.gun-symbol:after{content:'';position:absolute;width:9px;height:13px;left:16px;top:5px;background:currentColor;transform:skew(-12deg)}.gun-pistol{width:29px;height:9px}.gun-shotgun{width:65px;height:5px}.gun-shotgun:after{left:7px;width:17px;height:8px}
 @media(max-height:550px){.weapon-selector{top:70px}.weapon-selector button{gap:2px;padding:5px;font-size:10px}}
+
+.weapon-icon{display:block;width:76px;max-width:100%;height:42px;margin:0 auto}

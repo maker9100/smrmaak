@@ -4,7 +4,7 @@ const lerp=THREE.MathUtils.lerp,clamp=THREE.MathUtils.clamp;
 function profile(points){return new THREE.LatheGeometry(points.map(([r,y])=>new THREE.Vector2(r,y)),20);}
 const face=profile([[.045,-.045],[.075,-.025],[.098,.035],[.104,.12],[.091,.185],[.055,.218],[0,.23]]).scale(1,1,.89);
 const positions=face.attributes.position;for(let i=0;i<positions.count;i++)if(positions.getZ(i)>.080)positions.setZ(i,.080);face.computeVertexNormals();
-export const operatorGeometries={head:face,
+export const operatorGeometries={head:face,helmetBand:new THREE.TorusGeometry(1,.065,6,32),
     torso:profile([[.28,-.5],[.42,-.44],[.47,-.2],[.5,.2],[.45,.41],[.31,.5]]).scale(1,1,.62),
     limb:profile([[.22,-.5],[.36,-.46],[.43,-.15],[.5,.30],[.40,.48],[.25,.5]]),
 };
@@ -52,6 +52,7 @@ export function buildOperator(player,part,joint){
         add(head,'box',plate,side*.145,.19,-.005,.028,.07,.075,'metal');
     }
     add(head,'sphere',suit,0,.197,-.018,.146,.099,.137,'fabric');
+    const band=add(head,'helmetBand','#ff332c',0,.19,-.018,.148,.136,.145,'rubber');band.rotation.x=Math.PI/2;records.at(-1).enemyBand=true;
     add(head,'box',plate,0,.205,.078,.245,.036,.105,'metal');
     add(head,'box','#b6baa2',0,.27,.014,.035,.018,.05,'metal');
     add(head,'box','#527b80',0,.15,.12,.20,.035,.018,'glass');

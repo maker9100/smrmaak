@@ -1,10 +1,10 @@
 'use strict';
-// Cheat FPS 0.5.0: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.6.0: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.5.0':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.5.0';
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.6.0':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.6.0';
 const CHEATS = ['aim','esp','recoil'];
 const LABELS = ['AIM','ESP','NO RECOIL'];
 const AIM_CONE=.95;
@@ -13,6 +13,7 @@ const WEAPON_INFO={rifle:{name:'AR',capacity:30,reload_time:1.5},shotgun:{name:'
 function weaponSpec(p){return state?.weapons?.[p.weapon]||WEAPON_INFO[p.weapon]||WEAPON_INFO.rifle;}
 const weaponMenus=new Map();
 function selectWeapon(i,key){if(!WEAPON_ORDER.includes(key))return;send({type:'weapon',weapon:key},ids[i]);weaponMenus.set(i,performance.now()+3000);}
+function weaponIcon(key){const paths={rifle:'M4 20h18l6-6h37v3h26v4H65v7H48l5 16H42l-5-16h-9l-5 10h-7l3-13H4z',pistol:'M18 13h53v12H46l-6 22H25l4-22H18z',shotgun:'M3 22h22l8-5h56v5H51v6H32l-7 8H13l3-9H3z'};return `<svg class="weapon-icon" viewBox="0 0 96 52" aria-hidden="true"><path fill="currentColor" d="${paths[key]}"/><path d="M32 18h21M34 21h17M31 31h5" stroke="#19201c" stroke-width="2"/></svg>`;}
 function cycleWeapon(i=0){const p=state?.players.find(p=>p.id===ids[i]);if(!active()||!p||p.hp<=0)return;const open=(weaponMenus.get(i)||0)>performance.now();weaponMenus.set(i,performance.now()+4500);if(open)selectWeapon(i,WEAPON_ORDER[(WEAPON_ORDER.indexOf(p.weapon||'rifle')+1)%3]);syncControls();}
 
 const contacts = new Map(), sentInputs = new Map();
@@ -98,7 +99,7 @@ function connect(join=false){
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){if(d.version!=='0.5.0'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.6.0'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -180,7 +181,7 @@ function protect(e){if(e.cancelable)e.preventDefault();}
 function capture(el,e){try{el.setPointerCapture(e.pointerId);}catch{}}
 function buildControls(){
     if(controlIds===ids.join(':'))return;controlIds=ids.join(':');
-    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}"><div class="weapon-selector hidden">${WEAPON_ORDER.map((key,n)=>`<button data-action="select-weapon" data-weapon="${key}" data-slot="${i}"><b>${n+1}</b><span class="gun-symbol gun-${key}"></span><span>${WEAPON_INFO[key].name}</span></button>`).join('')}</div><div class="look-surface" data-look="${i}"></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 이동 · 탭 발사 · 드래그 회전 / 무기 F·O</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats"><button data-action="weapon" data-slot="${i}" aria-label="P${i+1} 무기 전환">무기 ↻</button>${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
+    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}"><div class="weapon-selector hidden">${WEAPON_ORDER.map((key,n)=>`<button data-action="select-weapon" data-weapon="${key}" data-slot="${i}"><b>${n+1}</b>${weaponIcon(key)}<span>${WEAPON_INFO[key].name}</span></button>`).join('')}</div><div class="look-surface" data-look="${i}"></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 이동 · 탭 발사 · 드래그 회전 / 무기 F·O</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats"><button data-action="weapon" data-slot="${i}" aria-label="P${i+1} 무기 전환">무기 ↻</button>${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
     resize();
 }
 function clearSelection(){
@@ -418,12 +419,14 @@ function predict(dt,now){
     });
 }
 function interpolated(now){
-    return state.players.map(p=>{
+    return state.players.map(source=>{
+        const elapsed=state.state==='PLAYING'?Math.min(.15,Math.max(0,(now-snapshotAt)/1000)):0;const p={...source,reload:Math.max(0,source.reload-elapsed),equip:Math.max(0,source.equip-elapsed),cooldown:Math.max(0,source.cooldown-elapsed)};
         const own=motion.get(p.id);if(ids.includes(p.id)&&p.hp>0&&own)return {...p,...own,x:own.x+own.offsetX,y:own.y+own.offsetY};
-        const list=samples.get(p.id)||[],time=now-75;let a=list[0],b=list[list.length-1];if(!a)return p;
+        const list=samples.get(p.id)||[],time=now-100;let a=list[0],b=list[list.length-1];if(!a)return p;
         for(let j=1;j<list.length;j++){if(list[j].time>=time){a=list[j-1];b=list[j];break;}a=list[j];}
         const t=a===b?1:clamp((time-a.time)/(b.time-a.time),0,1),yaw=wrap(a.yaw+wrap(b.yaw-a.yaw)*t);
-        return {...p,x:mix(a.x,b.x,t),y:mix(a.y,b.y,t),yaw,pitch:mix(a.pitch||0,b.pitch||0,t),vx:mix(a.vx||0,b.vx||0,t),vy:mix(a.vy||0,b.vy||0,t)};
+        const extra=a===b&&p.hp>0?Math.min(.08,Math.max(0,(time-b.time)/1000)):0;let ex=(b.vx||0)*extra,ey=(b.vy||0)*extra;if([-.44,.44].some(x=>[-.44,.44].some(y=>wall(b.x+ex+x,b.y+ey+y))))ex=ey=0;
+        return {...p,x:mix(a.x,b.x,t)+ex,y:mix(a.y,b.y,t)+ey,yaw,pitch:mix(a.pitch||0,b.pitch||0,t),vx:mix(a.vx||0,b.vx||0,t),vy:mix(a.vy||0,b.vy||0,t)};
     });
 }
 
@@ -569,6 +572,7 @@ function characters(p,roster,w,h,horizon,proj,depth,now){
             const facing=wrap(q.yaw-Math.atan2(p.y-q.y,p.x-q.x)),direction=(Math.round(facing/(Math.PI/4))+8)%8;
             const speed=Math.hypot(q.vx||0,q.vy||0),step=speed>.25?Math.floor(now/68+q.x*.4+q.y*.3)%8:0;
             ctx.globalAlpha=clamp(1-z/60,.6,1);ctx.drawImage(humanSprite(q.team,q.skin,direction,step),left,top,ww,hh);ctx.globalAlpha=1;
+            if(q.team!==p.team){ctx.fillStyle='#ff332c';ctx.fillRect(x-ww*.16,top+hh*.14,ww*.32,Math.max(2,hh*.023));}
             const fired=now-(effects.get(q.id)?.shotAt||0);if(fired<65){ctx.fillStyle='#ffe6a5';ctx.beginPath();ctx.arc(x+Math.sin(facing)*ww*.15,top+hh*.46,Math.max(2,hh*.045),0,Math.PI*2);ctx.fill();}
         }
         ctx.restore();
@@ -657,8 +661,9 @@ function hud(p,owner,roster,w,h,index,horizon,now){
         rounded(w/2-Math.min(145,w*.43),70,Math.min(290,w*.86),24,4,danger?'#642e22de':'#07171fbc');
         textAt(label,w/2,86,compact?10:12,danger?'#ffce7b':'#b8c7b5','center');
     }
+    if(state.heat_zones?.length)textAt('제련소 · 붉은 장판에서 벗어나세요',w/2,85,11,'#ff8a78','center');
     if(state.arena?.clock)textAt('회전 시침 주의 · 접촉 피해 35',w/2,85,11,'#ffce7b','center');
-    if(state.crane&&(state.crane.moving||state.crane.warning))textAt(state.crane.blocked?'크레인 착지 대기 · 표시 구역에서 이동':'크레인 가동 · 엄폐물 이동 중',w/2,85,11,'#ffce7b','center');
+    if(state.crane&&(state.crane.moving||state.crane.warning))textAt('크레인 가동 · 낙하 구역 압사 주의',w/2,85,11,'#ffce7b','center');
     textAt(`P${index+1} / ${owner.name}${owner.hp<=0?' · 관전':''}`,14,compact?83:88,11,owner.team?'#ffab97':'#a2dcec');
     // Health and ammunition sit above the touch controls, per viewport.
     const touch=touchDevice||ids.length===2,baseline=touch?h-(h<530?208:252):h-66;
@@ -677,7 +682,8 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     line(w/2-gap-8,horizon,w/2-gap,horizon,cross,1.5);line(w/2+gap,horizon,w/2+gap+8,horizon,cross,1.5);line(w/2,horizon-gap-8,w/2,horizon-gap,cross,1.5);line(w/2,horizon+gap,w/2,horizon+gap+8,cross,1.5);ctx.fillStyle=cross;ctx.fillRect(w/2-1,horizon-1,2,2);
     if(now-(effects.get(p.id)?.hitAt||0)<180){for(const sign of [-1,1]){line(w/2+sign*8,horizon+8,w/2+sign*14,horizon+14,'#fff5d1',2);line(w/2+sign*8,horizon-8,w/2+sign*14,horizon-14,'#fff5d1',2);}}
     if(p.cheats.esp&&w>350){radar(p,roster,14,compact?112:127,compact?85:106);textAt('ESP / LIVE',18,compact?107:121,9,'#d4f77e');}
-    if(!compact){state.log.slice(-4).forEach((e,j)=>{textAt(`${e.killer}  ›  ${e.victim}`,w-14,108+j*18,10,e.cause==='train'?'#ffce7b':e.team?'#ffac9b':'#96dbe8','right');});}
+    const killWidth=Math.min(350,w-24),killX=w-killWidth-12,killY=compact?103:112;
+    state.log.slice(compact?-2:-4).forEach((e,j)=>{const y=killY+j*32,cause=e.cause==='crane'?'압사':e.cause==='heat'?'화상':e.cause==='clock'?'시침':e.cause==='train'?'열차':WEAPON_INFO[e.weapon]?.name||'킬';rounded(killX,y,killWidth,28,4,'#081013e8');ctx.fillStyle=e.team===null?'#ff884f':e.team?'#ff746b':'#70d9ff';ctx.fillRect(killX,y,4,28);let label=`${e.killer}  [${cause}]  ${e.victim}`;ctx.font='bold 13px Arial';while(ctx.measureText(label).width>killWidth-20&&label.length>4)label=label.slice(0,-2);textAt(label,killX+11,y+19,13,'#fff4df');});
     if(owner.hp<=0){rounded(w/2-115,76,230,48,5,'#07191fd4');textAt('KNOCKED OUT',w/2,96,15,'#ff9a84','center');textAt(p.id!==owner.id?`관전: ${p.name}`:'남은 아군 없음',w/2,113,10,'#afc3bd','center');}
     if(state.state==='COUNTDOWN'||state.state==='ROUND_END'){
         rounded(w/2-Math.min(210,w*.42),h*.33-37,Math.min(420,w*.84),95,8,'#061921bb');
@@ -699,6 +705,10 @@ function labels3d(p,roster,rect){
         }
     }
 }
+function heatFallback(p,w,h,horizon,proj){
+    const time=(state.world_time||0)+Math.min(.15,(performance.now()-snapshotAt)/1000);
+    for(const z of state.heat_zones||[]){if(time>=z.end)continue;const points=[];for(let i=0;i<33;i++){const a=i*Math.PI/16,dx=z.x+Math.cos(a)*z.radius-p.x,dy=z.y+Math.sin(a)*z.radius-p.y,depth=dx*Math.cos(p.yaw)+dy*Math.sin(p.yaw);if(depth<.1){points.length=0;break;}points.push([w/2+(-dx*Math.sin(p.yaw)+dy*Math.cos(p.yaw))*proj/depth,horizon+1.5*proj/depth]);}if(points.length){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=time>=z.start?'#ff231b88':'#ff534633';ctx.fill();ctx.strokeStyle='#ff7868';ctx.lineWidth=3;ctx.stroke();}}
+}
 function view(index,roster,w,h,now,rect){
     const owner=roster.find(p=>p.id===ids[index]);if(!owner)return;
     let p=owner;const c=control(index);
@@ -708,7 +718,7 @@ function view(index,roster,w,h,now,rect){
         renderer3d.render(p,rect,fov,now,effects.get(p.id));labels3d(p,roster,rect);
     }else{
         const proj=w/(2*Math.tan(fov/2)),horizon=h*.5+Math.tan(p.pitch||0)*proj;
-        ground(p,w,h,horizon,proj);const depth=walls(p,w,h,horizon,proj,fov);
+        ground(p,w,h,horizon,proj);heatFallback(p,w,h,horizon,proj);const depth=walls(p,w,h,horizon,proj,fov);
         characters(p,roster,w,h,horizon,proj,depth,now);
         if(p.hp>0)rifle(p,m,w,h,now);
     }
@@ -747,6 +757,7 @@ function frame(now){
         $('world3d').style.visibility='visible';
         renderTrain=trainAt(state.arena?.train,(state.train?.elapsed||0)+(state.state==='PLAYING'?Math.min(.25,(now-snapshotAt)/1000):0));
         renderer3d?.updateTrain(renderTrain);
+        renderer3d?.updateHeat(state.heat_zones||[],(state.world_time||0)+(state.state==='PLAYING'?Math.min(.15,(now-snapshotAt)/1000):0));
         renderer3d?.updateMechanisms((state.world_time||0)+(state.state==='PLAYING'?Math.min(.25,(now-snapshotAt)/1000):0),state.crane);
         predict(dt,now);const roster=interpolated(now),rects=viewportLayout();renderer3d?.begin(roster,now);
         for(let i=0;i<ids.length;i++){const r=rects[i];ctx.save();ctx.translate(r.x,r.y);ctx.beginPath();ctx.rect(0,0,r.w,r.h);ctx.clip();view(i,roster,r.w,r.h,now,r);ctx.restore();}

@@ -57,3 +57,24 @@ export function animateFirearm(model,key,shot,reload){
     model.magazine.position.y=-reload*.17;
     if(key==='shotgun'){model.magazine.visible=reload>0;model.magazine.position.set(-reload*.09,-reload*.17,reload*.08);model.support.position.x=-reload*.08;}else model.support.position.set(reload*.035,-reload*.17,reload*.03);
 }
+
+// Small readable first-person details, with shared geometry and original design.
+export function detailFirearm(model,key,surfaces){
+ const root=model.root,detail=new THREE.Group();detail.name='weapon-details';root.add(detail);
+ const add=(geo,c,x,y,z,sx,sy,sz)=>{const m=new THREE.Mesh(geo,surfaces.get('gunmetal',c));m.position.set(x,y,z);m.scale.set(sx,sy,sz);detail.add(m);return m;};
+ const length=key==='pistol'?.16:key==='shotgun'?.53:.47,width=key==='pistol'?.043:.069;
+ for(const side of [-1,1]){
+  for(const z of [-.09,.065]){const screw=add(cylinder,'#a4aba1',side*width,-.018,z,.009,.008,.009);screw.rotation.z=Math.PI/2;add(roundedBox,'#283338',side*(width+.005),-.018,z,.003,.003,.012);}
+  for(let j=0;j<5;j++)add(roundedBox,'#202d31',side*width,-.13+j*.018,.07,.005,.006,.052);
+ }
+ const port=add(roundedBox,'#172125',width+.002,.012,-.015,.004,.036,key==='pistol'?.045:.09);
+ add(roundedBox,'#9ba99e',width+.008,.008,-.015,.009,.009,.04);
+ if(key!=='pistol'){
+  const ring=add(cylinder,'#81918d',0,.018,-length,.035,.025,.035);ring.rotation.x=Math.PI/2;
+  add(roundedBox,'#273c3b',-.075,.025,.11,.018,.018,.048);
+  add(roundedBox,'#85958b',0,.091,-.11,.026,.022,.045);
+ }else{
+  add(roundedBox,'#adba9d',-.023,.079,.074,.007,.008,.006);add(roundedBox,'#adba9d',.023,.079,.074,.007,.008,.006);
+ }
+ model.detail=detail;
+}
