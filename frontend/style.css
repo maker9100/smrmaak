@@ -129,3 +129,5 @@ body.portrait-split .floating { top:70px; }
 .weapon-icon{display:block;width:76px;max-width:100%;height:42px;margin:0 auto}
 
 .role-details{display:block;color:#bdcfc9;font-size:12px;line-height:1.55;margin:7px 0 12px;max-width:100%;overflow-wrap:anywhere;}#roleChoice{width:100%;}#roleInfo{min-height:38px;}
+
+.weapon-selector{width:min(96%,620px)}.weapon-selector button{font-size:11px}.weapon-selector .weapon-icon{width:64px;max-width:100%;height:38px}.view-cheats{flex-wrap:wrap}.view-cheats button{max-width:32%;overflow-wrap:anywhere}@media(max-width:600px){.weapon-selector{gap:3px}.weapon-selector button{font-size:9px;padding:6px 2px}.weapon-selector b{font-size:12px}}

@@ -76,3 +76,24 @@ export function animateMachinery(m,time,crane){
   m.cables.forEach((n,i)=>{const bottom=c.lift+2.6;n.position.set(c.x+c.w/2+(i?2.6:-2.6),(11+bottom)/2,c.y+c.h/2);n.scale.y=(11-bottom)/5;});
  }
 }
+
+export function finishEnvironment(root,id,surfaces,grid){
+ const g=new THREE.Group();g.name='environment-finish';root.add(g);
+ const mesh=(geo,kind,c,x,y,z)=>{const m=new THREE.Mesh(geo,surfaces.get(kind,c));m.position.set(x,y,z);g.add(m);return m;};
+ const box=(x,y,z,w,h,d,k,c)=>mesh(new THREE.BoxGeometry(w,h,d),k,c,x,y,z);
+ if(id==='glory'){
+  for(const z of [-4,39])for(let x=3;x<60;x+=8){
+   box(x,.5,z,4,1,1.4,'stone','#a6a08a');box(x,.95,z,4.1,.12,1.5,'stone','#c6bda2');
+   mesh(new THREE.CylinderGeometry(.15,.22,6,9),'metal','#655f4c',x,3,z-2);mesh(new THREE.ConeGeometry(1.5,6,12),'fabric','#445d42',x,5,z-2);
+  }
+  for(const x of [-4,64]){box(x,2,17.5,1,4,12,'stone','#c2b79d');for(let z=12;z<24;z+=3)mesh(new THREE.CylinderGeometry(.28,.36,5,14),'stone','#d0c5ab',x,4,z);}
+ }
+ for(let x=4;x<57;x+=7)for(const z of [1.15,33.85]){
+  box(x,.012,z,1,.02,.28,'metal','#35403e');for(let j=0;j<7;j++)box(x-.42+j*.14,.026,z,.045,.018,.25,'metal','#7e867c');
+  mesh(new THREE.DodecahedronGeometry(.05+(x%3)*.025,0),'rock','#777a69',x+.7,.035,z+.04);
+ }
+ for(let y=2;y<33;y++)for(let x=2;x<58;x++)if(grid[y][x]==='1'&&grid[y-1][x]==='0'&&(x+y)%9===0){
+  const stain=mesh(new THREE.PlaneGeometry(.55,1.1),'metal','#566154',x+.5,.58,y-.008);stain.rotation.y=Math.PI;
+ }
+ mergeStatic(g);
+}

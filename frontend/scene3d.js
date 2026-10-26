@@ -1,12 +1,13 @@
 /* Cheat FPS 0.4.0 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
+import {WorldEffects} from './world-effects.js';
 import {CombatEffects} from './combat-effects.js';
-import {environment,machinery,animateMachinery} from './environment.js';
+import {environment,machinery,animateMachinery,finishEnvironment} from './environment.js';
 import {buildOperator,animateOperator,operatorGeometries} from './operators.js';
 import {buildFirearm,animateFirearm,detailFirearm} from './firearms.js';
 import {enhanceLandmark} from './map-details.js';
-import {buildDieselLocomotive,buildRailTrack} from './locomotive.js';
+import {buildDieselLocomotive,buildRailTrack,buildContainerWagons} from './locomotive.js';
 import {Surfaces,roundedBox,capsule,skyTexture,contactTexture,buildWorld,mergeStatic} from './graphics.js';
 let surfaces;
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
@@ -31,7 +32,7 @@ export class CheatRenderer3D {
     constructor(canvas){
         // High quality supersamples via pixel ratio; avoid a multisample
         // framebuffer on every mobile/split view at the default quality.
-        this.canvas=canvas;this.renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:false,powerPreference:'high-performance'});
+        this.canvas=canvas;this.renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:true,powerPreference:'high-performance'});
         this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.1;this.renderer.autoClear=false;
         this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.renderer.shadowMap.autoUpdate=false;
         this.surfaces=surfaces=new Surfaces(this.renderer);this.scene=new THREE.Scene();this.scene.fog=new THREE.FogExp2('#b6beb7',.009);
@@ -43,23 +44,23 @@ export class CheatRenderer3D {
         const light=new THREE.DirectionalLight('#ffe3b8',2.2);light.position.set(-2,4,3);this.weaponScene.add(light);
         this.weaponCamera=new THREE.PerspectiveCamera(58,1,.01,10);this.weapon=new THREE.Group();this.weaponScene.add(this.weapon);this.createRifle();
         this.weaponModels={rifle:{root:this.weapon,flash:this.flash,light:this.muzzleLight}};
-        for(const key of ['shotgun','pistol']){const model=buildFirearm(key,this.surfaces);this.weaponModels[key]=model;model.root.visible=false;this.weaponScene.add(model.root);}
+        for(const key of ['axe','pistol','shotgun','grenade']){const model=buildFirearm(key,this.surfaces);this.weaponModels[key]=model;model.root.visible=false;this.weaponScene.add(model.root);}
         for(const [key,model] of Object.entries(this.weaponModels))detailFirearm(model,key,this.surfaces);
         this.prepareReflections();this.localLights=[];this.quality=0;this.lastShadow=-1000;this.shadowDirty=true;this.setQuality(4);
         const shadowMat=new THREE.MeshBasicMaterial({map:contactTexture(),transparent:true,depthWrite:false,opacity:.65});
         this.actorShadows=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,1.1),shadowMat,6);this.actorShadows.count=0;this.actorShadows.frustumCulled=false;this.scene.add(this.actorShadows);
-        this.combatEffects=new CombatEffects(this.scene);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
+        this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
         canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;});
         canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections();this.shadowDirty=true;this.lost=false;});
     }
-    prepareReflections(){
-        const sky=skyTexture('freight'),pmrem=new THREE.PMREMGenerator(this.renderer);this.environmentTarget?.dispose();this.environmentTarget=pmrem.fromEquirectangular(sky);sky.dispose();pmrem.dispose();this.scene.environment=this.weaponScene.environment=this.environmentTarget.texture;
+    prepareReflections(id='freight'){
+        const sky=skyTexture(id),pmrem=new THREE.PMREMGenerator(this.renderer);this.environmentTarget?.dispose();this.environmentTarget=pmrem.fromEquirectangular(sky);this.reflectionMap=id;sky.dispose();pmrem.dispose();this.scene.environment=this.weaponScene.environment=this.environmentTarget.texture;
     }
     setQuality(quality){
         if(this.quality===quality)return;this.quality=quality;this.autoScale=1;this.frameCounter=0;this.frameBudget=32;this.renderer.shadowMap.enabled=quality!==6;
         const size=quality===2?2048:1024;if(this.sun.shadow.mapSize.x!==size){this.sun.shadow.map?.dispose();this.sun.shadow.map=null;this.sun.shadow.mapSize.set(size,size);}this.surfaces.quality(quality);this.shadowDirty=true;
         for(const light of this.localLights||[])light.visible=quality!==6;
-        for(const batch of Object.values(this.batches))batch.mesh.castShadow=quality===2;
+        for(const batch of Object.values(this.batches))batch.mesh.castShadow=quality!==6;
     }
     createRifle(){
         this.rifleSupport=new THREE.Group();this.rifleMagazineGroup=new THREE.Group();this.weapon.add(this.rifleSupport,this.rifleMagazineGroup);
@@ -96,11 +97,11 @@ export class CheatRenderer3D {
     }
     loadMap(map,theme={}){
         const key=map.join('');if(this.mapKey===key&&this.arenaId===theme.id)return;this.mapKey=key;this.arenaId=theme.id;
-        this.mapWidth=map[0].length;this.mapDepth=map.length;const night=theme.id==='observatory';
-        if(!this.skies.has(theme.id))this.skies.set(theme.id,skyTexture(theme.id));this.scene.background=this.skies.get(theme.id);
+        this.collisionGrid=map;this.mapWidth=map[0].length;this.mapDepth=map.length;const night=theme.id==='observatory';
+        if(!this.skies.has(theme.id))this.skies.set(theme.id,skyTexture(theme.id));this.scene.background=this.skies.get(theme.id);if(this.reflectionMap!==theme.id)this.prepareReflections(theme.id);
         this.scene.fog.color.set(night?'#738493':'#b6beb7');this.scene.fog.density=night?.011:.009;this.sun.color.set(night?'#d0dcf0':'#ffe0b0');this.sun.intensity=night?1.8:3;this.ambient.color.set(night?'#a9bfdf':'#c7d8e1');
         const geos=new Set(),mats=new Set(),textures=new Set();
-        this.staticRoot.traverse(o=>{if(!o.isMesh)return;if(!o.geometry.userData.shared)geos.add(o.geometry);if(!o.material.userData.persistent){mats.add(o.material);for(const t of Object.values(o.material))if(t?.isTexture)textures.add(t);}if(o.isInstancedMesh)o.dispose();});
+        this.staticRoot.traverse(o=>{if(!o.isMesh&&!o.isSprite)return;if(o.geometry&&!o.geometry.userData.shared&&!o.isSprite)geos.add(o.geometry);if(!o.material.userData.persistent){mats.add(o.material);for(const t of Object.values(o.material))if(t?.isTexture)textures.add(t);}if(o.isInstancedMesh)o.dispose();});
         geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());this.staticRoot.clear();
         this.heatMeshes=[];
         if(theme.id==='foundry')for(let i=0;i<3;i++){const group=new THREE.Group();const disk=new THREE.Mesh(new THREE.CircleGeometry(1,48),new THREE.MeshBasicMaterial({color:'#ff2418',transparent:true,opacity:.45,depthWrite:false,side:THREE.DoubleSide,toneMapped:false}));disk.rotation.x=-Math.PI/2;group.add(disk);const ring=new THREE.Mesh(new THREE.RingGeometry(.94,1,48),new THREE.MeshBasicMaterial({color:'#ff6655',side:THREE.DoubleSide,depthWrite:false,toneMapped:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.005;group.add(ring);group.visible=false;this.staticRoot.add(group);this.heatMeshes.push(group);}
@@ -108,13 +109,15 @@ export class CheatRenderer3D {
         for(const light of this.localLights)this.scene.remove(light);this.localLights=[];
         buildWorld(this.staticRoot,map,theme,this.surfaces);this.landmark(theme.id||'freight');
         enhanceLandmark(this.staticRoot.getObjectByName('landmark-'+(theme.id||'freight')),theme.id||'freight',this.surfaces);
-        environment(this.staticRoot,theme.id,this.surfaces);
+        environment(this.staticRoot,theme.id,this.surfaces);finishEnvironment(this.staticRoot,theme.id,this.surfaces,map);
         this.mechanisms=machinery(this.staticRoot,theme.id,this.surfaces,this.staticRoot.getObjectByName('landmark-'+theme.id));
         mergeStatic(this.staticRoot.getObjectByName('landmark-'+(theme.id||'freight')),new Set(this.trackLights));
         this.staticRoot.traverse(o=>{if(o.isMesh&&!o.material.transparent){o.castShadow=true;o.receiveShadow=true;}});
         if(night||theme.id==='foundry'){
             const light=new THREE.PointLight(night?'#88c0ef':'#ff8e38',night?18:35,15,2);light.position.set(30,3.1,night?15:14.9);light.visible=this.quality!==6;this.scene.add(light);this.localLights.push(light);
         }
+        this.scene.fog.color.set(theme.id==='foundry'?'#9b8874':theme.id==='freight'?'#b6c8ca':'#c2c0af');this.scene.fog.density=theme.id==='foundry'?.011:.008;this.sun.color.set(theme.id==='foundry'?'#ffd4a0':'#ffe4ba');this.ambient.groundColor.set(theme.id==='foundry'?'#615245':'#687562');
+        this.ambient.intensity=theme.id==='foundry'?1.2:1.45;this.sun.intensity=theme.id==='foundry'?2.3:3.2;this.renderer.toneMappingExposure=theme.id==='foundry'?1.02:1.08;
         this.shadowDirty=true;
     }
     landmark(id){
@@ -146,6 +149,12 @@ export class CheatRenderer3D {
                 const short=new THREE.Mesh(new THREE.BoxGeometry(.5,.07,.06),material('#273a3c'));short.position.set(.17,0,1.33);face.add(short);
                 for(let j=0;j<12;j++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.045,.10,.04),material('#273a3c'));mark.position.set(Math.sin(j*Math.PI/6)*.72,Math.cos(j*Math.PI/6)*.72,1.32);mark.rotation.z=-j*Math.PI/6;face.add(mark);}
             }
+        }else if(id==='glory'){
+            cube('#999581',20,.18,12,4,.36,5);cube('#b9b29c',20,.8,12,3.6,1.25,4.5);cube('#d0c5a9',20,1.55,12,4,.25,4.8);
+            const c=document.createElement('canvas');c.width=512;c.height=256;const g=c.getContext('2d');g.fillStyle='#142a30';g.fillRect(0,0,512,256);g.strokeStyle='#6ff2ff';g.lineWidth=8;g.strokeRect(5,5,502,246);g.fillStyle='#c5faff';g.font='bold 92px monospace';g.textAlign='center';g.fillText('NULL',256,162);
+            const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
+            const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:true}));label.name='statue-null';label.position.set(20,4,12);label.scale.set(4,2,1);group.add(label);
+            const ring=new THREE.Mesh(new THREE.RingGeometry(7.85,8,96),new THREE.MeshBasicMaterial({color:'#52c9ed',transparent:true,opacity:.6,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(20,.025,12);group.add(ring);
         }else if(id==='observatory'){
             cube('#d1dce0',20,.12,12,4,.24,5);cube('#d1dce0',20,1.7,12,3.8,3.4,3.8);
             add(new THREE.SphereGeometry(1.85,24,12,0,Math.PI*2,0,Math.PI/2),'#b9ccd3',20,3.4,12);
@@ -157,7 +166,7 @@ export class CheatRenderer3D {
             const model=buildDieselLocomotive(this.surfaces);
             model.root.position.set(20,0,12);
             this.trainRoot=new THREE.Group();this.trainRoot.name='moving-train';
-            this.trainRoot.add(model.root);group.add(this.trainRoot);this.trainRoot.visible=false;
+            const wagons=buildContainerWagons(this.surfaces);wagons.root.position.set(20,0,12);mergeStatic(wagons.root,new Set(wagons.wheels));model.wheels.push(...wagons.wheels);this.trainRoot.add(wagons.root);this.trainRoot.add(model.root);group.add(this.trainRoot);this.trainRoot.visible=false;
             this.trainWheels=model.wheels;this.trainFans=model.fans;
             buildRailTrack(group,this.mapWidth,this.surfaces);
             for(const z of [9.7,14.3])for(let x=21-this.mapWidth/2;x<20+this.mapWidth/2;x+=1){
@@ -173,7 +182,9 @@ export class CheatRenderer3D {
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
     setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
     updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
+    updateWorldEffects(data,now){this.worldEffects.update(data,now);}
     updateTrain(train){
+        this.trainSnapshot=train;
         if(!this.trainRoot)return;
         if(this.trainRoot.visible!==!!train?.active)this.shadowDirty=true;
         this.trainRoot.visible=!!train?.active;
@@ -205,7 +216,7 @@ export class CheatRenderer3D {
         for(const id of this.actors.keys())if(!roster.some(p=>p.id===id))this.actors.delete(id);
         this.combatEffects.update(this.actors,dt,now);
         let shadowIndex=0;for(const p of roster)if(p.hp>0&&shadowIndex<6){transform.position.set(p.x,.009,p.y);transform.rotation.set(-Math.PI/2,0,0);transform.scale.set(1,1,1);transform.updateMatrix();this.actorShadows.setMatrixAt(shadowIndex++,transform.matrix);}this.actorShadows.count=shadowIndex;this.actorShadows.instanceMatrix.needsUpdate=true;
-        if(this.renderer.shadowMap.enabled&&(this.shadowDirty||((this.quality===2||this.trainRoot?.visible)&&now-this.lastShadow>(this.quality===2?80:180)))){this.renderer.shadowMap.needsUpdate=true;this.lastShadow=now;this.shadowDirty=false;}
+        if(this.renderer.shadowMap.enabled&&(this.shadowDirty||((this.quality!==6||this.trainRoot?.visible)&&now-this.lastShadow>(this.quality===2?80:180)))){this.renderer.shadowMap.needsUpdate=true;this.lastShadow=now;this.shadowDirty=false;}
         this.renderer.setScissorTest(false);this.renderer.clear();this.renderer.setScissorTest(true);
     }
     render(p,rect,fov,now,fx){
@@ -216,14 +227,23 @@ export class CheatRenderer3D {
         const vertical=Math.max(56,Math.min(82,2*Math.atan(Math.tan(fov/2)/aspect)*180/Math.PI));
         camera.aspect=aspect;camera.fov=vertical*(fov<1?.88:1);camera.updateProjectionMatrix();
         camera.position.set(p.x,1.5,p.y);camera.lookAt(p.x+Math.cos(p.yaw)*Math.cos(pitch),1.5+Math.sin(pitch),p.y+Math.sin(p.yaw)*Math.cos(pitch));camera.updateMatrixWorld();
+        if(p.spectating){
+            let distance=.15;const yaw=p.yaw,grid=this.collisionGrid;
+            for(let d=.15;d<=3.8;d+=.1){const x=p.x-Math.cos(yaw)*d,z=p.y-Math.sin(yaw)*d;
+                if([-.22,.22].some(dx=>[-.22,.22].some(dz=>!grid?.[Math.floor(z+dz)]||grid[Math.floor(z+dz)][Math.floor(x+dx)]!=='0')))break;
+                const t=this.trainSnapshot;if(t?.active&&(t.cars||[]).some(c=>Math.abs(x-(t.x+c.offset))<c.length/2+.2&&Math.abs(z-t.y)<c.width/2+.2))break;
+                distance=d;
+            }
+            camera.position.set(p.x-Math.cos(yaw)*distance,1.65+distance*.18,p.y-Math.sin(yaw)*distance);camera.lookAt(p.x+Math.cos(yaw)*1.4,p.hp>0?1.15:.45,p.y+Math.sin(yaw)*1.4);camera.updateMatrixWorld();
+        }
         for(const batch of Object.values(this.batches))batch.mesh.count=0;
-        for(const [id,a] of this.actors){if(id===p.id||(a.hp<=0&&now-a.dead>5000))continue;for(const part of a.records){if(part.weapon&&part.weapon!==a.weapon)continue;if(part.enemyBand&&a.team===p.team)continue;const key=part.surface+':'+part.geometry;if(!this.batches[key]){this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));this.batches[key].mesh.castShadow=this.quality===2;}this.batches[key].add(part.node.matrixWorld,part.tint);}}
+        for(const [id,a] of this.actors){if(id===p.id&&!p.spectating)continue;for(const part of a.records){if(part.weapon&&part.weapon!==a.weapon)continue;if(part.enemyBand&&a.team===p.team)continue;const key=part.surface+':'+part.geometry;if(!this.batches[key]){this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));this.batches[key].mesh.castShadow=this.quality!==6;}this.batches[key].add(part.node.matrixWorld,part.tint);}}
         for(const batch of Object.values(this.batches))batch.commit();
-        this.combatEffects.view(p.id,now);
+        this.combatEffects.view(p.spectating?null:p.id,now);
         r.render(this.scene,camera);
-        if(p.hp>0){
+        if(p.hp>0&&!p.spectating){
             const shot=now-(fx?.shotAt||0),moving=Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),stride=p.stride||now*.008;
-            const key=p.weapon||'rifle',duration=key==='shotgun'?.7:key==='pistol'?1.25:1.5;
+            const key=p.weapon||'rifle',duration=key==='shotgun'?.7:key==='pistol'?1.25:key==='grenade'?.75:1.5;
             const model=this.weaponModels[key]||this.weaponModels.rifle,weapon=model.root;this.activeWeapon=key;
             for(const m of Object.values(this.weaponModels))m.root.visible=m===model;
             const ads=fov<1,reloadTarget=p.reload>0?Math.sin(p.reload/duration*Math.PI):0,kick=p.cheats.recoil?0:Math.max(0,1-shot/110);
@@ -235,7 +255,8 @@ export class CheatRenderer3D {
             weapon.position.y-=Math.min(1,sway.equip/.35)*.25;
             if(key!=='rifle')animateFirearm(model,key,shot,reload);
             else{this.rifleSupport.position.set(.10*reload,-.16*reload,.17*reload);this.rifleMagazineGroup.position.y=-reload*.18;}
-            model.flash.visible=shot>=0&&shot<65;model.light.intensity=model.flash.visible&&this.quality!==6?2.5:0;
+            if(key==='axe'){const swing=shot>=0&&shot<650?Math.sin(shot/650*Math.PI):0;weapon.rotation.z-=swing*1.1;weapon.rotation.x-=swing*.65;weapon.position.x-=swing*.18;}if(key==='grenade'){const thrown=shot>=0&&shot<700?Math.sin(shot/700*Math.PI):0;weapon.position.y-=thrown*.3;weapon.rotation.x-=thrown*.9;}
+            model.flash.visible=!['axe','grenade'].includes(key)&&shot>=0&&shot<65;model.light.intensity=model.flash.visible&&this.quality!==6?2.5:0;
             this.weaponCamera.aspect=aspect;this.weaponCamera.fov=2*Math.atan(Math.tan(58*Math.PI/360)/Math.min(1,aspect))*180/Math.PI;this.weaponCamera.updateProjectionMatrix();r.clearDepth();r.render(this.weaponScene,this.weaponCamera);
         }
     }
@@ -246,7 +267,7 @@ export class CheatRenderer3D {
             if(part.weapon&&part.weapon!==a.weapon)continue;
             const key=part.surface+':'+part.geometry;
             if(!this.batches[key])this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));
-            this.batches[key].mesh.castShadow=this.quality===2;this.batches[key].add(part.node.matrixWorld,part.tint);
+            this.batches[key].mesh.castShadow=this.quality!==6;this.batches[key].add(part.node.matrixWorld,part.tint);
         }
         for(const batch of Object.values(this.batches))batch.commit();
         const r=this.renderer,c=this.camera;c.aspect=this.width/this.height;c.fov=45;c.updateProjectionMatrix();

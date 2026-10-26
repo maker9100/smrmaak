@@ -1,7 +1,7 @@
 /* Original articulated operators. Metres, two-bone IK and distance-driven gait. */
 import * as THREE from 'three';
 const lerp=THREE.MathUtils.lerp,clamp=THREE.MathUtils.clamp;
-function profile(points){return new THREE.LatheGeometry(points.map(([r,y])=>new THREE.Vector2(r,y)),20);}
+function profile(points){return new THREE.LatheGeometry(points.map(([r,y])=>new THREE.Vector2(r,y)),32);}
 const face=profile([[.045,-.045],[.075,-.025],[.098,.035],[.104,.12],[.091,.185],[.055,.218],[0,.23]]).scale(1,1,.89);
 const positions=face.attributes.position;for(let i=0;i<positions.count;i++)if(positions.getZ(i)>.080)positions.setZ(i,.080);face.computeVertexNormals();
 export const operatorGeometries={head:face,helmetBand:new THREE.TorusGeometry(1,.065,6,32),
@@ -40,7 +40,8 @@ export function buildOperator(player,part,joint){
     add(body,'capsule',skin,0,.54,0,.105,.13,.11,'skin');
     // Anatomical jaw, skull and facial landmarks; all original geometry.
     add(head,'head',skin,0,0,.008,1,1,1,'skin');
-    add(head,'box',skin,0,.065,.10,.022,.042,.03,'skin');
+    add(head,'capsule',skin,0,.065,.10,.023,.048,.032,'skin');
+    for(const side of [-1,1]){add(head,'sphere','#d4d6c7',side*.039,.104,.094,.014,.009,.006,'skin');add(head,'sphere','#222e29',side*.039,.104,.101,.005,.006,.003,'rubber');}
     add(head,'box','#996e5d',0,.009,.091,.042,.005,.006,'skin');
     for(const side of [-1,1]){
         add(head,'sphere',skin,side*.103,.07,.006,.018,.033,.021,'skin');
@@ -73,10 +74,19 @@ export function buildOperator(player,part,joint){
         add(body,'sphere',suit,side*.237,.43,0,.115,.105,.115,'fabric');
     }
     const gun=joint(body,.14,.39,.24),gunRecords={};
-    for(const key of ['rifle','shotgun','pistol']){
+    for(const key of ['axe','pistol','rifle','shotgun','grenade']){
         const start=records.length;
         const g=joint(gun,0,0,0),barrel=(z,l,r)=>{const n=add(g,'cylinder','#323d41',0,.03,z,r,l,r,'metal');n.rotation.x=Math.PI/2;};
-        if(key==='pistol'){
+        if(key==='axe'){
+            add(g,'cylinder','#765c3e',0,.02,.18,.023,.62,.023,'fabric');
+            add(g,'box','#8c9993',.08,.27,.18,.26,.17,.055,'metal');add(g,'box','#bbc0ac',.21,.25,.18,.035,.21,.06,'metal');
+            add(g,'box',dark,-.09,.27,.18,.10,.055,.055,'metal');
+        }else if(key==='grenade'){
+            add(g,'sphere','#4b5f42',0,.03,.17,.075,.10,.068,'metal');
+            for(let j=0;j<4;j++)add(g,'box','#35482d',0,-.025+j*.035,.23,.10,.015,.012,'metal');
+            add(g,'box','#8b9690',.04,.08,.17,.016,.14,.035,'metal');
+            add(g,'box','#b1bba1',0,.14,.17,.03,.025,.03,'metal');
+        }else if(key==='pistol'){
             add(g,'box',dark,0,.015,.12,.055,.065,.22,'metal');
             add(g,'box',dark,0,-.065,.055,.048,.12,.065,'rubber').rotation.x=.16;
             barrel(.235,.035,.017);
@@ -89,7 +99,7 @@ export function buildOperator(player,part,joint){
             add(g,'box',key==='shotgun'?'#6e6452':suit,0,.01,.30,.08,.085,.18,'rubber');
             for(let j=0;j<5;j++)add(g,'box',dark,0,.07,.10+j*.04,.075,.012,.02,'metal');
         }
-        add(g,'box','#96ac91',0,.07,.20,.014,.022,.02,'metal');
+        if(!['axe','grenade'].includes(key))add(g,'box','#96ac91',0,.07,.20,.014,.022,.02,'metal');
         for(const r of records.slice(start)){r.weapon=key;if(r.surface==='metal')r.surface='gunmetal';}gunRecords[key]=g;
     }
     // Distinct human silhouettes, facial tones and role equipment.
@@ -124,6 +134,7 @@ export function animateOperator(a,p,dt,now){
     if(p.shots>a.lastShots)a.shotTime=now;a.lastShots=p.shots;
     if(p.hp<a.lastHp)a.hurtTime=now;
     if(p.hp<=0&&a.lastHp>0)a.dead=now;if(p.hp>0)a.dead=0;a.lastHp=p.hp;
+    a.blood_seq=p.blood_seq||0;a.shield_seq=p.shield_seq||0;
     a.weapon=p.weapon||'rifle';a.root.position.set(p.x,0,p.y);a.root.rotation.set(0,Math.PI/2-p.yaw,0);
     const blend=1-Math.exp(-dt*14);a.speed=lerp(a.speed,Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),blend);
     const forward=((p.vx||0)*Math.cos(p.yaw)+(p.vy||0)*Math.sin(p.yaw))/7.2;
@@ -135,7 +146,7 @@ export function animateOperator(a,p,dt,now){
     const spec=p.weapon==='shotgun'?.7:p.weapon==='pistol'?1.25:1.5;
     const reload=p.reload>0?Math.sin((1-p.reload/spec)*Math.PI):0;
     a.gun.rotation.x=-(p.pitch||0)*.65+reload*.55-shot*.05;
-    a.gun.rotation.z=-reload*.28;a.gun.position.z=.24-shot*.025;
+    a.gun.rotation.z=-reload*.28-(p.weapon==='axe'?shot*.8:0);if(p.weapon==='axe')a.gun.rotation.x+=shot*1.2;if(p.weapon==='grenade')a.gun.rotation.x-=shot*1.2;a.gun.position.z=.24-shot*.025;
     for(const {side,thigh,shin,knee,boot} of a.legs){
         const phase=a.phase+(side>0?Math.PI:0),s=Math.sin(phase),lift=Math.max(0,Math.cos(phase))*.105*a.speed;
         const foot=V(side*.145-s*lateral*.22,.038+lift,s*forward*.38);
@@ -145,6 +156,7 @@ export function animateOperator(a,p,dt,now){
     for(const {side,upper,lower,hand} of a.arms){
         const shoulder=V(side*.235,.425,.005),grip=p.weapon==='pistol'?V(.14+side*.027,.32,.30):side>0?V(.14,.30,.28):V(.14,.395,.54);
         if(side<0&&reload>0)grip.set(-.08,.04-reload*.16,.34);
+        if(p.weapon==='axe')grip.set(side>0?.14:.06,side>0?.25:.40,.34);if(p.weapon==='grenade')grip.set(side>0?.14:-.17,side>0?.32:.18,side>0?.30:.10);
         const pivot=V(.14,.39,.24);grip.sub(pivot).applyEuler(a.gun.rotation).add(pivot);
         const reach=grip.clone().sub(shoulder);if(reach.length()>.609)grip.copy(shoulder).add(reach.setLength(.609));
         const elbow=solve(shoulder,grip,.31,.30,V(side*.8,-.5,-.4));bone(upper,shoulder,elbow);bone(lower,elbow,grip);hand.position.copy(grip);hand.rotation.set(-.5,a.gun.rotation.x,side*.15);

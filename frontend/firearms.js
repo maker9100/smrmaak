@@ -8,7 +8,19 @@ export function buildFirearm(key,surfaces){
     const box=(p,c,x,y,z,w,h,d,k)=>mesh(p,roundedBox,c,x,y,z,w,h,d,k);
     const tube=(p,c,x,y,z,r,l)=>{const m=mesh(p,cylinder,c,x,y,z,r,l,r);m.rotation.x=Math.PI/2;return m;};
     const dark='#27373d',steel='#798884',grip='#37453d';let muzzle;
-    if(key==='pistol'){
+    if(key==='axe'){
+        const shape=new THREE.Shape();shape.moveTo(-.12,.07);shape.lineTo(.04,.07);shape.lineTo(.16,.15);shape.lineTo(.20,.02);shape.lineTo(.16,-.13);shape.lineTo(.02,-.06);shape.lineTo(-.12,-.06);shape.closePath();
+        const blade=mesh(root,new THREE.ExtrudeGeometry(shape,{depth:.045,bevelEnabled:true,bevelSize:.006,bevelThickness:.004,bevelSegments:2,steps:1}),steel,0,.17,-.16,1,1,1);blade.geometry.translate(0,0,-.022);
+        box(root,'#775f43',0,-.12,-.15,.035,.65,.036,'fabric');box(root,dark,0,-.39,-.15,.045,.10,.045,'rubber');
+        for(let j=0;j<12;j++)box(root,'#343e37',0,-.09-j*.019,-.15,.04,.009,.042,'rubber');
+        for(const x of [-.025,.025])mesh(root,cylinder,'#a2a991',x,.17,-.16,.008,.06,.008);
+        box(root,dark,-.11,.18,-.16,.08,.045,.045);muzzle=-.2;
+    }else if(key==='grenade'){
+        mesh(root,new THREE.SphereGeometry(1,20,14),'#4e6148',0,-.015,-.08,.075,.10,.068,'metal');
+        for(let row=0;row<5;row++)for(let side=0;side<8;side++){const a=side*Math.PI/4;const b=box(root,'#354a35',Math.cos(a)*.068,-.08+row*.032,-.08+Math.sin(a)*.062,.018,.023,.018);b.rotation.y=-a;}
+        box(root,steel,0,.11,-.08,.042,.028,.045);box(root,steel,.046,.044,-.08,.018,.16,.04).rotation.z=.25;
+        const ring=mesh(root,new THREE.TorusGeometry(.025,.004,8,20),steel,-.035,.12,-.08,1,1,1);ring.rotation.y=Math.PI/2;muzzle=-.1;
+    }else if(key==='pistol'){
         box(root,dark,0,-.035,.015,.07,.075,.22);
         box(root,grip,0,-.115,.07,.064,.17,.085,'rubber').rotation.x=-.23;
         box(magazine,'#17272b',0,-.198,.09,.07,.022,.09,'rubber');box(magazine,'#65716b',0,-.14,.08,.05,.13,.065);
@@ -50,6 +62,7 @@ export function buildFirearm(key,surfaces){
     return {root,moving,magazine,support,light,flash};
 }
 export function animateFirearm(model,key,shot,reload){
+    if(key==='axe'||key==='grenade'){model.support.position.y=-reload*.10;return;}
     const cycle=shot>=0&&shot<600?Math.sin(Math.max(0,(shot-80)/520)*Math.PI):0;
     model.moving.position.z=key==='pistol'?Math.max(0,1-shot/105)*.038:cycle*.12;
     model.support.position.z=key==='shotgun'?cycle*.12:0;
@@ -62,6 +75,7 @@ export function animateFirearm(model,key,shot,reload){
 export function detailFirearm(model,key,surfaces){
  const root=model.root,detail=new THREE.Group();detail.name='weapon-details';root.add(detail);
  const add=(geo,c,x,y,z,sx,sy,sz)=>{const m=new THREE.Mesh(geo,surfaces.get('gunmetal',c));m.position.set(x,y,z);m.scale.set(sx,sy,sz);detail.add(m);return m;};
+ if(key==='axe'||key==='grenade'){model.detail=detail;return;}
  const length=key==='pistol'?.16:key==='shotgun'?.53:.47,width=key==='pistol'?.043:.069;
  for(const side of [-1,1]){
   for(const z of [-.09,.065]){const screw=add(cylinder,'#a4aba1',side*width,-.018,z,.009,.008,.009);screw.rotation.z=Math.PI/2;add(roundedBox,'#283338',side*(width+.005),-.018,z,.003,.003,.012);}

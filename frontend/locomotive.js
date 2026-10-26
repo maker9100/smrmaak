@@ -202,3 +202,22 @@ export function buildRailTrack(root,length,surfaces){
         }
     }
 }
+
+// Two original container flatcars, in the locomotive's local metre coordinates.
+export function buildContainerWagons(surfaces){
+ const root=new THREE.Group();root.name='container-wagons';const wheels=[];
+ const box=(p,x,y,z,w,h,d,c,kind='metal')=>{const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,1,.03),surfaces.get(kind,c));m.position.set(x,y,z);p.add(m);return m;};
+ for(let i=0;i<2;i++){
+  const car=new THREE.Group();car.name='wagon-'+(i+1);car.position.x=-12*(i+1);root.add(car);
+  box(car,0,.85,0,11.5,.35,3.5,'#384446');box(car,0,.63,0,12.3,.15,.3,'#263439');
+  box(car,0,2.35,0,10.8,2.6,3.25,i?'#816451':'#587d81','paint');
+  for(let x=-5.2;x<5.3;x+=.42)for(const z of [-1.64,1.64])box(car,x,2.35,z,.055,2.5,.035,'#4b5b5a');
+  for(const x of [-5.4,5.4])for(const z of [-1.6,1.6])box(car,x,2.35,z,.13,2.6,.13,'#79887c');
+  for(const z of [-.85,.85]){box(car,-5.43,2.35,z,.04,2.5,1.5,'#7c8272','paint');box(car,-5.48,2.35,z,.05,2.3,.055,'#a0a48e');}
+  for(const x of [-3.8,3.8]){box(car,x,.5,0,2.1,.3,2.7,'#2f3b3c');for(const offset of [-.65,.65])for(const z of [-1.38,1.38]){
+   const w=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,.22,16),surfaces.get('metal','#303a3e'));w.rotation.x=Math.PI/2;w.position.set(x+offset,.45,z);car.add(w);wheels.push(w);
+  }}
+  for(const z of [-1.3,1.3])box(car,-5.75,.95,z,.035,.12,.22,'#ae4e3d','paint');
+ }
+ return {root,wheels};
+}
