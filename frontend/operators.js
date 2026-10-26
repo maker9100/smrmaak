@@ -22,6 +22,7 @@ export function buildOperator(player,part,joint){
     const dark='#263338',plate=player.skin==='guard'?'#35414a':player.skin==='glowsquid'?'#234b54':'#394f54',skin=player.skin==='guard'?'#9c7058':player.skin==='glowsquid'?'#d7ad91':'#bf967c';
     const add=(parent,g,c,x,y,z,sx,sy,sz,surface)=>{const n=part(parent,g,c,x,y,z,sx,sy,sz,records);if(surface)records.at(-1).surface=surface==='fabric'&&c===suit?'uniform':surface;return n;};
     const body=joint(root,0,.95,0),head=joint(body,0,.64,0),legs=[],arms=[];
+    root.userData.detailStandard='cohesive-070-r1';
     add(body,'torso',suit,0,.26,0,.48,.50,.44,'fabric');
     add(body,'sphere',suit,0,-.02,0,.225,.14,.14,'fabric');
     add(body,'torso',plate,0,.28,.065,.43,.38,.40,'fabric');
@@ -34,6 +35,7 @@ export function buildOperator(player,part,joint){
         add(body,'box',team,side*.205,.47,.04,.014,.065,.13,'fabric');
         add(body,'box','#59695b',side*.11,.10,.22,.12,.17,.065,'fabric');
         add(body,'box','#5e6b58',side*.228,.06,-.05,.075,.17,.12,'fabric');
+        for(let j=0;j<5;j++)add(body,'box','#8b967c',side*.171,.20+j*.043,.176,.014,.005,.008,'fabric');
     }
     add(body,'box','#263338',-.14,.39,.19,.07,.12,.055,'rubber');
     add(body,'cylinder','#263338',-.14,.49,.19,.008,.14,.008,'rubber');
@@ -64,10 +66,13 @@ export function buildOperator(player,part,joint){
         add(boot,'box','#1c2a30',0,.035,.05,.18,.12,.30,'rubber');
         add(boot,'box','#596155',0,-.025,.05,.183,.025,.31,'rubber');
         add(boot,'capsule','#1c2a30',0,.11,-.01,.14,.15,.15,'rubber');
+        for(const edge of [-1,1])for(let j=0;j<5;j++)add(boot,'box','#3b493e',edge*.09,-.012,-.04+j*.055,.012,.02,.019,'rubber');
         for(let j=0;j<3;j++)add(boot,'box','#7c816d',0,.105-j*.018,.10,.09,.009,.012,'fabric');
         legs.push({side,thigh,shin,knee,boot});
         const upper=add(body,'limb',suit,0,0,0,.16,1,.17,'fabric'),lower=add(body,'limb',suit,0,0,0,.125,1,.135,'fabric'),hand=joint(body,0,0,0);
         add(hand,'sphere','#39493e',0,0,0,.064,.045,.085,'fabric');
+        for(let f=0;f<4;f++)add(hand,'box','#50604c',-.039+f*.026,.031,.008,.018,.011,.036,'rubber');
+        add(hand,'box','#89917a',0,.025,-.054,.073,.009,.012,'fabric');
         for(let f=0;f<4;f++)add(hand,'capsule','#39493e',-.039+f*.026,-.035,.02,.022,.065,.029,'fabric');
         add(hand,'capsule','#39493e',side*.063,-.012,.035,.026,.06,.032,'fabric').rotation.z=side*.6;
         arms.push({side,upper,lower,hand});

@@ -1,6 +1,8 @@
 /* Cheat FPS 0.4.0 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
+import {buildGoldenMonument,animateMonument} from './monument.js';
+import {ART,dressArenas,finishLandmark} from './art-direction.js';
 import {WorldEffects} from './world-effects.js';
 import {CombatEffects} from './combat-effects.js';
 import {environment,machinery,animateMachinery,finishEnvironment} from './environment.js';
@@ -11,7 +13,7 @@ import {buildDieselLocomotive,buildRailTrack,buildContainerWagons} from './locom
 import {Surfaces,roundedBox,capsule,skyTexture,contactTexture,buildWorld,mergeStatic} from './graphics.js';
 let surfaces;
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
-const box=roundedBox,sphere=new THREE.SphereGeometry(1,20,14),cylinder=new THREE.CylinderGeometry(1,1,1,16);
+const box=roundedBox,sphere=new THREE.SphereGeometry(1,24,16),cylinder=new THREE.CylinderGeometry(1,1,1,20);
 const geometries={box,sphere,cylinder,capsule,...operatorGeometries};for(const g of Object.values(geometries))g.userData.shared=true;
 const transform=new THREE.Object3D(), color=new THREE.Color();
 class Batch {
@@ -43,7 +45,7 @@ export class CheatRenderer3D {
         this.weaponScene=new THREE.Scene();this.weaponScene.add(new THREE.HemisphereLight('#dfebee','#68775c',2.2));
         const light=new THREE.DirectionalLight('#ffe3b8',2.2);light.position.set(-2,4,3);this.weaponScene.add(light);
         this.weaponCamera=new THREE.PerspectiveCamera(58,1,.01,10);this.weapon=new THREE.Group();this.weaponScene.add(this.weapon);this.createRifle();
-        this.weaponModels={rifle:{root:this.weapon,flash:this.flash,light:this.muzzleLight}};
+        this.weaponModels={rifle:{root:this.weapon,flash:this.flash,light:this.muzzleLight,support:this.rifleSupport}};
         for(const key of ['axe','pistol','shotgun','grenade']){const model=buildFirearm(key,this.surfaces);this.weaponModels[key]=model;model.root.visible=false;this.weaponScene.add(model.root);}
         for(const [key,model] of Object.entries(this.weaponModels))detailFirearm(model,key,this.surfaces);
         this.prepareReflections();this.localLights=[];this.quality=0;this.lastShadow=-1000;this.shadowDirty=true;this.setQuality(4);
@@ -51,7 +53,7 @@ export class CheatRenderer3D {
         this.actorShadows=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,1.1),shadowMat,6);this.actorShadows.count=0;this.actorShadows.frustumCulled=false;this.scene.add(this.actorShadows);
         this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
         canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;});
-        canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections();this.shadowDirty=true;this.lost=false;});
+        canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections(this.arenaId||'freight');this.shadowDirty=true;this.lost=false;});
     }
     prepareReflections(id='freight'){
         const sky=skyTexture(id),pmrem=new THREE.PMREMGenerator(this.renderer);this.environmentTarget?.dispose();this.environmentTarget=pmrem.fromEquirectangular(sky);this.reflectionMap=id;sky.dispose();pmrem.dispose();this.scene.environment=this.weaponScene.environment=this.environmentTarget.texture;
@@ -103,21 +105,22 @@ export class CheatRenderer3D {
         const geos=new Set(),mats=new Set(),textures=new Set();
         this.staticRoot.traverse(o=>{if(!o.isMesh&&!o.isSprite)return;if(o.geometry&&!o.geometry.userData.shared&&!o.isSprite)geos.add(o.geometry);if(!o.material.userData.persistent){mats.add(o.material);for(const t of Object.values(o.material))if(t?.isTexture)textures.add(t);}if(o.isInstancedMesh)o.dispose();});
         geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());this.staticRoot.clear();
-        this.heatMeshes=[];
+        this.heatMeshes=[];this.monumentFlag=null;
         if(theme.id==='foundry')for(let i=0;i<3;i++){const group=new THREE.Group();const disk=new THREE.Mesh(new THREE.CircleGeometry(1,48),new THREE.MeshBasicMaterial({color:'#ff2418',transparent:true,opacity:.45,depthWrite:false,side:THREE.DoubleSide,toneMapped:false}));disk.rotation.x=-Math.PI/2;group.add(disk);const ring=new THREE.Mesh(new THREE.RingGeometry(.94,1,48),new THREE.MeshBasicMaterial({color:'#ff6655',side:THREE.DoubleSide,depthWrite:false,toneMapped:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.005;group.add(ring);group.visible=false;this.staticRoot.add(group);this.heatMeshes.push(group);}
         this.trainRoot=null;this.trainWheels=[];this.trainFans=[];this.trackLights=[];
         for(const light of this.localLights)this.scene.remove(light);this.localLights=[];
         buildWorld(this.staticRoot,map,theme,this.surfaces);this.landmark(theme.id||'freight');
         enhanceLandmark(this.staticRoot.getObjectByName('landmark-'+(theme.id||'freight')),theme.id||'freight',this.surfaces);
         environment(this.staticRoot,theme.id,this.surfaces);finishEnvironment(this.staticRoot,theme.id,this.surfaces,map);
+        dressArenas(this.staticRoot,map,theme,this.surfaces);finishLandmark(this.staticRoot.getObjectByName('landmark-'+theme.id),theme.id,this.surfaces);
         this.mechanisms=machinery(this.staticRoot,theme.id,this.surfaces,this.staticRoot.getObjectByName('landmark-'+theme.id));
-        mergeStatic(this.staticRoot.getObjectByName('landmark-'+(theme.id||'freight')),new Set(this.trackLights));
+        mergeStatic(this.staticRoot.getObjectByName('landmark-'+(theme.id||'freight')),new Set([...this.trackLights,...this.trainWheels,...this.trainFans,...(this.monumentFlag?[this.monumentFlag.root]:[])]));
         this.staticRoot.traverse(o=>{if(o.isMesh&&!o.material.transparent){o.castShadow=true;o.receiveShadow=true;}});
         if(night||theme.id==='foundry'){
             const light=new THREE.PointLight(night?'#88c0ef':'#ff8e38',night?18:35,15,2);light.position.set(30,3.1,night?15:14.9);light.visible=this.quality!==6;this.scene.add(light);this.localLights.push(light);
         }
-        this.scene.fog.color.set(theme.id==='foundry'?'#9b8874':theme.id==='freight'?'#b6c8ca':'#c2c0af');this.scene.fog.density=theme.id==='foundry'?.011:.008;this.sun.color.set(theme.id==='foundry'?'#ffd4a0':'#ffe4ba');this.ambient.groundColor.set(theme.id==='foundry'?'#615245':'#687562');
-        this.ambient.intensity=theme.id==='foundry'?1.2:1.45;this.sun.intensity=theme.id==='foundry'?2.3:3.2;this.renderer.toneMappingExposure=theme.id==='foundry'?1.02:1.08;
+        const look=ART[theme.id]||ART.railway;this.scene.fog.color.set(look.fog);this.scene.fog.density=.0075;this.sun.color.set(look.sun);this.ambient.groundColor.set(theme.id==='foundry'?'#62584b':'#5e6c5d');
+        this.ambient.intensity=1.05;this.sun.intensity=2.8;this.renderer.toneMappingExposure=look.exposure;
         this.shadowDirty=true;
     }
     landmark(id){
@@ -151,9 +154,7 @@ export class CheatRenderer3D {
             }
         }else if(id==='glory'){
             cube('#999581',20,.18,12,4,.36,5);cube('#b9b29c',20,.8,12,3.6,1.25,4.5);cube('#d0c5a9',20,1.55,12,4,.25,4.8);
-            const c=document.createElement('canvas');c.width=512;c.height=256;const g=c.getContext('2d');g.fillStyle='#142a30';g.fillRect(0,0,512,256);g.strokeStyle='#6ff2ff';g.lineWidth=8;g.strokeRect(5,5,502,246);g.fillStyle='#c5faff';g.font='bold 92px monospace';g.textAlign='center';g.fillText('NULL',256,162);
-            const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
-            const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:true}));label.name='statue-null';label.position.set(20,4,12);label.scale.set(4,2,1);group.add(label);
+            this.monumentFlag=buildGoldenMonument(group);
             const ring=new THREE.Mesh(new THREE.RingGeometry(7.85,8,96),new THREE.MeshBasicMaterial({color:'#52c9ed',transparent:true,opacity:.6,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(20,.025,12);group.add(ring);
         }else if(id==='observatory'){
             cube('#d1dce0',20,.12,12,4,.24,5);cube('#d1dce0',20,1.7,12,3.8,3.4,3.8);
@@ -181,7 +182,7 @@ export class CheatRenderer3D {
     }
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
     setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
-    updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
+    updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);animateMonument(this.monumentFlag,time);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
     updateWorldEffects(data,now){this.worldEffects.update(data,now);}
     updateTrain(train){
         this.trainSnapshot=train;

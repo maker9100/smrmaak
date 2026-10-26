@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.7.0':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.7.0';
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.7.0-g1':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.7.0-g1';
 const CHEATS = ['aim','esp','recoil','ammo'];
 const LABELS = ['AIM','ESP','NO RECOIL','∞ AMMO'];
 const ROLE_INFO={
@@ -193,7 +193,7 @@ function protect(e){if(e.cancelable)e.preventDefault();}
 function capture(el,e){try{el.setPointerCapture(e.pointerId);}catch{}}
 function buildControls(){
     if(controlIds===ids.join(':'))return;controlIds=ids.join(':');
-    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}"><div class="weapon-selector hidden">${WEAPON_ORDER.map((key,n)=>`<button data-action="select-weapon" data-weapon="${key}" data-slot="${i}"><b>${n+1}</b>${weaponIcon(key)}<span>${WEAPON_INFO[key].name}</span></button>`).join('')}</div><div class="look-surface" data-look="${i}"></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 이동 · 탭 발사 · 드래그 회전 / 무기 F·O</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats"><button data-action="weapon" data-slot="${i}" aria-label="P${i+1} 무기 전환">무기 ↻</button>${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
+    $('viewControls').innerHTML=ids.map((id,i)=>`<section class="viewport-controls" data-slot="${i}"><div class="weapon-selector hidden">${WEAPON_ORDER.map((key,n)=>`<button data-action="select-weapon" data-weapon="${key}" data-slot="${i}"><b>${n+1}</b>${weaponIcon(key)}<span>${WEAPON_INFO[key].name}</span></button>`).join('')}</div><div class="look-surface" data-look="${i}"></div><div class="shield-meter" data-shield-meter="${i}" role="progressbar" aria-label="P${i+1} 실드" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span class="shield-value">실드 0</span><div class="shield-track"><span></span></div></div><div class="control-hint">P${i+1} · ${i?'↑↓←→ / J,L 회전 / Enter 발사':'WASD / Q,E 회전 / Space 발사'}<br>터치: 이동 · 탭 발사 · 드래그 회전 / 무기 F·O</div><div class="joystick" data-stick="${i}" aria-label="P${i+1} 이동 조이스틱"><div class="stick-knob"></div></div><div class="actions"><button data-action="aim" data-slot="${i}">조준</button><button data-action="fire" class="fire-button" data-slot="${i}">발사</button><button data-action="reload" data-slot="${i}">장전</button></div><button data-action="spectate" data-slot="${i}" class="spectate-button hidden">관전 전환</button><div class="view-cheats"><button data-action="weapon" data-slot="${i}" aria-label="P${i+1} 무기 전환">무기 ↻</button>${CHEATS.map((key,j)=>`<button data-game-cheat="${key}" data-slot="${i}">${LABELS[j]}</button>`).join('')}</div></section>`).join('');
     resize();
 }
 function clearSelection(){
@@ -689,12 +689,16 @@ function hud(p,owner,roster,w,h,index,horizon,now){
     // Health and ammunition sit above the touch controls, per viewport.
     const touch=touchDevice||ids.length===2,baseline=touch?h-(h<530?208:252):h-66;
     const cardWidth=Math.min(compact?112:138,w*.43),hudFont=w<300?15:19;
-    rounded(12,baseline,cardWidth,49,5,'#07191fc9');
-    textAt(`HP ${vitals.hp}`,23,baseline+22,hudFont,vitals.hp<30?'#ff8c76':'#e9f1e9');
-    ctx.fillStyle='#314643';ctx.fillRect(23,baseline+31,cardWidth-23,5);ctx.fillStyle=vitals.hp<30?'#ef735e':'#c6ff47';ctx.fillRect(23,baseline+31,(cardWidth-23)*vitals.hp/(vitals.max_hp||ROLE_INFO[vitals.skin]?.hp||200),5);
-    if(vitals.shield_unlocked)textAt('SHIELD '+vitals.shield+' / 100',23,baseline-9,12,'#6fe8ff');
-    const ammo=p.weapon==='axe'?'—':p.cheats.ammo?'∞':String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
-    textAt(p.reload>0?'RELOADING':p.weapon==='axe'?'근접':`${ammo} / ${p.cheats.ammo?'∞':p.reserves?.[p.weapon]??0}`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt(weaponSpec(p).name,w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
+    const shield=Number.isFinite(Number(vitals.shield))?clamp(Number(vitals.shield),0,100):0;
+    const available=Math.max(40,w-32),healthWidth=shield>0?Math.min(cardWidth,available*.34):cardWidth,shieldWidth=Math.min(108,available*.28),ammoWidth=shield>0?Math.min(cardWidth,available-healthWidth-shieldWidth):cardWidth;
+    const hp=Number.isFinite(Number(vitals.hp))?Math.max(0,Number(vitals.hp)):0,maxHp=Math.max(1,Number(vitals.max_hp)||ROLE_INFO[vitals.skin]?.hp||200);
+    rounded(12,baseline,healthWidth,49,5,'#07191fc9');
+    textAt(`HP ${hp}`,22,baseline+22,Math.min(hudFont,(healthWidth-16)/3.8),hp<30?'#ff8c76':'#e9f1e9');
+    ctx.fillStyle='#314643';ctx.fillRect(22,baseline+31,healthWidth-20,5);ctx.fillStyle=hp<30?'#ef735e':'#c6ff47';ctx.fillRect(22,baseline+31,(healthWidth-20)*clamp(hp/maxHp,0,1),5);
+    const meter=document.querySelector(`[data-shield-meter="${index}"]`);
+    if(meter){meter.hidden=shield<=0;if(shield>0){meter.setAttribute('aria-valuenow',String(shield));meter.querySelector('.shield-value').textContent='실드 '+Math.ceil(shield);meter.querySelector('.shield-track span').style.width=shield+'%';Object.assign(meter.style,{left:(16+healthWidth)+'px',top:baseline+'px',width:shieldWidth+'px',fontSize:Math.max(9,Math.min(hudFont,(shieldWidth-20)/4.3))+'px'});}}
+    const ammo=p.weapon==='axe'?'—':p.cheats.ammo?'∞':String(p.ammo).padStart(2,'0');rounded(w-ammoWidth-12,baseline,ammoWidth,49,5,'#07191fc9');
+    textAt(p.reload>0?'RELOADING':p.weapon==='axe'?'근접':`${ammo} / ${p.cheats.ammo?'∞':p.reserves?.[p.weapon]??0}`,w-22,baseline+22,p.reload>0?Math.min(13,hudFont):Math.min(hudFont,(ammoWidth-16)/5.4),'#e9f1e9','right');textAt(weaponSpec(p).name,w-22,baseline+39,w<300?7:9,'#8ca9a5','right');
     if(p.weapon==='shotgun'&&p.cooldown>0){textAt('펌프 · '+p.cooldown.toFixed(1)+'s',w-24,baseline-8,11,'#ffc66c','right');}
     if(owner.hp>0&&owner.cheats.aim){
         const m=motion.get(owner.id),locked=m?.lockTarget&&now<m.lockUntil;
@@ -779,17 +783,17 @@ function previewFallback(now){
         if(solid){ctx.beginPath();ctx.moveTo(px-scale*.85,py+scale*.4-lift);ctx.lineTo(px,py+scale*.8-lift);ctx.lineTo(px,py+scale*.8);ctx.lineTo(px-scale*.85,py+scale*.4);ctx.closePath();ctx.fillStyle='#3b5653';ctx.fill();ctx.beginPath();ctx.moveTo(px,py+scale*.8-lift);ctx.lineTo(px+scale*.85,py+scale*.4-lift);ctx.lineTo(px+scale*.85,py+scale*.4);ctx.lineTo(px,py+scale*.8);ctx.closePath();ctx.fillStyle=x<8?'#497c85':'#776153';ctx.fill();}
     }
 }
-function frame(now){
+function drawFrame(now){
     const dt=Math.min(.15,Math.max(0,(now-lastFrame)/1000));frameMs=mix(frameMs,now-lastFrame,.05);lastFrame=now;
     ctx.clearRect(0,0,viewportWidth,viewportHeight);
     if(state&&map.length&&['COUNTDOWN','PLAYING','ROUND_END'].includes(state.state)){
-        $('world3d').style.visibility='visible';
+        $('world3d').style.visibility=renderer3d&&!renderer3d.lost?'visible':'hidden';
         renderTrain=trainAt(state.arena?.train,(state.train?.elapsed||0)+(state.state==='PLAYING'?Math.min(.25,(now-snapshotAt)/1000):0));
         renderer3d?.updateTrain(renderTrain);
         renderer3d?.updateHeat(state.heat_zones||[],(state.world_time||0)+(state.state==='PLAYING'?Math.min(.15,(now-snapshotAt)/1000):0));
         renderer3d?.updateMechanisms((state.world_time||0)+(state.state==='PLAYING'?Math.min(.25,(now-snapshotAt)/1000):0),state.crane);
         predict(dt,now);const roster=interpolated(now),rects=viewportLayout();if(state.state==='PLAYING')audioEngine?.world(roster,state.map_id,renderTrain,now);renderer3d?.begin(roster,now);renderer3d?.updateWorldEffects(state,now);
-        for(let i=0;i<ids.length;i++){const r=rects[i];ctx.save();ctx.translate(r.x,r.y);ctx.beginPath();ctx.rect(0,0,r.w,r.h);ctx.clip();view(i,roster,r.w,r.h,now,r);ctx.restore();}
+        for(let i=0;i<ids.length;i++){const r=rects[i];ctx.save();try{ctx.translate(r.x,r.y);ctx.beginPath();ctx.rect(0,0,r.w,r.h);ctx.clip();view(i,roster,r.w,r.h,now,r);}finally{ctx.restore();}}
         if(ids.length===2){const r=rects[1];if(r.y)line(0,r.y,viewportWidth,r.y,'#07191f',3);else line(r.x,0,r.x,viewportHeight,'#07191f',3);}
     }else if(!ids.length&&!$('menu').classList.contains('hidden')&&previewMap.length){
         const due=!document.hidden&&now-lastPreview>50;
@@ -799,6 +803,17 @@ function frame(now){
         else{$('world3d').style.visibility='hidden';previewFallback(now);}
         if(due)lastPreview=now;
     }else{$('world3d').style.visibility='hidden';ctx.fillStyle='#0a1013';ctx.fillRect(0,0,viewportWidth,viewportHeight);}
+}
+function frame(now){
+    // Schedule before drawing so a single failed effect cannot stop the game.
     requestAnimationFrame(frame);
+    try{drawFrame(now);}catch(error){
+        if(renderer3d&&!renderer3d.lost){
+            console.warn('3D frame recovered in compatibility mode:',error);renderer3d.lost=true;$('world3d').style.visibility='hidden';
+            $('graphicsStatus').textContent='그래픽: 2D 호환 모드 · 렌더링 복구 · v0.7.0-g1';
+            ctx.setTransform(canvas.width/viewportWidth,0,0,canvas.height/viewportHeight,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+            drawFrame(now);
+        }else console.warn('Skipped invalid frame:',error);
+    }
 }
 requestAnimationFrame(frame);

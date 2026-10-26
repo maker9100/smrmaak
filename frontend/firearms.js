@@ -75,6 +75,24 @@ export function animateFirearm(model,key,shot,reload){
 export function detailFirearm(model,key,surfaces){
  const root=model.root,detail=new THREE.Group();detail.name='weapon-details';root.add(detail);
  const add=(geo,c,x,y,z,sx,sy,sz)=>{const m=new THREE.Mesh(geo,surfaces.get('gunmetal',c));m.position.set(x,y,z);m.scale.set(sx,sy,sz);detail.add(m);return m;};
+ // Every slot receives the same hand, fastener and material finish standard.
+ for(const side of [-1,1]){
+  const parent=side<0?(model.support||root):root,x=side<0?(key==='rifle'?-.06:-.035):.035,z=side<0?(key==='rifle'?-.27:key==='pistol'?.04:-.33):.105;
+  for(let j=0;j<4;j++){const knuckle=new THREE.Mesh(roundedBox,surfaces.get('rubber','#3b493f'));knuckle.position.set(x-.035+j*.023,-.051,z-.006);knuckle.scale.set(.019,.013,.035);parent.add(knuckle);}
+  const cuff=new THREE.Mesh(roundedBox,surfaces.get('fabric','#6b7c67'));cuff.position.set(side*.08,-.175,z+.06);cuff.scale.set(.10,.022,.075);parent.add(cuff);
+ }
+ if(key==='axe'){
+  for(const side of [-1,1]){
+   add(roundedBox,'#d5d7bf',.16,.17,-.16+side*.029,.027,.20,.006).rotation.z=-.12;
+   const rivet=add(cylinder,'#c2b995',0,.17,-.16+side*.028,.012,.008,.012);rivet.rotation.x=Math.PI/2;
+   add(roundedBox,'#9c8964',side*.02,-.12,-.15,.003,.28,.016);
+  }
+ }else if(key==='grenade'){
+  const collar=add(cylinder,'#8a9983',0,.096,-.08,.042,.023,.042);
+  for(const side of [-1,1]){const pin=add(cylinder,'#bec5aa',side*.042,.105,-.08,.006,.018,.006);pin.rotation.z=Math.PI/2;}
+  for(let j=0;j<3;j++)add(roundedBox,'#a59b62',-.02+j*.02,.015,-.146,.011,.025,.003);
+ }
+ model.root.userData.detailStandard='cohesive-070-r1';
  if(key==='axe'||key==='grenade'){model.detail=detail;return;}
  const length=key==='pistol'?.16:key==='shotgun'?.53:.47,width=key==='pistol'?.043:.069;
  for(const side of [-1,1]){
