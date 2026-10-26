@@ -54,6 +54,7 @@ def bullet_impact(room,p,yaw,pitch,limit):
         dist=-origin[2]/direction[2]
         if 0<dist<=limit and (best is None or dist<best['distance']):
             best=dict(x=origin[0]+direction[0]*dist,y=origin[1]+direction[1]*dist,z=0,nx=0,ny=0,nz=1,surface='world',anchor=None,distance=dist,ox=p.x,oy=p.y,oz=1.5,dx=direction[0],dy=direction[1],dz=direction[2])
+    for bounds in room.arena.get('ballistic_solids',[]):test(bounds)
     if room.arena.get('train'):
         from .hazards import train_pose
         cfg=room.arena['train'];pose=train_pose(room.train_time,cfg)

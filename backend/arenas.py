@@ -35,7 +35,7 @@ ARENAS={
  'plaza':arena('plaza','시계 광장','중앙 시계탑',
    mirrored([(11,5,6,2),(11,28,6,2),(12,13,2,5),(21,9,3,3),(21,23,3,3),(25,5,2,2),(25,28,2,2),(21,16,2,3)]),
    '#c4d0ce','#aa9b7e','#a09c84','#9b6657'),
- 'glory':arena('glory','영광의 동상','NULL · 동상 받침과 회복 실드',
+ 'glory':arena('glory','영광의 동상','매드해커스 깃발을 든 황금 동상과 회복 실드',
    mirrored([(10,5,6,2),(10,27,6,2),(12,12,3,7),(20,6,3,4),(20,24,3,4),(22,14,2,3),(25,3,3,2),(25,30,3,2)]),
    '#c6c9b4','#a19882','#98957e','#75d6ec'),
  'railway':arena('railway','철도 기지','선로를 통과하는 기관차',
@@ -48,6 +48,13 @@ for y in range(15,20):grid[y]='0'+grid[y][1:-1]+'0'
 ARENAS['railway']['train']=dict(period=28.,warning=3.,start=-14.,end=94.,speed=5.6,y=17.5,length=12.,width=4.,damage=1000)
 ARENAS['railway']['train']['cars']=[dict(offset=0,length=12.,width=4.),dict(offset=-12,length=11.5,width=3.5),dict(offset=-24,length=11.5,width=3.5)]
 ARENAS['glory']['shield']=dict(x=30.,y=17.5,radius=8.,capacity=100,delay=5.,regen=20.)
+# Above the existing pedestal: legs, torso, head and flag pole, in world metres.
+ARENAS['glory']['ballistic_solids']=[
+ [29.55,17.20,1.7,30.45,18.0,3.95],
+ [29.40,17.08,3.95,30.62,18.03,5.30],
+ [29.70,17.25,5.30,30.30,17.85,6.25],
+ [30.89,18.13,2.05,30.99,18.23,8.30],
+]
 # One lifted container shuttles between two marked landing pads.
 ARENAS['freight']['crane'] = dict(period=20., warning=3., travel=6.,
     pads=[[27,7,6,2],[27,26,6,2]])

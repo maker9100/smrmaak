@@ -559,6 +559,7 @@ class Room:
 
     def projectile_blocked(self,x,y,z):
         if not (0<=x<60 and 0<=y<35):return True
+        if any(a<=x<=d and b<=y<=e and c<=z<=f for a,b,c,d,e,f in self.arena.get('ballistic_solids',[])):return True
         crane=self.crane_state
         if crane and crane['x']<=x<=crane['x']+crane['w'] and crane['y']<=y<=crane['y']+crane['h']:
             return crane['lift']<=z<=crane['lift']+2.6
