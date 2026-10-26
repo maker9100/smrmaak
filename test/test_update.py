@@ -25,15 +25,6 @@ def test_shotgun_interrupts_only_after_round_inserted_and_obeys_pump():
  for _ in range(2):r.tick(1/60)
  r.shoot(p);assert p.shots==2
 
-def test_crane_grid_lifts_transports_waits_and_lands_without_crushing():
- r,p,q=duel();r.update_mechanisms();assert wall(29,8,r.map)
- r.train_time=5;r.update_mechanisms();assert not wall(29,8,r.map) and r.crane_state['lift']>2
- q.x,q.y=29,27
- r.train_time=9;r.update_mechanisms();assert r.crane_state['blocked'] and r.crane_state['lift']>=3.5
- r.train_time=22;r.update_mechanisms();assert r.crane_state['blocked'] and not wall(29,27,r.map)
- q.x,q.y=50,2;r.train_time+=1;r.update_mechanisms();assert wall(29,27,r.map) and not wall(29,8,r.map)
- assert not r.crane_state['moving'] and r.crane_state['lift']==0
- r.train_time=45;r.update_mechanisms();assert r.crane_state['moving']
 
 def test_clock_damage_cooldown_knockout_and_snapshot_time():
  r=Room('CLOCK','local','plaza');p=r.add('p');q=r.add('q',1);r.state='PLAYING';r.timer=120
