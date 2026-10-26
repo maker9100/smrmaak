@@ -1,4 +1,4 @@
-# v0.5.0 전체 업데이트
+# v0.6.0 전체 업데이트
 
 ZIP의 backend와 frontend 폴더 구조를 그대로 유지한다. 루트에 파일을 전부 펼쳐 넣으면 실행되지 않는다. 이전 Render/GitHub 서비스가 자동으로 수정된 것은 아니다.
 
@@ -6,7 +6,7 @@ ZIP의 backend와 frontend 폴더 구조를 그대로 유지한다. 루트에 �
 2. frontend 폴더 안에 frontend 파일 **13개**를 모두 업로드한다. 새 파일 `environment.js`, `combat-effects.js`, `operators.js`, `firearms.js`, `map-details.js`와 실행 번들 `renderer3d.js`를 포함한다.
 3. 루트의 requirements.txt, render.yaml, 문서·테스트 등도 같은 경로로 반영한다. 폴더 안에 같은 폴더를 다시 넣어 backend/backend 또는 frontend/frontend가 되지 않도록 한다.
 4. 연결된 브랜치에 커밋한다. Render Auto-Deploy가 On Commit이면 자동 배포된다. 꺼져 있다면 Manual Deploy → Deploy latest commit을 누른다.
-5. 게임 메뉴/설정과 서버 `/health`의 버전이 모두 **0.5.0**인지 확인한다. 파일 버전이 섞이면 접속 시 업데이트 안내가 표시된다.
+5. 게임 메뉴/설정과 서버 `/health`의 버전이 모두 **0.6.0**인지 확인한다. 파일 버전이 섞이면 접속 시 업데이트 안내가 표시된다.
 
 Runtime은 Python, Root Directory는 requirements.txt가 저장소 루트에 있으면 빈칸이다. Build Command:
 
