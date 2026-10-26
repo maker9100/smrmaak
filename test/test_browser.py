@@ -49,7 +49,7 @@ def browser():
 def start_split_ai(page):
     # Split AI remains covered at the protocol level; the simplified AI menu
     # deliberately has no split-screen or character setup controls.
-    page.evaluate("""() => {const original=WebSocket.prototype.send;WebSocket.prototype.send=function(raw){const d=JSON.parse(raw);if(d.mode==='ai'){d.split=true;d.skins=['rogue','warden'];raw=JSON.stringify(d)}return original.call(this,raw)}}""")
+    page.evaluate("""() => {const original=WebSocket.prototype.send;WebSocket.prototype.send=function(raw){const d=JSON.parse(raw);if(d.mode==='ai'){d.split=true;d.skins=['glowsquid','guard'];raw=JSON.stringify(d)}return original.call(this,raw)}}""")
     page.locator('#create').click()
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def test_quick_ai_settings_results_rematch_and_resize(game,server_url):
     page,cdp=game
     assert page.locator('#lobby').is_hidden() and page.locator('.joystick').count()==2
     assert page.evaluate('state.quick&&state.players.length===6')
-    assert page.evaluate('state.players.filter(p=>!p.bot).map(p=>p.skin)')==['rogue','warden']
+    assert page.evaluate('state.players.filter(p=>!p.bot).map(p=>p.skin)')==['glowsquid','guard']
     page.locator('#pause').tap();assert page.locator('#settings').is_visible()
     assert page.locator('#quality').input_value()=='4';page.locator('#settingsClose').click()
     for size in [(844,390),(390,844),(1366,900)]:
@@ -128,7 +128,7 @@ def test_quick_ai_settings_results_rematch_and_resize(game,server_url):
     directory=os.getenv('CHEAT_FPS_SCREENSHOT_DIR')
     if directory:
         Path(directory).mkdir(parents=True,exist_ok=True);page.screenshot(path=str(Path(directory)/'mobile-split.png'))
-        page.evaluate("let image=document.createElement('canvas');image.id='gallery';image.width=1200;image.height=700;image.style.cssText='position:fixed;inset:0;z-index:100;width:1200px;height:700px';let g=image.getContext('2d');g.fillStyle='#132329';g.fillRect(0,0,1200,700);['scout','warden','rogue'].forEach((skin,i)=>{g.drawImage(humanSprite(i===2?1:0,skin,0,0),100+i*320,90,256,384);g.font='700 20px Arial';g.fillStyle='#d5eddf';g.fillText(skin.toUpperCase(),165+i*320,510)});document.body.append(image)")
+        page.evaluate("let image=document.createElement('canvas');image.id='gallery';image.width=1200;image.height=700;image.style.cssText='position:fixed;inset:0;z-index:100;width:1200px;height:700px';let g=image.getContext('2d');g.fillStyle='#132329';g.fillRect(0,0,1200,700);['scout','guard','glowsquid'].forEach((skin,i)=>{g.drawImage(humanSprite(i===2?1:0,skin,0,0),100+i*320,90,256,384);g.font='700 20px Arial';g.fillStyle='#d5eddf';g.fillText(skin.toUpperCase(),165+i*320,510)});document.body.append(image)")
         page.locator('#gallery').screenshot(path=str(Path(directory)/'character-models.png'));page.locator('#gallery').evaluate('el=>el.remove()')
     page.request.post(server_url+'/__test/finish');page.wait_for_selector('#result:not(.hidden)')
     assert page.locator('#stats tbody tr').count()==6 and page.locator('#rounds span').count()==3

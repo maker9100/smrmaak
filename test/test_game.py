@@ -156,13 +156,13 @@ def test_analog_acceleration_release_and_diagonal_speed():
     walk(p,1,0,1/60)
     assert 0<p.vx<3.6
     for _ in range(30): walk(p,.5,0,1/60)
-    assert abs(p.vx-4.0)<.001
+    assert abs(p.vx-4.8)<.001
     start=p.x
     for _ in range(30): walk(p,0,0,1/60)
-    assert p.x-start<.2 and abs(p.vx)<.001
+    assert p.x-start<.23 and abs(p.vx)<.001
     a=Player('b','Diagonal',0,x=2,y=1.5)
     walk(a,1,1,.1)
-    assert math.hypot(a.vx,a.vy)<=8.0
+    assert math.hypot(a.vx,a.vy)<=9.6
 
 
 def test_absolute_yaw_and_malformed_input_are_safe():
@@ -179,14 +179,14 @@ def test_quick_ai_skips_lobby_for_two_humans_and_pings():
     with TestClient(app) as client:
         with client.websocket_connect('/ws') as ws:
             ws.send_json({'name':'Quick','mode':'ai','quick':True,'split':True,
-                          'skins':['rogue','warden'],'cheats':[{'ammo':True},{'esp':True}]})
+                          'skins':['glowsquid','guard'],'cheats':[{'ammo':True},{'esp':True}]})
             w=ws.receive_json()
             assert w['quick'] and len(w['ids'])==2
             snap=ws.receive_json()
             assert snap['quick'] and snap['state']=='COUNTDOWN'
             humans=[p for p in snap['players'] if not p['bot']]
             assert len(humans)==2 and all(p['team']==0 for p in humans)
-            assert [p['skin'] for p in humans]==['rogue','warden']
+            assert [p['skin'] for p in humans]==['glowsquid','guard']
             assert set(humans[0]['cheats'])=={'aim','esp','recoil'} and humans[1]['cheats']['esp']
             assert all(not any(p['cheats'].values()) for p in snap['players'] if p['bot'])
             ws.send_json({'type':'ping','sent':123})
@@ -199,13 +199,13 @@ def test_quick_ai_skips_lobby_for_two_humans_and_pings():
 def test_quick_ai_rematch_starts_without_readiness_ui():
     r,p=ai_room()
     r.quick=True
-    p.skin='rogue'
+    p.skin='glowsquid'
     p.cheats['esp']=True
     r.state='MATCH_END'
     r.score=[3,1]
     r.command(p,{'type':'rematch'})
     assert r.state=='COUNTDOWN' and r.score==[0,0] and r.round==1
-    assert len(r.players)==6 and p.skin=='rogue' and p.cheats['esp']
+    assert len(r.players)==6 and p.skin=='glowsquid' and p.cheats['esp']
     assert all(not any(q.cheats.values()) for q in r.players.values() if q.bot)
 
 

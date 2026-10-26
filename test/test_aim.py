@@ -10,6 +10,7 @@ def duel(arena='freight'):
     room.state='PLAYING';room.timer=120
     p.x,p.y,p.yaw,p.pitch=2.5,1.5,.8,.7
     q.x,q.y=6.5,1.5
+    p.hp=q.hp=100
     return room,p,q
 
 

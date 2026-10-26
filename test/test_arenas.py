@@ -42,7 +42,7 @@ def test_collision_and_shooting_use_the_room_map_not_a_global_grid():
     for room in [a,b]:
         p=room.add('Shooter',0);q=room.add('Target',1,True)
         p.x,p.y,p.yaw=21.5,3.5,0;q.x,q.y=27.5,3.5;p.cheats['recoil']=True;room.shoot(p)
-        assert q.hp==(75 if room is a else 100)
+        assert q.hp==(125 if room is a else 150)
 
 
 def test_only_local_host_can_select_a_map_and_selection_resets_ready():

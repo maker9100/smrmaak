@@ -10,6 +10,7 @@ def duel():
     p.x,p.y,p.yaw,p.pitch=2.5,1.5,0,0
     q.x,q.y=5.5,1.5
     p.cheats['recoil']=True
+    p.hp=q.hp=100
     return r,p,q
 
 
@@ -59,7 +60,7 @@ def test_slug_stops_at_nearest_enemy_and_do_not_hit_teammate():
     r,p,q=duel()
     # Add another enemy before entering PLAYING.
     r.state='LOBBY';far=r.add('Behind',1);ally=r.add('Ally',0);r.state='PLAYING'
-    far.x,far.y=8,1.5;ally.x,ally.y=4,1.5
+    far.x,far.y=8,1.5;ally.x,ally.y=4,1.5;far.hp=ally.hp=100
     p.weapon='shotgun';r.shoot(p)
     assert q.hp==0 and far.hp==100 and ally.hp==100
 
@@ -70,7 +71,7 @@ def test_walls_and_train_block_every_weapon(key):
     r=Room('TRAIN','local','railway');p=r.add('Shooter',0);q=r.add('Target',1)
     r.state='PLAYING';r.train_time=3+44/5.6
     p.weapon=key;p.x,p.y,p.yaw,p.pitch=30,14.5,math.pi/2,0;q.x,q.y=30,20.5
-    r.shoot(p);assert q.hp==100
+    r.shoot(p);assert q.hp==150
 
 
 def test_switch_authorization_and_snapshot():

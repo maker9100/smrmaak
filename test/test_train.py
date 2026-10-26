@@ -58,9 +58,9 @@ def test_train_team_elimination_ends_the_round_and_freezes_the_train():
     for p in players[:3]:p.x,p.y=30,17.5
     room.train_time=HIT_TIME;room.tick(1/60)
     assert room.state=='ROUND_END' and room.score==[0,1]
-    assert all(p.hp==0 for p in players[:3]) and all(p.hp==100 for p in players[3:])
+    assert all(p.hp==0 for p in players[:3]) and all(p.hp==150 for p in players[3:])
     elapsed=room.train_time;room.tick(.5);assert room.train_time==elapsed
-    room.new_round();assert room.train_time==0 and all(p.hp==100 for p in players)
+    room.new_round();assert room.train_time==0 and all(p.hp==150 for p in players)
     room.tick(1);assert room.train_time==0
 
 
@@ -77,7 +77,7 @@ def test_simultaneous_elimination_replays_the_same_round_without_awarding_a_team
     for p in players:p.x,p.y=30,17.5
     room.train_time=HIT_TIME;room.tick(1/60)
     assert room.round==old_round and room.state=='COUNTDOWN' and room.score==[0,0]
-    assert room.history==[] and all(p.deaths==1 and p.hp==100 for p in players)
+    assert room.history==[] and all(p.deaths==1 and p.hp==150 for p in players)
     assert room.train_time==0 and '동시 녹아웃' in room.message
 
 
@@ -86,9 +86,9 @@ def test_train_blocks_sight_and_bullets_and_the_crossing_is_clear_between_passes
     p.x,p.y,p.yaw=30,14.5,math.pi/2;q.x,q.y=30,20.5
     assert clear(p.x,p.y,q.x,q.y,room.map)
     room.train_time=HIT_TIME;assert not room.sight(p.x,p.y,q.x,q.y)
-    room.shoot(p);assert q.hp==100
+    room.shoot(p);assert q.hp==150
     room.train_time=20;p.cooldown=0;assert room.sight(p.x,p.y,q.x,q.y)
-    room.shoot(p);assert q.hp==75
+    room.shoot(p);assert q.hp==125
 
 
 def test_train_state_is_room_scoped_and_cannot_be_set_by_client_input():

@@ -28,7 +28,7 @@ def test_shotgun_interrupts_only_after_round_inserted_and_obeys_pump():
 
 def test_clock_damage_cooldown_knockout_and_snapshot_time():
  r=Room('CLOCK','local','plaza');p=r.add('p');q=r.add('q',1);r.state='PLAYING';r.timer=120
- p.x,p.y=37,17.5;q.x,q.y=3,3
+ p.x,p.y=37,17.5;q.x,q.y=3,3;p.hp=100
  assert not r.clock_hit(p,(37,17.5),0,.016);assert p.hp==65
  r.clock_hit(p,(37,17.5),0,.016);assert p.hp==65
  p.hazard_cooldown=0;r.clock_hit(p,(37,17.5),0,.016);assert p.hp==30

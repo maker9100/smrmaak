@@ -4,6 +4,7 @@ from backend.game import Room,wall
 
 def room(key):
  r=Room('TEST','local',key);p=r.add('Blue',0);q=r.add('Red',1);r.state='PLAYING';r.timer=120
+ p.hp=q.hp=100
  return r,p,q
 
 @pytest.mark.parametrize('team',[0,1])
@@ -29,7 +30,7 @@ def test_random_heat_is_floor_only_warns_and_resets():
  for _ in range(3):p.heat_cooldown=0;r.heat_hit(p,(p.x,p.y),7,7.1)
  assert p.hp==0 and p.deaths==1 and r.log[-1]['cause']=='heat'
  assert r.snapshot()['heat_zones']==zones
- r.new_round();assert not r.heat_zones and p.hp==100
+ r.new_round();assert not r.heat_zones and p.hp==150
 
 
 def test_heat_sweeps_crossing_and_does_not_hit_outside():
