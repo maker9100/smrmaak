@@ -171,6 +171,7 @@ export class CheatRenderer3D {
         }
     }
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
+    setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
     updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
     updateTrain(train){
         if(!this.trainRoot)return;

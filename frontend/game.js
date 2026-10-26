@@ -1,12 +1,19 @@
 'use strict';
-// Cheat FPS 0.6.0: frame-rate camera, analog controls and authoritative server.
+// Cheat FPS 0.6.5: frame-rate camera, analog controls and authoritative server.
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', {alpha:true});
 let renderer3d=null, viewportWidth=innerWidth,viewportHeight=innerHeight;
 try{if(window.CheatRenderer3D)renderer3d=new window.CheatRenderer3D($('world3d'));}catch(error){console.warn('Canvas fallback:',error.message);}
-$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.6.0':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.6.0';
+$('graphicsStatus').textContent=renderer3d?'그래픽: 3D · v0.6.5':'그래픽: 2D 호환 모드 (WebGL2 사용 불가) · v0.6.5';
 const CHEATS = ['aim','esp','recoil'];
 const LABELS = ['AIM','ESP','NO RECOIL'];
+const ROLE_INFO={
+ scout:{name:'Scout',hp:150,speed:1.20,detail:'HP 150 · 이동속도 +20% · 경량 정찰 장비'},
+ guard:{name:'Guard',hp:300,speed:.75,detail:'HP 300 · 이동속도 −25% · 중장갑 장비'},
+ glowsquid:{name:'Glowsquid',hp:200,speed:1.15,detail:'HP 200 · 이동속도 +15% · 제련소 화상 면역 / 적 ESP에서 형광 점멸'}
+};
+const roleName=p=>ROLE_INFO[p.skin]?.name||'Operator';
+const espTint=q=>q.skin==='glowsquid'?(Math.floor(performance.now()/180)%2?'#44ffff':'#e8ff25'):'#ff9681';
 const AIM_CONE=.95;
 const WEAPON_ORDER=['rifle','pistol','shotgun'];
 const WEAPON_INFO={rifle:{name:'AR',capacity:30,reload_time:1.5},shotgun:{name:'산탄총',capacity:6,reload_time:.7},pistol:{name:'권총',capacity:12,reload_time:1.25}};
@@ -66,6 +73,9 @@ function showScreen(name){
     if(name==='menu')previewIndex=-1;
     document.body.classList.toggle('split-play',name==='playUI'&&ids.length===2);
 }
+function syncRole(){const key=$('roleChoice').value;$('roleInfo').textContent=ROLE_INFO[key].detail;try{localStorage.setItem('cheat-fps-role',key);}catch{}}
+try{const saved=localStorage.getItem('cheat-fps-role');if(ROLE_INFO[saved])$('roleChoice').value=saved;}catch{}
+$('roleChoice').onchange=syncRole;syncRole();
 function syncMenu(){ $('create').textContent='게임 시작'; }
 $('mode').onchange=syncMenu;
 syncMenu();
@@ -95,11 +105,11 @@ function connect(join=false){
     samples.clear();motion.clear();effects.clear();local.clear();sentInputs.clear();controlIds='';lobbyStamp='';spriteCache.clear();
     showScreen('menu');$('create').disabled=$('join').disabled=true;toast('경기를 준비하는 중…');
     const socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);ws=socket;
-    socket.onopen=()=>socket.send(JSON.stringify({mode:$('mode').value,map_id:$('mapChoice').value||'freight',code:join?$('code').value.trim():'',name:$('mode').value==='ai'?'PLAYER':$('name').value,split:$('mode').value==='local'&&$('split').checked,quick:!join&&$('mode').value==='ai',skins:['scout','warden'],cheats:loadouts}));
+    socket.onopen=()=>socket.send(JSON.stringify({mode:$('mode').value,map_id:$('mapChoice').value||'freight',code:join?$('code').value.trim():'',name:$('mode').value==='ai'?'PLAYER':$('name').value,split:$('mode').value==='local'&&$('split').checked,quick:!join&&$('mode').value==='ai',skins:[$('roleChoice').value,'guard'],cheats:loadouts}));
     socket.onmessage=e=>{
         if(ws!==socket)return;
         const d=JSON.parse(e.data);
-        if(d.type==='welcome'){if(d.version!=='0.6.0'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
+        if(d.type==='welcome'){if(d.version!=='0.6.5'){closedByUser=true;socket.close();toast('업데이트 파일의 버전이 다릅니다. backend와 frontend를 모두 교체한 뒤 재배포해 주세요.');return;}ids=d.ids;loadArena(d.arena);buildControls();toast(d.quick?'AI전 시작 · 화면 드래그 회전 / 탭 발사':`방 ${d.code} · 접속 완료`);}
         else if(d.type==='error')toast(d.message);
         else if(d.type==='pong'&&typeof d.sent==='number')rtt=mix(rtt,clamp(performance.now()-d.sent,0,600),.25);
         else if(d.type==='state')receive(d);
@@ -133,10 +143,10 @@ function lobby(d){
     $('controlsInfo').textContent=d.start_hint||(d.mode==='local'?'양 팀 각 1명 이상 · 참가자 전원 준비 시 자동 시작 (팀당 최대 3명).':'참가자가 모두 준비하면 방장이 시작한다.');
     if(stamp===lobbyStamp)return;
     const editing=$('custom').contains(document.activeElement)&&['INPUT','SELECT'].includes(document.activeElement.tagName);
-    $('roster').innerHTML=[0,1].map(t=>`<div class="card ${t?'red':'blue'}"><h3>${t?'RED':'BLUE'} / ${d.players.filter(p=>p.team===t).length} OF 3</h3>${d.players.filter(p=>p.team===t).map(p=>`<div class="member"><span>${esc(p.name)} ${p.id===d.host?'♛':''}</span><span>${p.ready?'준비 완료':'편성 중'}</span></div>`).join('')}</div>`).join('');
+    $('roster').innerHTML=[0,1].map(t=>`<div class="card ${t?'red':'blue'}"><h3>${t?'RED':'BLUE'} / ${d.players.filter(p=>p.team===t).length} OF 3</h3>${d.players.filter(p=>p.team===t).map(p=>`<div class="member"><span>${esc(p.name)} · ${roleName(p)} ${p.id===d.host?'♛':''}</span><span>${p.ready?'준비 완료':'편성 중'}</span></div>`).join('')}</div>`).join('');
     if(editing)return;
     lobbyStamp=stamp;
-    $('custom').innerHTML=ids.map((id,i)=>{const p=d.players.find(p=>p.id===id);if(!p)return '';return `<div class="card"><h3>PLAYER ${i+1}</h3><label>콜사인<input data-name="${id}" value="${esc(p.name)}" maxlength="16"></label><label>캐릭터<select data-skin="${id}">${['scout','warden','rogue'].map(s=>`<option ${p.skin===s?'selected':''}>${s}</option>`).join('')}</select></label><label>팀<select data-team="${id}" ${d.mode==='ai'?'disabled':''}><option value="0" ${p.team===0?'selected':''}>BLUE</option><option value="1" ${p.team===1?'selected':''}>RED</option></select></label><div class="toggles">${toggles(p)}</div><button data-ready="${id}" class="${p.ready?'on':''}">${p.ready?'준비 취소':'준비 완료'}</button></div>`;}).join('');
+    $('custom').innerHTML=ids.map((id,i)=>{const p=d.players.find(p=>p.id===id);if(!p)return '';return `<div class="card"><h3>PLAYER ${i+1}</h3><label>콜사인<input data-name="${id}" value="${esc(p.name)}" maxlength="16"></label><label>보직<select data-skin="${id}">${['scout','guard','glowsquid'].map(s=>`<option value="${s}" ${p.skin===s?'selected':''}>${ROLE_INFO[s].name}</option>`).join('')}</select></label><small class="role-details">${ROLE_INFO[p.skin]?.detail||''}</small><label>팀<select data-team="${id}" ${d.mode==='ai'?'disabled':''}><option value="0" ${p.team===0?'selected':''}>BLUE</option><option value="1" ${p.team===1?'selected':''}>RED</option></select></label><div class="toggles">${toggles(p)}</div><button data-ready="${id}" class="${p.ready?'on':''}">${p.ready?'준비 취소':'준비 완료'}</button></div>`;}).join('');
 }
 $('custom').onchange=e=>{
     const el=e.target,id=el.dataset.name||el.dataset.skin||el.dataset.team;if(!id)return;
@@ -165,7 +175,7 @@ function receive(d){
         if(slot>=0){
             let m=motion.get(p.id);
             if(!m||respawn){
-                m={x:p.x,y:p.y,yaw:p.yaw,pitch:p.pitch||0,vx:0,vy:0,offsetX:0,offsetY:0,kick:p.kick||0,stride:0,fov:1.12};
+                m={speed_multiplier:p.speed_multiplier,x:p.x,y:p.y,yaw:p.yaw,pitch:p.pitch||0,vx:0,vy:0,offsetX:0,offsetY:0,kick:p.kick||0,stride:0,fov:1.12};
                 motion.set(p.id,m);sentInputs.set(p.id,[]);
             }else if(d.state==='PLAYING'&&p.hp>0){
                 reconcile(p,m,now);
@@ -365,7 +375,7 @@ function ray(x,y,a){
 }
 function visible(p,q){const d=Math.hypot(q.x-p.x,q.y-p.y);return ray(p.x,p.y,Math.atan2(q.y-p.y,q.x-p.x)).d>=d-.6;}
 function integrate(m,input,dt){
-    const speed=input.aim?5.7:8.0,yaw=input.yaw??m.yaw;
+    const speed=(input.aim?5.7:8.0)*(m.speed_multiplier||1),yaw=input.yaw??m.yaw;
     const tx=(Math.cos(yaw)*input.f-Math.sin(yaw)*input.s)*speed,ty=(Math.sin(yaw)*input.f+Math.cos(yaw)*input.s)*speed;
     const blend=1-Math.exp(-22*dt),dx=tx*dt+(m.vx-tx)*blend/22,dy=ty*dt+(m.vy-ty)*blend/22;
     m.vx=mix(m.vx,tx,blend);m.vy=mix(m.vy,ty,blend);
@@ -380,7 +390,7 @@ function reconcile(p,m,now){
     // motion is at lastFrame, not the later message-receive time. Replaying
     // past that boundary would count the same movement again next frame.
     const replayAt=Math.min(now,lastFrame);
-    const target={x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0,yaw:p.yaw};
+    const target={speed_multiplier:p.speed_multiplier,x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0,yaw:p.yaw};
     let consumed=p.input_age||0,total=0;
     for(let j=ack;j<history.length;j++){
         const h=history[j];if(h.time>=replayAt)break;
@@ -437,8 +447,8 @@ function humanSprite(team,skin,direction,step){
     const image=document.createElement('canvas');image.width=128;image.height=192;
     const g=image.getContext('2d'),a=direction*Math.PI/4,front=Math.cos(a),side=Math.sin(a);
     const accent=team?'#ef735f':'#63ceef',dark=team?'#763f3a':'#305e70';
-    const suit=skin==='rogue'?'#303b40':skin==='warden'?'#626e67':'#54636b';
-    const phase=Math.sin(step*Math.PI/4),swing=phase*6,wide=skin==='warden'?1.14:skin==='rogue'?.91:1;
+    const suit=skin==='glowsquid'?'#303b40':skin==='guard'?'#626e67':'#54636b';
+    const phase=Math.sin(step*Math.PI/4),swing=phase*6,wide=skin==='guard'?1.14:skin==='glowsquid'?.91:1;
     const cx=64,bodyW=(25+Math.abs(front)*11)*wide;
     const poly=(points,color,stroke='#141f24')=>{g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fillStyle=color;g.fill();if(stroke){g.lineWidth=1.5;g.strokeStyle=stroke;g.stroke();}};
     const oval=(x,y,rx,ry,color)=>{g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.fillStyle=color;g.fill();};
@@ -458,7 +468,7 @@ function humanSprite(team,skin,direction,step){
         const x=cx+sign*bodyW*.6,elbowX=x+sign*5+side*8,handX=cx+side*28+sign*8;
         capsule(x,72,elbowX,95,13,far?'#2b3a40':suit);
         capsule(elbowX,95,handX,91,10,far?'#26353b':'#5e7174');
-        oval(x,73,skin==='warden'?12:10,12,far?'#263b43':'#58757b');
+        oval(x,73,skin==='guard'?12:10,12,far?'#263b43':'#58757b');
         g.fillStyle=far?dark:accent;g.fillRect(x-5,68,10,5);oval(handX,91,7,6,'#263c3d');
     };
     arm(side>=0?-1:1,true);
@@ -468,8 +478,8 @@ function humanSprite(team,skin,direction,step){
     if(front>.1){
         for(let j=0;j<3;j++){g.fillStyle='#7c8d84';g.fillRect(cx-16+j*11,92,9,16);g.fillStyle='#3c5656';g.fillRect(cx-15+j*11,94,7,2);}
         g.fillStyle='#b4beb0';g.fillRect(cx-3,76,6,9);
-        if(skin==='warden'){poly([[cx-16,77],[cx+16,77],[cx+13,88],[cx-13,88]],'#82968c');g.fillStyle=accent;g.fillRect(cx-10,81,20,3);}
-        if(skin==='rogue'){poly([[cx-16,70],[cx-9,70],[cx+16,99],[cx+9,102]],'#8b9f8a');}
+        if(skin==='guard'){poly([[cx-16,77],[cx+16,77],[cx+13,88],[cx-13,88]],'#82968c');g.fillStyle=accent;g.fillRect(cx-10,81,20,3);}
+        if(skin==='glowsquid'){poly([[cx-16,70],[cx-9,70],[cx+16,99],[cx+9,102]],'#8b9f8a');}
     }else{g.strokeStyle='#6c8582';g.lineWidth=2;g.strokeRect(cx-12,79,24,18);}
     g.fillStyle='#1c2d33';g.fillRect(cx-bodyW*.48,110,bodyW*.96,8);g.fillStyle='#a3b1a4';g.fillRect(cx-4,110,8,6);
     limb(side>=0?1:-1,false);
@@ -477,10 +487,10 @@ function humanSprite(team,skin,direction,step){
     g.fillStyle='#bb9881';g.fillRect(cx-6+side*3,52,12,13);
     const headX=cx+side*4;
     oval(headX,43,15,18,'#bda58d');
-    oval(headX,36,18*wide,17,skin==='rogue'?'#263c42':metal);
-    if(skin==='rogue'){poly([[headX-19,38],[headX-15,24],[headX,16],[headX+16,24],[headX+20,38]],'#263c42');}
+    oval(headX,36,18*wide,17,skin==='glowsquid'?'#263c42':metal);
+    if(skin==='glowsquid'){poly([[headX-19,38],[headX-15,24],[headX,16],[headX+16,24],[headX+20,38]],'#263c42');}
     if(skin==='scout'){g.fillStyle='#c1d5cc';g.fillRect(headX-4,20,8,7);g.fillStyle=accent;g.fillRect(headX-2,21,4,3);}
-    if(skin==='warden'){g.strokeStyle='#9ba99d';g.lineWidth=2;g.beginPath();g.moveTo(headX-18,29);g.lineTo(headX+18,29);g.stroke();}
+    if(skin==='guard'){g.strokeStyle='#9ba99d';g.lineWidth=2;g.beginPath();g.moveTo(headX-18,29);g.lineTo(headX+18,29);g.stroke();}
     poly([[headX-17*wide,34],[headX+17*wide,34],[headX+16*wide,45],[headX-16*wide,45]],front>=-.1?'#152d36':'#526e72');
     if(front>=-.1){
         const visor=g.createLinearGradient(headX-14,32,headX+14,43);visor.addColorStop(0,'#b9f7ed');visor.addColorStop(.45,accent);visor.addColorStop(1,'#244b58');
@@ -578,9 +588,9 @@ function characters(p,roster,w,h,horizon,proj,depth,now){
         ctx.restore();
         const allied=q.team===p.team,esp=!allied&&p.cheats.esp;
         if((seen&&allied)||esp){
-            const color=allied?'#7bd9ed':'#ff8e7b',font=clamp(ww*.13,9,13),labelY=clamp(top-12,100,h-140);
+            const color=allied?'#7bd9ed':esp?espTint(q):'#ff8e7b',font=clamp(ww*.13,9,13),labelY=clamp(top-12,100,h-140);
             if(esp){ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash(seen?[]:[4,3]);ctx.strokeRect(left+ww*.16,top+hh*.08,ww*.68,hh*.84);ctx.setLineDash([]);}
-            textAt(`${q.name} · ${q.hp}`,x,labelY,font,color,'center');ctx.fillStyle='#0d1c21c9';ctx.fillRect(x-24,labelY+5,48,3);ctx.fillStyle=color;ctx.fillRect(x-24,labelY+5,48*q.hp/100,3);
+            textAt(`${q.name} · ${roleName(q)} · ${q.hp}`,x,labelY,font,color,'center');ctx.fillStyle='#0d1c21c9';ctx.fillRect(x-24,labelY+5,48,3);ctx.fillStyle=color;ctx.fillRect(x-24,labelY+5,48*q.hp/(q.max_hp||ROLE_INFO[q.skin]?.hp||200),3);
         }
     }
 }
@@ -646,7 +656,7 @@ function rifle(p,m,w,h,now){
 function radar(p,roster,x,y,size){
     rounded(x,y,size,size,5,'#071c23a3');const scale=(size-14)/Math.max(map[0].length,map.length);
     for(let yy=0;yy<map.length;yy++)for(let xx=0;xx<map[yy].length;xx++)if(map[yy][xx]==='1'){ctx.fillStyle='#839a9660';ctx.fillRect(x+7+xx*scale,y+7+yy*scale,scale,scale);}
-    for(const q of roster){if(q.hp<=0||q.team!==p.team&&!p.cheats.esp)continue;ctx.fillStyle=q.id===p.id?'#d5ff68':q.team===p.team?'#72d5ed':'#ff8573';ctx.beginPath();ctx.arc(x+7+q.x*scale,y+7+q.y*scale,q.id===p.id?3:2.2,0,Math.PI*2);ctx.fill();}
+    for(const q of roster){if(q.hp<=0||q.team!==p.team&&!p.cheats.esp)continue;ctx.fillStyle=q.id===p.id?'#d5ff68':q.team===p.team?'#72d5ed':espTint(q);ctx.beginPath();ctx.arc(x+7+q.x*scale,y+7+q.y*scale,q.id===p.id?3:2.2,0,Math.PI*2);ctx.fill();}
     line(x+7+p.x*scale,y+7+p.y*scale,x+7+(p.x+Math.cos(p.yaw)*1.5)*scale,y+7+(p.y+Math.sin(p.yaw)*1.5)*scale,'#d5ff68',1.5);
 }
 function hud(p,owner,roster,w,h,index,horizon,now){
@@ -661,16 +671,16 @@ function hud(p,owner,roster,w,h,index,horizon,now){
         rounded(w/2-Math.min(145,w*.43),70,Math.min(290,w*.86),24,4,danger?'#642e22de':'#07171fbc');
         textAt(label,w/2,86,compact?10:12,danger?'#ffce7b':'#b8c7b5','center');
     }
-    if(state.heat_zones?.length)textAt('제련소 · 붉은 장판에서 벗어나세요',w/2,85,11,'#ff8a78','center');
+    if(state.heat_zones?.length)textAt(p.skin==='glowsquid'?'Glowsquid · 화상 면역':'제련소 · 붉은 장판에서 벗어나세요',w/2,85,11,'#ff8a78','center');
     if(state.arena?.clock)textAt('회전 시침 주의 · 접촉 피해 35',w/2,85,11,'#ffce7b','center');
     if(state.crane&&(state.crane.moving||state.crane.warning))textAt('크레인 가동 · 낙하 구역 압사 주의',w/2,85,11,'#ffce7b','center');
-    textAt(`P${index+1} / ${owner.name}${owner.hp<=0?' · 관전':''}`,14,compact?83:88,11,owner.team?'#ffab97':'#a2dcec');
+    textAt(`P${index+1} / ${owner.name} · ${roleName(owner)}${owner.hp<=0?' · 관전':''}`,14,compact?83:88,11,owner.team?'#ffab97':'#a2dcec');
     // Health and ammunition sit above the touch controls, per viewport.
     const touch=touchDevice||ids.length===2,baseline=touch?h-(h<530?208:252):h-66;
     const cardWidth=Math.min(compact?112:138,w*.43),hudFont=w<300?15:19;
     rounded(12,baseline,cardWidth,49,5,'#07191fc9');
     textAt(`HP ${owner.hp}`,23,baseline+22,hudFont,owner.hp<30?'#ff8c76':'#e9f1e9');
-    ctx.fillStyle='#314643';ctx.fillRect(23,baseline+31,cardWidth-23,5);ctx.fillStyle=owner.hp<30?'#ef735e':'#c6ff47';ctx.fillRect(23,baseline+31,(cardWidth-23)*owner.hp/100,5);
+    ctx.fillStyle='#314643';ctx.fillRect(23,baseline+31,cardWidth-23,5);ctx.fillStyle=owner.hp<30?'#ef735e':'#c6ff47';ctx.fillRect(23,baseline+31,(cardWidth-23)*owner.hp/(owner.max_hp||ROLE_INFO[owner.skin]?.hp||200),5);
     const ammo=String(p.ammo).padStart(2,'0');rounded(w-cardWidth-12,baseline,cardWidth,49,5,'#07191fc9');
     textAt(p.reload>0?'RELOADING':`${ammo} / ${p.reserves?.[p.weapon]??0}`,w-24,baseline+22,p.reload>0?Math.min(13,hudFont):hudFont,'#e9f1e9','right');textAt(weaponSpec(p).name,w-24,baseline+39,w<300?7:9,'#8ca9a5','right');
     if(p.weapon==='shotgun'&&p.cooldown>0){textAt('펌프 · '+p.cooldown.toFixed(1)+'s',w-24,baseline-8,11,'#ffc66c','right');}
@@ -697,17 +707,17 @@ function labels3d(p,roster,rect){
         if(q.hp<=0||q.id===p.id)continue;
         const enemy=q.team!==p.team;if(enemy&&!p.cheats.esp&&!visible(p,q))continue;
         const box=renderer3d.project(q,rect);if(!box)continue;
-        const height=box.bottom-box.top,width=Math.max(10,height*.37),tint=enemy?'#ff9681':'#81e2ff';
+        const height=box.bottom-box.top,width=Math.max(10,height*.37),tint=enemy?(p.cheats.esp?espTint(q):'#ff9681'):'#81e2ff';
         if(enemy&&p.cheats.esp){ctx.strokeStyle=tint;ctx.lineWidth=1.5;ctx.strokeRect(box.x-width/2,box.top,width,height);}
         if(height>12&&(p.cheats.esp||!enemy)){
-            textAt(`${q.name} · ${q.hp}`,box.x,box.top-12,Math.min(11,Math.max(8,height*.12)),tint,'center');
-            ctx.fillStyle='#163132';ctx.fillRect(box.x-22,box.top-8,44,3);ctx.fillStyle=tint;ctx.fillRect(box.x-22,box.top-8,44*q.hp/100,3);
+            textAt(`${q.name} · ${roleName(q)} · ${q.hp}`,box.x,box.top-12,Math.min(11,Math.max(8,height*.12)),tint,'center');
+            ctx.fillStyle='#163132';ctx.fillRect(box.x-22,box.top-8,44,3);ctx.fillStyle=tint;ctx.fillRect(box.x-22,box.top-8,44*q.hp/(q.max_hp||ROLE_INFO[q.skin]?.hp||200),3);
         }
     }
 }
 function heatFallback(p,w,h,horizon,proj){
     const time=(state.world_time||0)+Math.min(.15,(performance.now()-snapshotAt)/1000);
-    for(const z of state.heat_zones||[]){if(time>=z.end)continue;const points=[];for(let i=0;i<33;i++){const a=i*Math.PI/16,dx=z.x+Math.cos(a)*z.radius-p.x,dy=z.y+Math.sin(a)*z.radius-p.y,depth=dx*Math.cos(p.yaw)+dy*Math.sin(p.yaw);if(depth<.1){points.length=0;break;}points.push([w/2+(-dx*Math.sin(p.yaw)+dy*Math.cos(p.yaw))*proj/depth,horizon+1.5*proj/depth]);}if(points.length){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=time>=z.start?'#ff231b88':'#ff534633';ctx.fill();ctx.strokeStyle='#ff7868';ctx.lineWidth=3;ctx.stroke();}}
+    for(const z of state.heat_zones||[]){if(time>=z.end)continue;const points=[];for(let i=0;i<33;i++){const a=i*Math.PI/16,dx=z.x+Math.cos(a)*z.radius-p.x,dy=z.y+Math.sin(a)*z.radius-p.y,depth=dx*Math.cos(p.yaw)+dy*Math.sin(p.yaw);if(depth<.1){points.length=0;break;}points.push([w/2+(-dx*Math.sin(p.yaw)+dy*Math.cos(p.yaw))*proj/depth,horizon+1.5*proj/depth]);}if(points.length){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=p.skin==='glowsquid'?'#208cff88':time>=z.start?'#ff231b88':'#ff534633';ctx.fill();ctx.strokeStyle=p.skin==='glowsquid'?'#73d6ff':'#ff7868';ctx.lineWidth=3;ctx.stroke();}}
 }
 function view(index,roster,w,h,now,rect){
     const owner=roster.find(p=>p.id===ids[index]);if(!owner)return;
@@ -715,7 +725,7 @@ function view(index,roster,w,h,now,rect){
     if(owner.hp<=0){const alive=roster.filter(q=>q.team===owner.team&&q.hp>0);if(alive.length)p=alive[c.view%alive.length];}
     const m=motion.get(p.id),fov=p.id===owner.id&&m?m.fov:1.12;
     if(renderer3d&&!renderer3d.lost){
-        renderer3d.render(p,rect,fov,now,effects.get(p.id));labels3d(p,roster,rect);
+        renderer3d.setHeatViewer(p.skin);renderer3d.render(p,rect,fov,now,effects.get(p.id));labels3d(p,roster,rect);
     }else{
         const proj=w/(2*Math.tan(fov/2)),horizon=h*.5+Math.tan(p.pitch||0)*proj;
         ground(p,w,h,horizon,proj);heatFallback(p,w,h,horizon,proj);const depth=walls(p,w,h,horizon,proj,fov);

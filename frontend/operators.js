@@ -18,8 +18,8 @@ function solve(start,end,l1,l2,pole){
 }
 function bone(node,from,to){node.position.copy(from).add(to).multiplyScalar(.5);node.quaternion.setFromUnitVectors(V(0,1,0),to.clone().sub(from).normalize());node.scale.y=from.distanceTo(to);}
 export function buildOperator(player,part,joint){
-    const root=new THREE.Group(),records=[],team=player.team?'#ed785f':'#58c4ea',suit=player.skin==='rogue'?'#45504b':player.skin==='warden'?'#686d57':'#667369';
-    const dark='#263338',plate='#394f54',skin='#bf967c';
+    const root=new THREE.Group(),records=[],team=player.team?'#ed785f':'#58c4ea',suit=player.skin==='glowsquid'?'#315765':player.skin==='guard'?'#686d57':'#667369';
+    const dark='#263338',plate=player.skin==='guard'?'#35414a':player.skin==='glowsquid'?'#234b54':'#394f54',skin=player.skin==='guard'?'#9c7058':player.skin==='glowsquid'?'#d7ad91':'#bf967c';
     const add=(parent,g,c,x,y,z,sx,sy,sz,surface)=>{const n=part(parent,g,c,x,y,z,sx,sy,sz,records);if(surface)records.at(-1).surface=surface==='fabric'&&c===suit?'uniform':surface;return n;};
     const body=joint(root,0,.95,0),head=joint(body,0,.64,0),legs=[],arms=[];
     add(body,'torso',suit,0,.26,0,.48,.50,.44,'fabric');
@@ -56,7 +56,7 @@ export function buildOperator(player,part,joint){
     add(head,'box',plate,0,.205,.078,.245,.036,.105,'metal');
     add(head,'box','#b6baa2',0,.27,.014,.035,.018,.05,'metal');
     add(head,'box','#527b80',0,.15,.12,.20,.035,.018,'glass');
-    if(player.skin==='rogue')add(head,'sphere',suit,0,-.018,.03,.108,.073,.105,'fabric');
+    if(player.skin==='glowsquid')add(head,'sphere',suit,0,-.018,.03,.108,.073,.105,'fabric');
     for(const side of [-1,1]){
         const thigh=add(root,'limb',suit,0,0,0,.19,1,.20,'fabric'),shin=add(root,'limb',suit,0,0,0,.15,1,.16,'fabric');
         const knee=add(root,'box',plate,0,0,0,.15,.14,.055,'rubber'),boot=joint(root,0,0,0);
@@ -92,7 +92,31 @@ export function buildOperator(player,part,joint){
         add(g,'box','#96ac91',0,.07,.20,.014,.022,.02,'metal');
         for(const r of records.slice(start)){r.weapon=key;if(r.surface==='metal')r.surface='gunmetal';}gunRecords[key]=g;
     }
-    return {root,body,head,legs,arms,gun,records,gunRecords,phase:0,lastX:player.x,lastY:player.y,skin:player.skin,team:player.team,weapon:'rifle',speed:0,dead:0,lastHp:100,lastShots:player.shots||0,shotTime:-10000,hurtTime:-10000};
+    // Distinct human silhouettes, facial tones and role equipment.
+    if(player.skin==='guard'){
+        for(const side of [-1,1]){
+            add(body,'sphere','#46525c',side*.27,.43,0,.13,.12,.16,'metal');
+            add(body,'box','#6a757b',side*.19,.22,.20,.13,.25,.05,'metal');
+        }
+        add(head,'box','#526677',0,.075,.117,.21,.11,.022,'glass');
+        add(body,'torso','#53616a',0,.27,.11,.48,.40,.36,'metal');
+        root.scale.set(1.14,1.03,1.12);
+    }else if(player.skin==='glowsquid'){
+        // Human in insulated gear, with arms, legs and a human face.
+        add(body,'box','#235966',0,.28,-.22,.29,.36,.12,'metal');
+        for(const side of [-1,1]){
+            add(body,'cylinder','#53e1de',side*.16,.29,-.24,.045,.35,.045,'glow');
+            add(body,'box','#58dddd',side*.14,.35,.215,.025,.24,.018,'glow');
+            add(head,'sphere','#71ede2',side*.046,.103,.105,.033,.028,.015,'glow');
+        }
+        add(head,'capsule','#243f48',0,.025,.12,.10,.07,.08,'rubber');
+        root.scale.set(.96,1,1);
+    }else{
+        add(head,'box','#263b39',0,.20,.19,.23,.025,.17,'fabric');
+        add(body,'capsule','#4b5849',.19,.20,-.21,.08,.32,.08,'fabric');
+        root.scale.set(.91,.98,.94);
+    }
+    return {root,body,head,legs,arms,gun,records,gunRecords,phase:0,lastX:player.x,lastY:player.y,skin:player.skin,team:player.team,weapon:'rifle',speed:0,dead:0,lastHp:player.hp,lastShots:player.shots||0,shotTime:-10000,hurtTime:-10000};
 }
 export function animateOperator(a,p,dt,now){
     const distance=Math.hypot(p.x-a.lastX,p.y-a.lastY);a.lastX=p.x;a.lastY=p.y;
