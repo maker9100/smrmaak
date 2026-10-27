@@ -12,6 +12,7 @@
     const t=i/c.sampleRate,n=Math.random()*2-1;low=low*.92+n*.08;
     if(type==='hit')d[i]=Math.sin(t*2*Math.PI*880)*Math.exp(-t*35)*.5;
     else if(type==='axe')d[i]=n*Math.sin(Math.min(1,t/.15)*Math.PI)*.4;
+    else if(type==='pin'){d[i]=(n*Math.exp(-t*95)+Math.sin(t*2*Math.PI*1800)*Math.exp(-t*65))*.45;}
     else if(type==='switch'||type==='grenade')d[i]=n*Math.exp(-t*65);
     else if(type==='reload')d[i]=n*(Math.exp(-t*70)+Math.exp(-Math.abs(t-.19)*100)*.7+Math.exp(-Math.abs(t-.39)*100)*.5);
     else if(type==='step')d[i]=low*Math.exp(-t*24)*2;

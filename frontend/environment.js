@@ -6,7 +6,7 @@ export function environment(root,id,surfaces){
  const mesh=(geo,kind,c,x,y,z)=>{const m=new THREE.Mesh(geo,surfaces.get(kind,c));m.position.set(x,y,z);g.add(m);return m;};
  const box=(x,y,z,w,h,d,k,c)=>mesh(new THREE.BoxGeometry(w,h,d),k,c,x,y,z);
  if(id==='freight'){
-  mesh(new THREE.PlaneGeometry(220,180),'glass','#376477',30,-.25,-65).rotation.x=-Math.PI/2;
+  mesh(new THREE.PlaneGeometry(220,180),'water','#376477',30,-.25,-65).rotation.x=-Math.PI/2;
   box(30,-.5,17.5,77,1,47,'concrete','#7b827c');
   // Ocean-going cargo vessel beyond the quay, bow and bridge distinct in silhouette.
   const ship=new THREE.Group();ship.name='cargo-ship';ship.position.set(28,0,-31);g.add(ship);
@@ -20,7 +20,7 @@ export function environment(root,id,surfaces){
   box(30,-.5,17.5,140,1,120,'concrete','#4d4841');
   for(let i=0;i<16;i++){
    const x=-12+(i%8)*12,z=i<8?-10:46,r=3+(i%3);
-   mesh(new THREE.CylinderGeometry(r,r+.4,.18,13),'glow',i%2?'#ff8d22':'#ffbd42',x,.05,z);
+   mesh(new THREE.CylinderGeometry(r,r+.4,.18,13),'molten',i%2?'#ff8d22':'#ffbd42',x,.05,z);
    const rim=mesh(new THREE.TorusGeometry(r+.2,.28,6,22),'metal','#49443d',x,.05,z);rim.rotation.x=Math.PI/2;
    for(let j=0;j<4;j++)mesh(new THREE.DodecahedronGeometry(.7+(j%2),0),'metal','#514b43',x+Math.cos(j*1.57)*(r+1),.5,z+Math.sin(j*1.57)*(r+1));
   }

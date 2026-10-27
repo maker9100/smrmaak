@@ -141,3 +141,16 @@ body.portrait-split .floating { top:70px; }
 
 .stance-actions{position:absolute;right:14px;bottom:235px;display:flex;gap:6px;pointer-events:auto}.stance-actions button{min-height:44px;padding:8px;background:#102723df;font-size:12px}.weapon-selector button.empty{color:#ff5353;border-color:#a33030;background:#321b1be8}.weapon-selector button:disabled{opacity:.85}
 @media(max-height:530px){.stance-actions{bottom:160px}}
+
+/* 0.8.0: the status row sits above the entire action dock in every viewport. */
+.viewport-controls .actions{bottom:58px}
+.viewport-controls .joystick{bottom:58px}
+.viewport-controls .stance-actions{bottom:var(--stance-bottom,189px);right:14px;height:var(--stance-height,44px)}
+.viewport-controls .stance-actions button{height:var(--stance-height,44px);min-height:var(--stance-height,44px);padding:4px 8px;line-height:16px}
+.compact-pane .weapon-selector{top:68px}
+.compact-pane .weapon-selector button{gap:2px;padding:4px;font-size:9px}
+.compact-pane .weapon-selector .weapon-icon{height:24px}
+.compact-pane .weapon-selector b{font-size:12px}
+/* Keep the start button inside short mobile browser viewports. */
+@media(max-height:560px) and (min-width:701px){#menu .menu-content{display:grid;grid-template-columns:185px minmax(240px,300px);gap:28px;align-items:center;width:auto}#menu h1{margin:0;font-size:62px}#menu .menu-actions{grid-column:2;grid-row:1;gap:7px}#menu .menu-links button{padding:6px 0;font-size:14px}}
+@media(max-height:560px) and (max-width:700px){#menu{padding:12px 6vw}#menu .menu-content{width:min(380px,88vw)}#menu h1{font-size:42px;line-height:1;letter-spacing:-2px;margin:0 0 12px}#menu h1 span{display:inline;margin-left:10px}#menu .menu-actions{gap:5px}#menu .menu-actions select{padding:7px}#menu .menu-actions .primary{padding:8px;min-height:36px;margin-top:3px}#menu #roleInfo{font-size:10px;line-height:1.3;min-height:26px;margin:2px 0}#menu .menu-links button{padding:5px 0;font-size:13px}}

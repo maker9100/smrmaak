@@ -1,6 +1,8 @@
 /* Cheat FPS 0.4.0 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
+import {batchWorld} from './world-batching.js';
+import {Trajectory,ThrowTrails} from './trajectory.js';
 import {buildGoldenMonument,animateMonument} from './monument.js';
 import {ART,dressArenas,finishLandmark} from './art-direction.js';
 import {AxeEffects} from './axe-effects.js';
@@ -15,7 +17,9 @@ import {Surfaces,roundedBox,capsule,skyTexture,contactTexture,buildWorld,mergeSt
 let surfaces;
 const TAU=Math.PI*2, lerp=(a,b,t)=>a+(b-a)*t;
 const box=roundedBox,sphere=new THREE.SphereGeometry(1,24,16),cylinder=new THREE.CylinderGeometry(1,1,1,20);
-const geometries={box,sphere,cylinder,capsule,...operatorGeometries};for(const g of Object.values(geometries))g.userData.shared=true;
+const geometries={box,sphere,cylinder,capsule,...operatorGeometries};
+const medium={...geometries,sphere:new THREE.SphereGeometry(1,16,10),cylinder:new THREE.CylinderGeometry(1,1,1,12),capsule:new THREE.CapsuleGeometry(.5,1,4,8).scale(1,.5,1)};
+const low={...medium,sphere:new THREE.SphereGeometry(1,10,7),cylinder:new THREE.CylinderGeometry(1,1,1,8)};for(const g of Object.values(geometries))g.userData.shared=true;
 const transform=new THREE.Object3D(), color=new THREE.Color();
 class Batch {
     constructor(scene,geometry,capacity,material){
@@ -27,7 +31,7 @@ class Batch {
 }
 function material(tint){return surfaces.get('metal',tint);}
 function part(root,geometry,tint,x,y,z,sx,sy,sz,records){
-    const node=new THREE.Object3D();node.position.set(x,y,z);node.scale.set(sx,sy,sz);root.add(node);const surface=tint==='#bf967c'?'skin':['#1c2a30','#323d41','#263338','#394f54'].includes(tint)?'metal':'fabric';records.push({node,geometry,tint,surface});return node;
+    const node=new THREE.Object3D();node.position.set(x,y,z);node.scale.set(sx,sy,sz);root.add(node);const surface=tint==='#bf967c'?'skin':['#1c2a30','#323d41','#263338','#394f54'].includes(tint)?'metal':'fabric';records.push({node,geometry,tint,surface,micro:Math.max(sx,sy,sz)<.12});return node;
 }
 function joint(parent,x,y,z){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g;}
 function actor(player){return buildOperator(player,part,joint);}
@@ -52,7 +56,7 @@ export class CheatRenderer3D {
         this.prepareReflections();this.localLights=[];this.quality=0;this.lastShadow=-1000;this.shadowDirty=true;this.setQuality(4);
         const shadowMat=new THREE.MeshBasicMaterial({map:contactTexture(),transparent:true,depthWrite:false,opacity:.65});
         this.actorShadows=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,1.1),shadowMat,6);this.actorShadows.count=0;this.actorShadows.frustumCulled=false;this.scene.add(this.actorShadows);
-        this.axeEffects=new AxeEffects(this.scene);this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
+        this.trajectory=new Trajectory(this.scene);this.throwTrails=new ThrowTrails(this.scene);this.axeEffects=new AxeEffects(this.scene);this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
         canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;});
         canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections(this.arenaId||'freight');this.shadowDirty=true;this.lost=false;});
     }
@@ -122,6 +126,7 @@ export class CheatRenderer3D {
         }
         const look=ART[theme.id]||ART.railway;this.scene.fog.color.set(look.fog);this.scene.fog.density=.0075;this.sun.color.set(look.sun);this.ambient.groundColor.set(theme.id==='foundry'?'#62584b':'#5e6c5d');
         this.ambient.intensity=1.05;this.sun.intensity=2.8;this.renderer.toneMappingExposure=look.exposure;
+        batchWorld(this.staticRoot,this.surfaces,new Set([this.trainRoot,...this.trackLights,...this.heatMeshes,this.monumentFlag?.root,this.mechanisms?.load,this.mechanisms?.trolley,...(this.mechanisms?.cables||[]),this.mechanisms?.hand,this.mechanisms?.dome].filter(Boolean)));
         this.shadowDirty=true;
     }
     landmark(id){
@@ -183,8 +188,8 @@ export class CheatRenderer3D {
     }
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
     setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
-    updateMechanisms(time,crane){animateMachinery(this.mechanisms,time,crane);animateMonument(this.monumentFlag,time);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
-    updateWorldEffects(data,now){this.worldEffects.update(data,now);this.axeEffects.update(data.axes||[],now);}
+    updateMechanisms(time,crane){for(const kind of ['water','molten']){const maps=this.surfaces.textures.get(kind);if(maps)for(const t of Object.values(maps))t.offset.set(time*(kind==='water'?.007:.012),time*(kind==='water'?.004:.003));}animateMachinery(this.mechanisms,time,crane);animateMonument(this.monumentFlag,time);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
+    updateWorldEffects(data,now){this.worldEffects.update(data,now);this.axeEffects.update(data.axes||[],now,(data.code||'menu')+':'+data.round);this.trajectory.update(data);this.throwTrails.update(data,now);}
     updateTrain(train){
         this.trainSnapshot=train;
         if(!this.trainRoot)return;
@@ -228,7 +233,7 @@ export class CheatRenderer3D {
         // A stable vertical FOV avoids a telescope view in tall split panes.
         const vertical=Math.max(56,Math.min(82,2*Math.atan(Math.tan(fov/2)/aspect)*180/Math.PI));
         camera.aspect=aspect;camera.fov=vertical*(fov<1?.88:1);camera.updateProjectionMatrix();
-        const eye=(p.z||0)+(p.crouch?.975:1.5);camera.position.set(p.x,eye,p.y);camera.lookAt(p.x+Math.cos(p.yaw)*Math.cos(pitch),eye+Math.sin(pitch),p.y+Math.sin(p.yaw)*Math.cos(pitch));camera.updateMatrixWorld();
+        const eye=(p.z||0)+(p.eyeHeight??(p.crouch?.975:1.5));camera.position.set(p.x,eye,p.y);camera.lookAt(p.x+Math.cos(p.yaw)*Math.cos(pitch),eye+Math.sin(pitch),p.y+Math.sin(p.yaw)*Math.cos(pitch));camera.updateMatrixWorld();
         if(p.spectating){
             let distance=.15;const yaw=p.yaw,grid=this.collisionGrid;
             for(let d=.15;d<=3.8;d+=.1){const x=p.x-Math.cos(yaw)*d,z=p.y-Math.sin(yaw)*d;
@@ -239,11 +244,12 @@ export class CheatRenderer3D {
             camera.position.set(p.x-Math.cos(yaw)*distance,(p.z||0)+1.65+distance*.18,p.y-Math.sin(yaw)*distance);camera.lookAt(p.x+Math.cos(yaw)*1.4,p.hp>0?1.15:.45,p.y+Math.sin(yaw)*1.4);camera.updateMatrixWorld();
         }
         for(const batch of Object.values(this.batches))batch.mesh.count=0;
-        for(const [id,a] of this.actors){if(id===p.id&&!p.spectating)continue;for(const part of a.records){if(part.weapon&&part.weapon!==a.weapon)continue;if(part.enemyBand&&a.team===p.team)continue;const key=part.surface+':'+part.geometry;if(!this.batches[key]){this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));this.batches[key].mesh.castShadow=this.quality!==6;}this.batches[key].add(part.node.matrixWorld,part.tint);}}
+        for(const [id,a] of this.actors){if(id===p.id&&!p.spectating)continue;const far=Math.hypot(a.root.position.x-p.x,a.root.position.z-p.y)>22;for(const part of a.records){if(part.weapon&&part.weapon!==a.weapon)continue;if(part.enemyBand&&a.team===p.team)continue;if(far&&part.micro&&!part.enemyBand)continue;const key=part.surface+':'+part.geometry;if(!this.batches[key]){this.batches[key]=new Batch(this.scene,geometries[part.geometry],1024,surfaces.get(part.surface));this.batches[key].mesh.castShadow=this.quality!==6;}this.batches[key].mesh.geometry=(this.quality===2?geometries:this.quality===6?low:medium)[part.geometry];this.batches[key].add(part.node.matrixWorld,part.tint);}}
         for(const batch of Object.values(this.batches))batch.commit();
         this.combatEffects.view(p.spectating?null:p.id,now);
+        this.trajectory.view(p,now);
         r.render(this.scene,camera);
-        if(p.hp>0&&!p.spectating&&((p.weapon!=='axe'&&p.cheats.ammo)||p.ammo>0||(p.reserves?.[p.weapon]||0)>0)){
+        if(p.hp>0&&!p.spectating&&(p.cooking||(p.weapon!=='axe'&&p.cheats.ammo)||p.ammo>0||(p.reserves?.[p.weapon]||0)>0)){
             const shot=now-(fx?.shotWeapon&&fx.shotWeapon!==p.weapon?-10000:fx?.shotAt||0),moving=Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),stride=p.stride||now*.008;
             const key=p.weapon||'rifle',duration=key==='shotgun'?.7:key==='pistol'?1.25:key==='grenade'?.75:1.5;
             const model=this.weaponModels[key]||this.weaponModels.rifle,weapon=model.root;this.activeWeapon=key;
@@ -254,7 +260,7 @@ export class CheatRenderer3D {
             const delta=Math.atan2(Math.sin(p.yaw-sway.yaw),Math.cos(p.yaw-sway.yaw));sway.x=lerp(sway.x,THREE.MathUtils.clamp(delta/step*.016,-.04,.04),blend);sway.y=lerp(sway.y,THREE.MathUtils.clamp((pitch-sway.pitch)/step*.016,-.03,.03),blend);sway.yaw=p.yaw;sway.pitch=pitch;
             weapon.position.set((ads?0:.19)+Math.sin(stride)*moving*.008,-.20-Math.abs(Math.cos(stride))*moving*.007-reload*.18,(ads?-.42:-.54)+kick*.04);
             weapon.rotation.set(kick*(key==='shotgun'?.11:key==='pistol'?.085:.045)+reload*.35+sway.y,reload*-.4-sway.x,reload*-.4-sway.x*.5);
-            weapon.position.y-=Math.min(1,sway.equip/.35)*.25;
+            weapon.position.y-=Math.min(1,sway.equip/.35)*.25;if(p.cooking){weapon.position.y+=.06;weapon.rotation.x-=.22;}
             if(key!=='rifle')animateFirearm(model,key,shot,reload);
             else{this.rifleSupport.position.set(.10*reload,-.16*reload,.17*reload);this.rifleMagazineGroup.position.y=-reload*.18;}
             if(key==='axe'){const swing=shot>=0&&shot<650?Math.sin(shot/650*Math.PI):0;weapon.rotation.z-=swing*1.1;weapon.rotation.x-=swing*.65;weapon.position.x-=swing*.18;}if(key==='grenade'){const thrown=shot>=0&&shot<700?Math.sin(shot/700*Math.PI):0;weapon.position.y-=thrown*.3;weapon.rotation.x-=thrown*.9;}
@@ -263,7 +269,7 @@ export class CheatRenderer3D {
         }
     }
     inspect(roster,now,target,orbit=-2.5,elevation=.3,radius=3.6){
-        if(this.lost)return;this.begin(roster,now);
+        if(this.lost)return;this.trajectory.group.visible=false;this.begin(roster,now);
         for(const batch of Object.values(this.batches))batch.mesh.count=0;
         for(const a of this.actors.values())for(const part of a.records){
             if(part.weapon&&part.weapon!==a.weapon)continue;
@@ -277,7 +283,7 @@ export class CheatRenderer3D {
         r.setViewport(0,0,this.width,this.height);r.setScissor(0,0,this.width,this.height);r.render(this.scene,c);
     }
     preview(now){
-        if(this.lost)return;
+        if(this.lost)return;this.trajectory.group.visible=false;
         this.begin([],now);
         for(const batch of Object.values(this.batches)){batch.mesh.count=0;batch.commit();}
         const r=this.renderer;r.setViewport(0,0,this.width,this.height);r.setScissor(0,0,this.width,this.height);

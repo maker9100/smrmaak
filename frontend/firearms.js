@@ -92,7 +92,7 @@ export function detailFirearm(model,key,surfaces){
   for(const side of [-1,1]){const pin=add(cylinder,'#bec5aa',side*.042,.105,-.08,.006,.018,.006);pin.rotation.z=Math.PI/2;}
   for(let j=0;j<3;j++)add(roundedBox,'#a59b62',-.02+j*.02,.015,-.146,.011,.025,.003);
  }
- model.root.userData.detailStandard='cohesive-070-r1';
+ model.root.userData.detailStandard='cohesive-080-r1';
  if(key==='axe'||key==='grenade'){model.detail=detail;return;}
  const length=key==='pistol'?.16:key==='shotgun'?.53:.47,width=key==='pistol'?.043:.069;
  for(const side of [-1,1]){

@@ -32,7 +32,9 @@ function textures(kind){
             const rib=kind==='paint'?Math.pow((Math.cos(u*Math.PI*32)+1)/2,10):0;
             const edge=Math.min(x%128,128-x%128,y%128,128-y%128);const rust=Math.max(0,(a*.65+b*.35-.70)*3.2)+(edge<3?Math.max(0,b-.45)*.6:0);lum=220+(a-.5)*13+grain*8-rib*16-rust*26;green=-rust*34;blue=-rust*49;h=.4+b*.020+rib*.14;
             if(y%128<2||x%128<2){lum-=24;h-=.03;}
-        }else if(kind==='gunmetal'){lum=226+grain*7+(f-.5)*5;h=.5+grain*.001;}
+        }else if(kind==='gunmetal'){const brushing=Math.sin(y*2.1+x*.035)*2,wear=Math.max(0,b-.68)*65;lum=219+grain*5+(f-.5)*5+brushing+wear;h=.5+grain*.002;}
+        else if(kind==='water'){const wave=Math.sin(u*53+Math.sin(v*31))*Math.cos(v*47-u*11);lum=203+wave*18;h=.5+wave*.065;}
+        else if(kind==='molten'){const crust=Math.pow(Math.max(0,a*.65+b*.35-.38),.55);lum=255-crust*190;green=-crust*45;blue=-crust*75;h=.5+crust*.05;}
         else if(kind==='fabric'||kind==='uniform'){
             const weave=(x%4<2?1:-1)*(y%4<2?1:-1);lum=212+b*17+weave*8+grain*10;if(kind==='uniform'){const patch=a*.65+b*.35;lum-=patch<.42?55:patch>.57?24:0;green+=patch<.42?-3:3;blue-=patch>.57?12:0;}h=.45+weave*.025;
         }else if(kind==='skin'){lum=238+b*10+grain*5;h=.5+f*.01;}
@@ -48,7 +50,7 @@ function textures(kind){
     for(let y=0;y<N;y++)for(let x=0;x<N;x++){
         const i=(y*N+x)*4,dx=(sample(x-1,y)-sample(x+1,y))*2,dy=(sample(x,y-1)-sample(x,y+1))*2,len=Math.hypot(dx,dy,1);
         normal.data[i]=(dx/len*.5+.5)*255;normal.data[i+1]=(dy/len*.5+.5)*255;normal.data[i+2]=(1/len*.5+.5)*255;normal.data[i+3]=255;
-        const value=(kind==='gunmetal'?175:kind==='metal'?145:kind==='paint'?185:kind==='skin'?195:235)+(sample(x,y)-.5)*60;
+        const value=(kind==='water'?65:kind==='molten'?100:kind==='gunmetal'?145:kind==='metal'?145:kind==='paint'?185:kind==='skin'?195:235)+(sample(x,y)-.5)*90;
         rough.data[i]=rough.data[i+1]=rough.data[i+2]=clamp(value);rough.data[i+3]=255;
     }
     ng.putImageData(normal,0,0);rg.putImageData(rough,0,0);
@@ -64,7 +66,8 @@ export class Surfaces{
         else if(kind==='glass')m=new THREE.MeshPhysicalMaterial({color:tint,metalness:.25,roughness:.19,clearcoat:.8,envMapIntensity:.65});
         else{
             if(!this.textures.has(kind)){const maps=textures(kind);for(const t of Object.values(maps))t.anisotropy=this.currentQuality===6?1:this.currentQuality===4?Math.min(4,this.anisotropy):this.anisotropy;this.textures.set(kind,maps);}
-            m=new THREE.MeshStandardMaterial({...this.textures.get(kind),color:tint,metalness:(kind==='metal'||kind==='gunmetal')?.6:kind==='paint'?.18:0,roughness:1,normalScale:new THREE.Vector2(kind==='skin'?.15:.6,kind==='skin'?.15:.6),envMapIntensity:kind==='metal'?.8:.25});
+            m=new THREE.MeshStandardMaterial({...this.textures.get(kind),color:tint,metalness:kind==='water'?.25:kind==='molten'?.45:(kind==='metal'||kind==='gunmetal')?.68:kind==='paint'?.22:0,roughness:kind==='water'?.4:1,normalScale:new THREE.Vector2(kind==='skin'?.15:kind==='water'?1.1:.7,kind==='skin'?.15:kind==='water'?1.1:.7),envMapIntensity:['metal','gunmetal','water'].includes(kind)?.85:.3});
+            if(kind==='molten'){m.emissive.set(tint);m.emissiveMap=this.textures.get(kind).map;m.emissiveIntensity=1.3;}
         }
         m.userData.persistent=true;m.userData.surface=kind;this.cache.set(key,m);return m;
     }
@@ -94,6 +97,7 @@ export class Builder{
         const geo=new THREE.BoxGeometry(w,h,d),uv=geo.attributes.uv;for(let i=0;i<uv.count;i++){const face=Math.floor(i/4);uv.setXY(i,uv.getX(i)*(face<2?d:w)/2,uv.getY(i)*(face<4?h:d)/2);}this.add(geo,kind,tint,x,y,z,rotation);
     }
     tube(x,y,z,r,h,kind='metal',tint='#87968a',rotation=null){this.add(new THREE.CylinderGeometry(r,r,h,12),kind,tint,x,y,z,rotation);}
+    beveled(x,y,z,w,h,d,kind='concrete',tint='#adae9e'){const geo=new RoundedBoxGeometry(w,h,d,2,Math.min(.065,Math.min(w,h,d)*.07));this.add(geo,kind,tint,x,y,z);}
     finish(){for(const [mat,parts] of this.groups){const mesh=new THREE.Mesh(mergeGeometries(parts),mat);mesh.castShadow=mat.userData.surface!=='glow';mesh.receiveShadow=true;mesh.name='architecture-'+mat.userData.surface;this.root.add(mesh);for(const p of parts)p.dispose();}this.root.userData.detailParts=this.count;}
 }
 export function rectangles(map,accept){
@@ -124,7 +128,7 @@ export function buildWorld(root,map,theme,surfaces){
     for(let i=0;i<covers.length;i++){
         const r=covers[i],x=r.x+r.w/2,z=r.y+r.d/2,cargo=id==='freight'||id==='railway',research=id==='observatory';
         const tint=cargo?(id==='freight'?['#627d82','#aaa084','#896e58','#6e806b']:['#697c78','#a69d86','#8e7e67','#7f8a77'])[i%4]:id==='plaza'?'#baac8f':id==='glory'?'#b7b09a':research?'#b4c0c1':'#95958a';
-        b.box(x,1.3,z,r.w,2.6,r.d,cargo?'paint':research?'metal':id==='plaza'?'stone':'concrete',tint);
+        b.beveled(x,1.3,z,r.w,2.6,r.d,cargo?'paint':research?'metal':id==='plaza'?'stone':'concrete',tint);
         b.box(x,.09,z,r.w+.035,.18,r.d+.035,'concrete','#667466');b.box(x,2.58,z,r.w+.045,.13,r.d+.045,'metal','#849181');
         if(cargo){
             for(const xx of [r.x+.08,r.x+r.w-.08])for(const zz of [r.y+.08,r.y+r.d-.08])b.box(xx,1.35,zz,.13,2.5,.13,'metal','#8b9c8c');

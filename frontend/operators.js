@@ -22,7 +22,7 @@ export function buildOperator(player,part,joint){
     const dark='#263338',plate=player.skin==='guard'?'#35414a':player.skin==='glowsquid'?'#234b54':'#394f54',skin=player.skin==='guard'?'#9c7058':player.skin==='glowsquid'?'#d7ad91':'#bf967c';
     const add=(parent,g,c,x,y,z,sx,sy,sz,surface)=>{const n=part(parent,g,c,x,y,z,sx,sy,sz,records);if(surface)records.at(-1).surface=surface==='fabric'&&c===suit?'uniform':surface;return n;};
     const body=joint(root,0,.95,0),head=joint(body,0,.64,0),legs=[],arms=[];
-    root.userData.detailStandard='cohesive-070-r1';
+    root.userData.detailStandard='cohesive-080-r1';
     add(body,'torso',suit,0,.26,0,.48,.50,.44,'fabric');
     add(body,'sphere',suit,0,-.02,0,.225,.14,.14,'fabric');
     add(body,'torso',plate,0,.28,.065,.43,.38,.40,'fabric');
@@ -140,7 +140,7 @@ export function animateOperator(a,p,dt,now){
     if(p.hp<a.lastHp)a.hurtTime=now;
     if(p.hp<=0&&a.lastHp>0)a.dead=now;if(p.hp>0)a.dead=0;a.lastHp=p.hp;
     a.blood_seq=p.blood_seq||0;a.shield_seq=p.shield_seq||0;
-    a.weapon=p.weapon||'rifle';a.shotWeapon=p.shot_weapon||a.weapon;a.root.position.set(p.x,p.z||0,p.y);if(!a.baseScaleY)a.baseScaleY=a.root.scale.y;a.root.scale.y=a.baseScaleY*(p.crouch?.65:1);a.root.rotation.set(0,Math.PI/2-p.yaw,0);
+    a.weapon=p.weapon||'rifle';a.shotWeapon=p.shot_weapon||a.weapon;a.root.position.set(p.x,p.z||0,p.y);if(!a.baseScaleY)a.baseScaleY=a.root.scale.y;a.root.scale.y=lerp(a.root.scale.y,a.baseScaleY*(p.crouch?.65:1),1-Math.exp(-24*dt));a.root.rotation.set(0,Math.PI/2-p.yaw,0);
     const blend=1-Math.exp(-dt*14);a.speed=lerp(a.speed,Math.min(1,Math.hypot(p.vx||0,p.vy||0)/7.2),blend);
     const forward=((p.vx||0)*Math.cos(p.yaw)+(p.vy||0)*Math.sin(p.yaw))/7.2;
     const lateral=(-(p.vx||0)*Math.sin(p.yaw)+(p.vy||0)*Math.cos(p.yaw))/7.2;
