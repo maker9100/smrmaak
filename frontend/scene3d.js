@@ -1,3 +1,4 @@
+import {UtilityEffects} from './utility-effects.js';
 /* Cheat FPS 0.4.0 — local, instanced 3D renderer. Build instructions in README.
  * No remote models, textures or runtime CDNs are required. */
 import * as THREE from 'three';
@@ -51,12 +52,12 @@ export class CheatRenderer3D {
         const light=new THREE.DirectionalLight('#ffe3b8',2.2);light.position.set(-2,4,3);this.weaponScene.add(light);
         this.weaponCamera=new THREE.PerspectiveCamera(58,1,.01,10);this.weapon=new THREE.Group();this.weaponScene.add(this.weapon);this.createRifle();
         this.weaponModels={rifle:{root:this.weapon,flash:this.flash,light:this.muzzleLight,support:this.rifleSupport}};
-        for(const key of ['axe','pistol','shotgun','grenade']){const model=buildFirearm(key,this.surfaces);this.weaponModels[key]=model;model.root.visible=false;this.weaponScene.add(model.root);}
+        for(const key of ['knife','axe','dagger','shuriken','pistol','shotgun','grenade','flashbang','molotov']){const model=buildFirearm(key,this.surfaces);this.weaponModels[key]=model;model.root.visible=false;this.weaponScene.add(model.root);}
         for(const [key,model] of Object.entries(this.weaponModels))detailFirearm(model,key,this.surfaces);
         this.prepareReflections();this.localLights=[];this.quality=0;this.lastShadow=-1000;this.shadowDirty=true;this.setQuality(4);
         const shadowMat=new THREE.MeshBasicMaterial({map:contactTexture(),transparent:true,depthWrite:false,opacity:.65});
         this.actorShadows=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,1.1),shadowMat,6);this.actorShadows.count=0;this.actorShadows.frustumCulled=false;this.scene.add(this.actorShadows);
-        this.trajectory=new Trajectory(this.scene);this.throwTrails=new ThrowTrails(this.scene);this.axeEffects=new AxeEffects(this.scene);this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
+        this.trajectory=new Trajectory(this.scene);this.throwTrails=new ThrowTrails(this.scene);this.axeEffects=new AxeEffects(this.scene);this.combatEffects=new CombatEffects(this.scene);this.worldEffects=new WorldEffects(this);this.utilityEffects=new UtilityEffects(this.scene);this.lastTime=0;this.width=1;this.height=1;this.scale=1;this.weaponSway=new Map();this.autoScale=1;this.frameCounter=0;this.frameBudget=32;
         canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;});
         canvas.addEventListener('webglcontextrestored',()=>{this.prepareReflections(this.arenaId||'freight');this.shadowDirty=true;this.lost=false;});
     }
@@ -124,8 +125,8 @@ export class CheatRenderer3D {
         if(night||theme.id==='foundry'){
             const light=new THREE.PointLight(night?'#88c0ef':'#ff8e38',night?18:35,15,2);light.position.set(30,3.1,night?15:14.9);light.visible=this.quality!==6;this.scene.add(light);this.localLights.push(light);
         }
-        const look=ART[theme.id]||ART.railway;this.scene.fog.color.set(look.fog);this.scene.fog.density=.0075;this.sun.color.set(look.sun);this.ambient.groundColor.set(theme.id==='foundry'?'#62584b':'#5e6c5d');
-        this.ambient.intensity=1.05;this.sun.intensity=2.8;this.renderer.toneMappingExposure=look.exposure;
+        const look=ART[theme.id]||ART.railway;this.scene.fog.color.set(look.fog);this.scene.fog.density=theme.id==='foundry'?.026:.019;this.sun.color.set(look.sun);this.ambient.groundColor.set(theme.id==='foundry'?'#62584b':'#5e6c5d');
+        this.ambient.intensity=.9;this.sun.intensity=2.35;this.renderer.toneMappingExposure=look.exposure*.83;
         batchWorld(this.staticRoot,this.surfaces,new Set([this.trainRoot,...this.trackLights,...this.heatMeshes,this.monumentFlag?.root,this.mechanisms?.load,this.mechanisms?.trolley,...(this.mechanisms?.cables||[]),this.mechanisms?.hand,this.mechanisms?.dome].filter(Boolean)));
         this.shadowDirty=true;
     }
@@ -189,7 +190,8 @@ export class CheatRenderer3D {
     updateHeat(zones,time){for(let i=0;i<(this.heatMeshes||[]).length;i++){const mesh=this.heatMeshes[i],zone=zones[i];mesh.visible=!!zone&&time<zone.end;if(!mesh.visible)continue;mesh.position.set(zone.x,.035,zone.y);mesh.scale.set(zone.radius,1,zone.radius);const active=time>=zone.start;mesh.children[0].material.opacity=active?.55:.12+Math.abs(Math.sin(time*7))*.16;mesh.children[1].material.color.set(active?'#ff392b':'#ffb09a');}}
     setHeatViewer(skin){for(const mesh of this.heatMeshes||[]){mesh.children[0].material.color.set(skin==='glowsquid'?'#208cff':'#ff2418');mesh.children[1].material.color.set(skin==='glowsquid'?'#73d6ff':'#ff6655');}}
     updateMechanisms(time,crane){for(const kind of ['water','molten']){const maps=this.surfaces.textures.get(kind);if(maps)for(const t of Object.values(maps))t.offset.set(time*(kind==='water'?.007:.012),time*(kind==='water'?.004:.003));}animateMachinery(this.mechanisms,time,crane);animateMonument(this.monumentFlag,time);if(this.mechanisms&&Math.floor(time*6)!==this.mechanismShadow){this.mechanismShadow=Math.floor(time*6);this.shadowDirty=true;}}
-    updateWorldEffects(data,now){this.worldEffects.update(data,now);this.axeEffects.update(data.axes||[],now,(data.code||'menu')+':'+data.round);this.trajectory.update(data);this.throwTrails.update(data,now);}
+    captureThrowState(data,now){this.throwTrails.ingest(data,now);}
+    updateWorldEffects(data,now){this.worldEffects.update(data,now);this.utilityEffects.update(data,now);this.axeEffects.update(data.axes||[],now,(data.code||'menu')+':'+data.round);this.trajectory.update(data);this.throwTrails.update(data,now);}
     updateTrain(train){
         this.trainSnapshot=train;
         if(!this.trainRoot)return;
@@ -260,11 +262,12 @@ export class CheatRenderer3D {
             const delta=Math.atan2(Math.sin(p.yaw-sway.yaw),Math.cos(p.yaw-sway.yaw));sway.x=lerp(sway.x,THREE.MathUtils.clamp(delta/step*.016,-.04,.04),blend);sway.y=lerp(sway.y,THREE.MathUtils.clamp((pitch-sway.pitch)/step*.016,-.03,.03),blend);sway.yaw=p.yaw;sway.pitch=pitch;
             weapon.position.set((ads?0:.19)+Math.sin(stride)*moving*.008,-.20-Math.abs(Math.cos(stride))*moving*.007-reload*.18,(ads?-.42:-.54)+kick*.04);
             weapon.rotation.set(kick*(key==='shotgun'?.11:key==='pistol'?.085:.045)+reload*.35+sway.y,reload*-.4-sway.x,reload*-.4-sway.x*.5);
+            const utility=['axe','knife','dagger','shuriken'].includes(key);weapon.scale.setScalar(utility?(key==='axe'?.65:.82):1);if(utility){weapon.position.x=.30;weapon.position.y=-.30;weapon.position.z=-.66;weapon.rotation.z=key==='axe'?-.38:-.16;}
             weapon.position.y-=Math.min(1,sway.equip/.35)*.25;if(p.cooking){weapon.position.y+=.06;weapon.rotation.x-=.22;}
             if(key!=='rifle')animateFirearm(model,key,shot,reload);
             else{this.rifleSupport.position.set(.10*reload,-.16*reload,.17*reload);this.rifleMagazineGroup.position.y=-reload*.18;}
-            if(key==='axe'){const swing=shot>=0&&shot<650?Math.sin(shot/650*Math.PI):0;weapon.rotation.z-=swing*1.1;weapon.rotation.x-=swing*.65;weapon.position.x-=swing*.18;}if(key==='grenade'){const thrown=shot>=0&&shot<700?Math.sin(shot/700*Math.PI):0;weapon.position.y-=thrown*.3;weapon.rotation.x-=thrown*.9;}
-            model.flash.visible=!['axe','grenade'].includes(key)&&shot>=0&&shot<65;model.light.intensity=model.flash.visible&&this.quality!==6?2.5:0;
+            if(['axe','knife','dagger','shuriken'].includes(key)){const swing=shot>=0&&shot<650?Math.sin(shot/650*Math.PI):0;weapon.rotation.z-=swing*1.1;weapon.rotation.x-=swing*.65;weapon.position.x-=swing*.07;}if(['grenade','flashbang','molotov'].includes(key)){const thrown=shot>=0&&shot<700?Math.sin(shot/700*Math.PI):0;weapon.position.y-=thrown*.3;weapon.rotation.x-=thrown*.9;}
+            model.flash.visible=['rifle','pistol','shotgun'].includes(key)&&shot>=0&&shot<65;model.light.intensity=model.flash.visible&&this.quality!==6?2.5:0;
             this.weaponCamera.aspect=aspect;this.weaponCamera.fov=2*Math.atan(Math.tan(58*Math.PI/360)/Math.min(1,aspect))*180/Math.PI;this.weaponCamera.updateProjectionMatrix();r.clearDepth();r.render(this.weaponScene,this.weaponCamera);
         }
     }

@@ -8,7 +8,20 @@ export function buildFirearm(key,surfaces){
     const box=(p,c,x,y,z,w,h,d,k)=>mesh(p,roundedBox,c,x,y,z,w,h,d,k);
     const tube=(p,c,x,y,z,r,l)=>{const m=mesh(p,cylinder,c,x,y,z,r,l,r);m.rotation.x=Math.PI/2;return m;};
     const dark='#27373d',steel='#798884',grip='#37453d';let muzzle;
-    if(key==='axe'){
+    if(['knife','dagger'].includes(key)){
+        const shape=new THREE.Shape();shape.moveTo(-.025,-.02);shape.lineTo(.025,-.02);shape.lineTo(.027,.20);shape.lineTo(0,.34);shape.lineTo(-.027,.20);shape.closePath();
+        mesh(root,new THREE.ExtrudeGeometry(shape,{depth:.008,bevelEnabled:true,bevelSize:.003,bevelThickness:.002,bevelSegments:2,steps:1}),steel,0,0,-.11,1,1,1);
+        box(root,'#283c36',0,-.10,-.11,.045,.17,.036,'rubber');box(root,steel,0,-.018,-.11,.105,.018,.044);
+        for(let j=0;j<6;j++)box(root,'#4c6050',0,-.16+j*.022,-.11,.048,.007,.039,'rubber');muzzle=-.12;
+    }else if(key==='shuriken'){
+        const shape=new THREE.Shape();for(let j=0;j<8;j++){const a=j*Math.PI/4,r=j%2?.036:.10;const x=Math.cos(a)*r,y=Math.sin(a)*r;j?shape.lineTo(x,y):shape.moveTo(x,y);}shape.closePath();
+        const hole=new THREE.Path();hole.absarc(0,0,.013,0,Math.PI*2,true);shape.holes.push(hole);
+        mesh(root,new THREE.ExtrudeGeometry(shape,{depth:.009,bevelEnabled:true,bevelSize:.002,bevelThickness:.002,bevelSegments:2,steps:1}),steel,0,.035,-.1,1,1,1);muzzle=-.12;
+    }else if(key==='molotov'){
+        mesh(root,new THREE.CylinderGeometry(.047,.052,.19,20),'#4c7351',0,.015,-.08,1,1,1,'glass');mesh(root,new THREE.CylinderGeometry(.018,.039,.07,20),'#718b54',0,.14,-.08,1,1,1,'glass');mesh(root,cylinder,'#4b5938',0,.20,-.08,.019,.07,.019,'glass');box(root,'#b7ac87',.01,.245,-.08,.022,.10,.018,'fabric').rotation.z=-.3;box(root,'#b1a67e',0,.015,-.135,.065,.08,.002,'fabric');muzzle=-.1;
+    }else if(key==='flashbang'){
+        mesh(root,cylinder,steel,0,.015,-.08,.054,.19,.054);mesh(root,cylinder,dark,0,.12,-.08,.046,.026,.046);for(let j=0;j<5;j++)mesh(root,cylinder,'#303e43',0,-.06+j*.032,-.08,.055,.008,.055);box(root,'#c9b15c',.048,.015,-.08,.007,.13,.031);const ring=mesh(root,new THREE.TorusGeometry(.025,.004,8,20),steel,-.035,.15,-.08,1,1,1);ring.rotation.y=Math.PI/2;muzzle=-.1;
+    }else if(key==='axe'){
         const shape=new THREE.Shape();shape.moveTo(-.12,.07);shape.lineTo(.04,.07);shape.lineTo(.16,.15);shape.lineTo(.20,.02);shape.lineTo(.16,-.13);shape.lineTo(.02,-.06);shape.lineTo(-.12,-.06);shape.closePath();
         const blade=mesh(root,new THREE.ExtrudeGeometry(shape,{depth:.045,bevelEnabled:true,bevelSize:.006,bevelThickness:.004,bevelSegments:2,steps:1}),steel,0,.17,-.16,1,1,1);blade.geometry.translate(0,0,-.022);
         box(root,'#775f43',0,-.12,-.15,.035,.65,.036,'fabric');box(root,dark,0,-.39,-.15,.045,.10,.045,'rubber');
@@ -62,7 +75,7 @@ export function buildFirearm(key,surfaces){
     return {root,moving,magazine,support,light,flash};
 }
 export function animateFirearm(model,key,shot,reload){
-    if(key==='axe'||key==='grenade'){model.support.position.y=-reload*.10;return;}
+    if(['axe','knife','dagger','shuriken','grenade','flashbang','molotov'].includes(key)){model.support.position.y=-reload*.10;return;}
     const cycle=shot>=0&&shot<600?Math.sin(Math.max(0,(shot-80)/520)*Math.PI):0;
     model.moving.position.z=key==='pistol'?Math.max(0,1-shot/105)*.038:cycle*.12;
     model.support.position.z=key==='shotgun'?cycle*.12:0;
@@ -92,8 +105,12 @@ export function detailFirearm(model,key,surfaces){
   for(const side of [-1,1]){const pin=add(cylinder,'#bec5aa',side*.042,.105,-.08,.006,.018,.006);pin.rotation.z=Math.PI/2;}
   for(let j=0;j<3;j++)add(roundedBox,'#a59b62',-.02+j*.02,.015,-.146,.011,.025,.003);
  }
+ if(['knife','dagger'].includes(key)){add(roundedBox,'#d9ded0',.022,.12,-.105,.004,.22,.004);add(roundedBox,'#576963',0,.12,-.104,.007,.18,.003);for(const y of [-.14,-.07]){const pin=add(cylinder,'#acb9a4',0,y,-.089,.007,.009,.007);pin.rotation.x=Math.PI/2;}}
+ if(key==='shuriken'){const ring=add(new THREE.TorusGeometry(.016,.003,6,16),'#d0c9a3',0,.035,-.089,1,1,1);for(let j=0;j<4;j++){const edge=add(roundedBox,'#d6dfd5',0,.035,-.087,.14,.004,.003);edge.rotation.z=j*Math.PI/4;}}
+ if(key==='flashbang'){for(const y of [-.075,.10])add(cylinder,'#c5cdb8',0,y,-.08,.056,.012,.056);add(roundedBox,'#475450',0,.015,-.136,.027,.09,.003);}
+ if(key==='molotov'){add(roundedBox,'#c8bb96',0,.01,-.137,.062,.074,.003);for(let j=0;j<3;j++)add(roundedBox,'#7b7458',0,-.007+j*.013,-.140,.043,.003,.002);}
  model.root.userData.detailStandard='cohesive-080-r1';
- if(key==='axe'||key==='grenade'){model.detail=detail;return;}
+ if(['axe','knife','dagger','shuriken','grenade','flashbang','molotov'].includes(key)){model.detail=detail;return;}
  const length=key==='pistol'?.16:key==='shotgun'?.53:.47,width=key==='pistol'?.043:.069;
  for(const side of [-1,1]){
   for(const z of [-.09,.065]){const screw=add(cylinder,'#a4aba1',side*width,-.018,z,.009,.008,.009);screw.rotation.z=Math.PI/2;add(roundedBox,'#283338',side*(width+.005),-.018,z,.003,.003,.012);}

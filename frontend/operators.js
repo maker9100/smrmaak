@@ -79,15 +79,17 @@ export function buildOperator(player,part,joint){
         add(body,'sphere',suit,side*.237,.43,0,.115,.105,.115,'fabric');
     }
     const gun=joint(body,.14,.39,.24),gunRecords={};
-    for(const key of ['axe','pistol','rifle','shotgun','grenade']){
+    for(const key of ['knife','axe','dagger','shuriken','pistol','rifle','shotgun','grenade','flashbang','molotov']){
         const start=records.length;
         const g=joint(gun,0,0,0),barrel=(z,l,r)=>{const n=add(g,'cylinder','#323d41',0,.03,z,r,l,r,'metal');n.rotation.x=Math.PI/2;};
-        if(key==='axe'){
+        if(['knife','dagger'].includes(key)){add(g,'box','#b4c0b5',0,.17,.18,.035,.30,.012,'metal');add(g,'box',dark,0,-.045,.18,.045,.14,.04,'rubber');add(g,'box','#8c9993',0,.025,.18,.105,.018,.04,'metal');
+        }else if(key==='shuriken'){for(let j=0;j<4;j++){const m=add(g,'box','#a6b5b3',0,.08,.18,.18,.035,.012,'metal');m.rotation.z=j*Math.PI/4;}
+        }else if(key==='axe'){
             add(g,'cylinder','#765c3e',0,.02,.18,.023,.62,.023,'fabric');
             add(g,'box','#8c9993',.08,.27,.18,.26,.17,.055,'metal');add(g,'box','#bbc0ac',.21,.25,.18,.035,.21,.06,'metal');
             add(g,'box',dark,-.09,.27,.18,.10,.055,.055,'metal');
-        }else if(key==='grenade'){
-            add(g,'sphere','#4b5f42',0,.03,.17,.075,.10,.068,'metal');
+        }else if(['grenade','flashbang','molotov'].includes(key)){
+            add(g,key==='molotov'?'cylinder':'sphere',key==='flashbang'?'#a1aea2':'#4b5f42',0,.03,.17,.06,key==='molotov'?.21:.10,.06,'metal');
             for(let j=0;j<4;j++)add(g,'box','#35482d',0,-.025+j*.035,.23,.10,.015,.012,'metal');
             add(g,'box','#8b9690',.04,.08,.17,.016,.14,.035,'metal');
             add(g,'box','#b1bba1',0,.14,.17,.03,.025,.03,'metal');
@@ -104,7 +106,7 @@ export function buildOperator(player,part,joint){
             add(g,'box',key==='shotgun'?'#6e6452':suit,0,.01,.30,.08,.085,.18,'rubber');
             for(let j=0;j<5;j++)add(g,'box',dark,0,.07,.10+j*.04,.075,.012,.02,'metal');
         }
-        if(!['axe','grenade'].includes(key))add(g,'box','#96ac91',0,.07,.20,.014,.022,.02,'metal');
+        if(['rifle','pistol','shotgun'].includes(key))add(g,'box','#96ac91',0,.07,.20,.014,.022,.02,'metal');
         for(const r of records.slice(start)){r.weapon=key;if(r.surface==='metal')r.surface='gunmetal';}gunRecords[key]=g;
     }
     // Distinct human silhouettes, facial tones and role equipment.
@@ -151,7 +153,7 @@ export function animateOperator(a,p,dt,now){
     const spec=p.weapon==='shotgun'?.7:p.weapon==='pistol'?1.25:1.5;
     const reload=p.reload>0?Math.sin((1-p.reload/spec)*Math.PI):0;
     a.gun.rotation.x=-(p.pitch||0)*.65+reload*.55-shot*.05;
-    a.gun.rotation.z=-reload*.28-(p.weapon==='axe'?shot*.8:0);if(p.weapon==='axe')a.gun.rotation.x+=shot*1.2;if(p.weapon==='grenade')a.gun.rotation.x-=shot*1.2;a.gun.position.z=.24-shot*.025;
+    a.gun.rotation.z=-reload*.28-(['axe','knife','dagger','shuriken'].includes(p.weapon)?shot*.8:0);if(['axe','knife','dagger','shuriken'].includes(p.weapon))a.gun.rotation.x+=shot*1.2;if(['grenade','flashbang','molotov'].includes(p.weapon))a.gun.rotation.x-=shot*1.2;a.gun.position.z=.24-shot*.025;
     for(const {side,thigh,shin,knee,boot} of a.legs){
         const phase=a.phase+(side>0?Math.PI:0),s=Math.sin(phase),lift=Math.max(0,Math.cos(phase))*.105*a.speed;
         const foot=V(side*.145-s*lateral*.22,.038+lift,s*forward*.38);
@@ -161,7 +163,7 @@ export function animateOperator(a,p,dt,now){
     for(const {side,upper,lower,hand} of a.arms){
         const shoulder=V(side*.235,.425,.005),grip=p.weapon==='pistol'?V(.14+side*.027,.32,.30):side>0?V(.14,.30,.28):V(.14,.395,.54);
         if(side<0&&reload>0)grip.set(-.08,.04-reload*.16,.34);
-        if(p.weapon==='axe')grip.set(side>0?.14:.06,side>0?.25:.40,.34);if(p.weapon==='grenade')grip.set(side>0?.14:-.17,side>0?.32:.18,side>0?.30:.10);
+        if(['axe','knife','dagger','shuriken'].includes(p.weapon))grip.set(side>0?.14:.06,side>0?.25:.40,.34);if(['grenade','flashbang','molotov'].includes(p.weapon))grip.set(side>0?.14:-.17,side>0?.32:.18,side>0?.30:.10);
         const pivot=V(.14,.39,.24);grip.sub(pivot).applyEuler(a.gun.rotation).add(pivot);
         const reach=grip.clone().sub(shoulder);if(reach.length()>.609)grip.copy(shoulder).add(reach.setLength(.609));
         const elbow=solve(shoulder,grip,.31,.30,V(side*.8,-.5,-.4));bone(upper,shoulder,elbow);bone(lower,elbow,grip);hand.position.copy(grip);hand.rotation.set(-.5,a.gun.rotation.x,side*.15);

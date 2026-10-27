@@ -51,16 +51,17 @@ export function advance(a,dt,kind,boxes,grid){
  }
 }
 export function launch(p,kind=p.weapon){
- const axe=kind==='axe',speed=(axe?17:13)*Math.cos(p.pitch||0);
- return {x:p.x,y:p.y,z:(p.z||0)+(axe?(p.crouch?.975:1.5):(p.crouch?.9:1.35)),vx:Math.cos(p.yaw)*speed,vy:Math.sin(p.yaw)*speed,vz:axe?2+17*Math.sin(p.pitch||0):4.2+8*Math.sin(p.pitch||0),ground:false};
+ const axe=['axe','dagger','shuriken'].includes(kind),velocity=kind==='dagger'?21:kind==='shuriken'?24:17,speed=(axe?velocity:13)*Math.cos(p.pitch||0);
+ return {x:p.x,y:p.y,z:(p.z||0)+(axe?(p.crouch?.975:1.5):(p.crouch?.9:1.35)),vx:Math.cos(p.yaw)*speed,vy:Math.sin(p.yaw)*speed,vz:axe?2+velocity*Math.sin(p.pitch||0):4.2+8*Math.sin(p.pitch||0),ground:false};
 }
 export function predict(p,data){
- const kind=p.weapon;if(!['axe','grenade'].includes(kind)||p.hp<=0)return [];
+ const original=p.weapon,kind=['axe','dagger','shuriken'].includes(original)?'axe':'grenade';if(!['axe','dagger','shuriken','grenade','flashbang','molotov'].includes(original)||p.hp<=0)return [];
  const a=launch(p),boxes=data.projectile_boxes||[],grid=data.arena?.grid||data.grid;if(!grid?.length)return [];
  const limit=kind==='grenade'?Math.max(0,3-(p.cooking?p.cook_time||0:0)):6,points=[[a.x,a.y,a.z]];
  const steps=Math.ceil(limit*120),step=limit/Math.max(1,steps);
  for(let i=0;i<steps;i++){
-  advance(a,step,kind,boxes,grid);
+  const old=[a.vx,a.vy,a.vz];advance(a,step,kind,boxes,grid);
+  if(original==='molotov'&&(a.z<=.135||a.vx*old[0]+a.vy*old[1]<-1e-6||a.vz>old[2]+.02)){points.push([a.x,a.y,a.z]);break;}
   if(kind==='axe'&&!a.ground&&(data.players||[]).some(q=>q.id!==p.id&&q.hp>0&&Math.hypot(q.x-a.x,q.y-a.y)<.5&&(q.z||0)<a.z&&a.z<(q.z||0)+1.96*(q.crouch?.65:1))){points.push([a.x,a.y,a.z]);break;}
   if(i%4===3||a.ground||i===steps-1)points.push([a.x,a.y,a.z]);
   if(a.ground)break;

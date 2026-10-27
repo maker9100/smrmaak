@@ -9,7 +9,7 @@ export class Trajectory{
  }
  update(data){const key=(data.code||'menu')+':'+data.round+':'+data.map_id;if(key!==this.key){this.key=key;this.cache.clear();this.group.visible=false;}this.data=data;}
  view(p,now){
-  this.group.visible=!!this.data&&!p.spectating&&p.hp>0&&['axe','grenade'].includes(p.weapon)&&(p.ammo>0||p.cooking||(p.weapon!=='axe'&&p.cheats?.ammo));if(!this.group.visible)return;
+  this.group.visible=!!this.data&&!p.spectating&&p.hp>0&&['axe','dagger','shuriken','grenade','flashbang','molotov'].includes(p.weapon)&&(p.ammo>0||p.cooking||(p.weapon!=='axe'&&p.cheats?.ammo));if(!this.group.visible)return;
   const signature=[p.weapon,p.x,p.y,p.z||0,p.yaw,p.pitch,p.crouch,p.cooking].map(v=>typeof v==='number'?Math.round(v*100)/100:v).join(':');let cache=this.cache.get(p.id);
   if(!cache||cache.signature!==signature&&now-cache.at>45||now-cache.at>100){cache={signature,at:now,points:predict(p,this.data)};this.cache.set(p.id,cache);}
   const points=cache.points;if(points.length<2){this.group.visible=false;return;}
@@ -24,10 +24,13 @@ export class ThrowTrails{
   this.tracks=new Map();this.geometry=new THREE.BufferGeometry();this.array=new Float32Array(4096*3);this.colors=new Float32Array(4096*3);this.geometry.setAttribute('position',new THREE.BufferAttribute(this.array,3));this.geometry.setAttribute('color',new THREE.BufferAttribute(this.colors,3));this.geometry.setDrawRange(0,0);
   this.lines=new THREE.LineSegments(this.geometry,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.62,depthWrite:false,toneMapped:false}));this.lines.frustumCulled=false;scene.add(this.lines);
  }
- update(data,now){
+ ingest(data,now){
   const key=(data.code||'menu')+':'+(data.round||0)+':'+data.map_id;if(key!==this.key){this.key=key;this.tracks.clear();}
-  for(const kind of ['axes','grenades'])for(const a of data[kind]||[]){const id=kind+':'+a.id;let t=this.tracks.get(id);if(!t){t={points:[],at:now,kind};this.tracks.set(id,t);}const v=[a.x,a.z,a.y],prev=t.points[t.points.length-1];if(!prev||Math.hypot(v[0]-prev[0],v[1]-prev[1],v[2]-prev[2])>.035){t.points.push([...v,now]);if(t.points.length>25)t.points.shift();}t.at=now;}
-  let n=0;const color=new THREE.Color();for(const [id,t] of this.tracks){if(now-t.at>350){this.tracks.delete(id);continue;}while(t.points.length&&now-t.points[0][3]>800)t.points.shift();for(let i=1;i<t.points.length&&n<4094;i++){const a=t.points[i-1],b=t.points[i],fade=Math.max(.05,1-(now-a[3])/800);color.set(t.kind==='axes'?'#d5b56c':'#66d5e6').multiplyScalar(fade);this.array.set(a.slice(0,3),n*3);this.colors.set(color.toArray(),n++*3);this.array.set(b.slice(0,3),n*3);this.colors.set(color.toArray(),n++*3);}}
+  for(const kind of ['axes','grenades'])for(const a of data[kind]||[]){const id=kind+':'+a.id;let t=this.tracks.get(id);if(!t){t={points:[],at:now,kind,presented:false};this.tracks.set(id,t);}const v=[a.x,a.z,a.y],prev=t.points[t.points.length-1];if(!prev||Math.hypot(v[0]-prev[0],v[1]-prev[1],v[2]-prev[2])>.035){t.points.push([...v,now]);if(t.points.length>32)t.points.shift();t.presented=false;}t.at=now;}
+ }
+ update(data,now){
+  this.ingest(data,now);
+  let n=0;const color=new THREE.Color();for(const [id,t] of this.tracks){if(now-t.at>(t.presented?350:2000)){this.tracks.delete(id);continue;}if(t.presented)while(t.points.length&&now-t.points[0][3]>800)t.points.shift();for(let i=1;i<t.points.length&&n<4094;i++){const a=t.points[i-1],b=t.points[i],fade=Math.max(.12,1-(now-a[3])/800);color.set(t.kind==='axes'?'#d5b56c':'#66d5e6').multiplyScalar(fade);this.array.set(a.slice(0,3),n*3);this.colors.set(color.toArray(),n++*3);this.array.set(b.slice(0,3),n*3);this.colors.set(color.toArray(),n++*3);}if(t.points.length>1)t.presented=true;}
   this.geometry.setDrawRange(0,n);this.geometry.attributes.position.needsUpdate=true;this.geometry.attributes.color.needsUpdate=true;
  }
 }
