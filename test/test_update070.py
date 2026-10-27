@@ -13,7 +13,7 @@ def duel(map_id='foundry'):
  return r,p,q
 
 def test_weapon_slots_and_grenade_stock():
- assert [(k,w['slot']) for k,w in WEAPONS.items()]==[('axe',1),('pistol',2),('rifle',3),('shotgun',4),('grenade',5)]
+ assert {k:w['slot'] for k,w in WEAPONS.items()}=={'knife':1,'axe':5,'pistol':2,'rifle':3,'shotgun':4,'grenade':5,'dagger':5,'shuriken':5,'flashbang':5,'molotov':5}
  r,p,q=duel();assert p.magazines['grenade']==1 and p.reserves['grenade']==3
 
 @pytest.mark.parametrize('weapon',['rifle','pistol','shotgun','grenade'])

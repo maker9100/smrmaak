@@ -14,7 +14,7 @@ def test_real_3d_trajectory_and_static_batching(browser,update_server):
     try:
         start(page,update_server)
         assert page.evaluate('!!renderer3d&&!renderer3d.lost')
-        page.keyboard.press('1');page.wait_for_function('state.players.find(p=>p.id===ids[0]).weapon==="axe"')
+        page.evaluate("selectWeapon(0,'axe')");page.wait_for_function('state.players.find(p=>p.id===ids[0]).weapon==="axe"')
         page.wait_for_function('renderer3d.trajectory.group.visible&&renderer3d.trajectory.geometry.drawRange.count>3')
         first=page.evaluate('Array.from(renderer3d.trajectory.array.slice(0,18))')
         page.evaluate('motion.get(ids[0]).pitch=.5')
@@ -23,7 +23,9 @@ def test_real_3d_trajectory_and_static_batching(browser,update_server):
         assert batch['saved']>0 and batch['after']<batch['before']*.65,batch
         page.wait_for_function('state.players.find(p=>p.id===ids[0]).equip===0')
         page.evaluate('tapFire(0)');page.wait_for_function('state.axes.length>0')
-        page.wait_for_function('renderer3d.throwTrails.geometry.drawRange.count>0')
+        try:page.wait_for_function('renderer3d.throwTrails.geometry.drawRange.count>0',timeout=10000)
+        except Exception:
+            pytest.fail(str(page.evaluate('({lost:renderer3d.lost,axes:state.axes,tracks:Array.from(renderer3d.throwTrails.tracks.values()),renderErrors:window.rendererErrors||null})'))+' errors='+str(errors))
         assert page.evaluate('renderer3d.axeEffects.tracks.size>0')
         assert not errors,errors
     finally:c.close()

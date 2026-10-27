@@ -66,7 +66,7 @@ def start(page,url):
 def test_live_five_slots_audio_infinite_and_menu_after_disconnect(browser,update_server):
  c=browser.new_context(viewport={'width':900,'height':650},has_touch=True);page=c.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  start(page,update_server)
- for number,key in enumerate(['axe','pistol','rifle','shotgun','grenade'],1):
+ for number,key in [(1,'knife'),(2,'pistol'),(3,'rifle'),(4,'shotgun'),(5,'grenade'),(5,'axe'),(5,'grenade')]:
   page.keyboard.press(str(number));page.wait_for_function('(key)=>state.players.find(p=>p.id===ids[0]).weapon===key',arg=key)
   page.wait_for_function('state.players.find(p=>p.id===ids[0]).equip===0')
   assert page.evaluate('(k)=>renderer3d.weaponModels[k].root.visible',key)
