@@ -95,7 +95,7 @@ def test_real_blood_decals_grenade_glory_shield_third_person_and_bodies(browser,
  page.request.post(update_server+'/__test/act/train');page.wait_for_function('state.map_id==="railway"&&renderer3d.worldEffects.decals.count>0')
  data=page.evaluate('''()=>({wagons:renderer3d.trainRoot.getObjectByName('container-wagons').children.length,x:renderer3d.worldEffects.decals.instanceMatrix.array[12]})''')
  assert data['wagons']==2
- page.wait_for_timeout(300);after=page.evaluate('renderer3d.worldEffects.decals.instanceMatrix.array[12]');assert after>data['x']
+ page.wait_for_function('(x)=>renderer3d.worldEffects.decals.instanceMatrix.array[12]>x+.1',arg=data['x'],timeout=15000)
  assert not errors,errors;c.close()
 
 def test_canvas_fallback_has_all_weapons_and_recovers_menu(browser,update_server):

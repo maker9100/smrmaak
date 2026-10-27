@@ -22,13 +22,19 @@ import uvicorn
 from backend.main import app,rooms
 from backend.game import Room
 Room.ai=lambda self,p,dt:None
+original_tick=Room.tick
+def tick(self,dt):
+    original_tick(self,dt)
+    if getattr(self,'test_hold_train',False):self.train_time=0
+Room.tick=tick
 @app.post('/__test/train/{action}')
-def control_train(action:str):
-    for room in rooms.values():
+def control_train(action:str,code:str=''):
+    for room in ([rooms[code]] if code else list(rooms.values())):
         if action=='start':
             for p in room.players.values():p.ready=True
-            room.start()
+            room.start();room.test_hold_train=True
         elif action=='move':
+            room.test_hold_train=False
             room.train_time=6
             for p in room.players.values():p.y=2.5
         elif action=='hit':
@@ -61,26 +67,31 @@ def test_three_split_clients_share_train_motion_collision_and_spectating(browser
     context.add_init_script("localStorage.setItem('cheat-fps-options',JSON.stringify({quality:6}))")
     errors=[]
     try:
-        pages=[context.new_page() for _ in range(3)]
-        for page in pages:
+        # Connect each page before opening the next animated menu, so a shared
+        # software GPU does not stall three menu renderers during UI setup.
+        pages=[];code=''
+        for index in range(3):
+            page=context.new_page();pages.append(page)
             page.on('pageerror',lambda e:errors.append(str(e)))
             if fallback:page.add_init_script("window.CheatRenderer3D=undefined;Object.defineProperty(window,'CheatRenderer3D',{value:undefined,writable:false})")
             page.goto(train_server)
             page.locator('#mode').select_option('local');page.locator('#create').click();page.locator('#split').check()
-        pages[0].locator('#mapChoice').select_option('railway');pages[0].locator('#hostLocal').click()
-        pages[0].wait_for_function('state?.state==="LOBBY"');code=pages[0].evaluate('state.code')
-        for page in pages[1:]:
-            page.locator('#code').fill(code);page.locator('#join').click();page.wait_for_function('state?.state==="LOBBY"')
+            if index==0:
+                page.locator('#mapChoice').select_option('railway');page.locator('#hostLocal').click()
+                page.wait_for_function('state?.state==="LOBBY"');code=page.evaluate('state.code')
+            else:
+                page.locator('#code').fill(code);page.locator('#join').click();page.wait_for_function('state?.state==="LOBBY"')
         pages[0].wait_for_function('state.players.length===6')
-        pages[0].request.post(train_server+'/__test/train/start')
-        for page in pages:page.wait_for_function('state?.state==="PLAYING"')
+        pages[0].request.post(train_server+'/__test/train/start?code='+code)
+        for page in pages:page.bring_to_front();page.wait_for_function('state?.state==="PLAYING"')
         assert pages[0].evaluate('renderTrain.warning&&!renderTrain.active')
         if not fallback:assert pages[0].evaluate('!renderer3d.trainRoot.visible')
-        pages[0].request.post(train_server+'/__test/train/move')
+        pages[0].request.post(train_server+'/__test/train/move?code='+code)
         for page in pages:page.wait_for_function('renderTrain?.active')
         starts=[page.evaluate('renderTrain.x') for page in pages]
         pages[0].wait_for_timeout(300)
         for i,page in enumerate(pages):
+            page.bring_to_front()
             # Animation delivery can be slower on a shared software GPU;
             # speed is asserted against the server clock in test_train.py.
             page.wait_for_function('(x)=>renderTrain.active&&renderTrain.x>x+.3',arg=starts[i],timeout=15000)
@@ -90,7 +101,7 @@ def test_three_split_clients_share_train_motion_collision_and_spectating(browser
                 assert page.evaluate('renderer3d===null&&ray(renderTrain.x,13,Math.PI/2).train===true')
             # The renderer interpolates the server clock, bounded to 250 ms.
             page.wait_for_function('renderTrain.elapsed>=state.train.elapsed&&renderTrain.elapsed-state.train.elapsed<=.251')
-        result=pages[0].request.post(train_server+'/__test/train/hit').json();victims=result['victims']
+        result=pages[0].request.post(train_server+'/__test/train/hit?code='+code).json();victims=result['victims']
         for page in pages:
             page.wait_for_function('(v)=>v.every(id=>state.players.find(p=>p.id===id).hp===0)',arg=victims)
             assert page.evaluate('(v)=>v.every(id=>state.players.find(p=>p.id===id).deaths===1)',victims)

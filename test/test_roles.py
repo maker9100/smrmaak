@@ -81,7 +81,7 @@ def test_role_metadata_and_local_changes_are_websocket_authoritative():
   assert client.get('/roles').json()==dict(base_hp=200,roles=ROLES)
   with client.websocket_connect('/ws') as ws:
    ws.send_json(dict(mode='local',skins=['guard']))
-   welcome=ws.receive_json();assert welcome['version']=='0.7.0'
+   welcome=ws.receive_json();assert welcome['version']=='0.8.0'
    state=ws.receive_json();p=state['players'][0];assert p['skin']=='guard' and p['hp']==p['max_hp']==300
    ws.send_json(dict(type='custom',skin='glowsquid',hp=999))
    for _ in range(12):

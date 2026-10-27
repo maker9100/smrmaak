@@ -47,10 +47,10 @@ def test_all_maps_share_finish_standard_and_flag_animates_after_merging(browser,
  c=browser.new_context(viewport={'width':900,'height':650});page=c.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(update_server);page.wait_for_function('arenaCatalog.length===5&&renderer3d?.mapKey');page.evaluate('lastPreview=performance.now()+1e8')
  info=page.evaluate('''()=>{const r=renderer3d;return arenaCatalog.map(a=>{r.loadMap(a.grid,a);r.preview(1000);return {id:a.id,...r.staticRoot.userData.artDirection};});}''')
- assert len(info)==5 and all(a['facades']==8 and a['coverParts']>100 and a['revision']=='cohesive-070-r1' for a in info),info
+ assert len(info)==5 and all(a['facades']==8 and a['coverParts']>100 and a['revision']=='cohesive-080-r1' for a in info),info
  page.evaluate('''()=>{const a=arenaCatalog.find(a=>a.id==='glory');renderer3d.loadMap(a.grid,a);renderer3d.updateMechanisms(2,null);}''')
  page.wait_for_function('document.fonts.check("500 164px MadHackersFlag")')
- data=page.evaluate('''()=>{const r=renderer3d,g=r.staticRoot.getObjectByName('golden-monument'),f=r.staticRoot.getObjectByName('mad-hackers-flag'),sheets=r.monumentFlag.sheets,before=sheets[0].geometry.attributes.position.array.slice();r.updateMechanisms(3,null);return {gold:!!g&&g.userData.human,label:f.userData.label,attached:sheets.every(m=>m.parent===f),moved:before.some((v,i)=>v!==sheets[0].geometry.attributes.position.array[i]),finite:sheets.every(m=>Array.from(m.geometry.attributes.position.array).every(Number.isFinite)),models:Object.values(r.weaponModels).every(m=>m.root.userData.detailStandard==='cohesive-070-r1')};}''')
+ data=page.evaluate('''()=>{const r=renderer3d,g=r.staticRoot.getObjectByName('golden-monument'),f=r.staticRoot.getObjectByName('mad-hackers-flag'),sheets=r.monumentFlag.sheets,before=sheets[0].geometry.attributes.position.array.slice();r.updateMechanisms(3,null);return {gold:!!g&&g.userData.human,label:f.userData.label,attached:sheets.every(m=>m.parent===f),moved:before.some((v,i)=>v!==sheets[0].geometry.attributes.position.array[i]),finite:sheets.every(m=>Array.from(m.geometry.attributes.position.array).every(Number.isFinite)),models:Object.values(r.weaponModels).every(m=>m.root.userData.detailStandard==='cohesive-080-r1')};}''')
  assert data==dict(gold=True,label='매드해커스',attached=True,moved=True,finite=True,models=True),data
  page.evaluate('''()=>{const r=renderer3d;r.resize(900,650,4);r.inspect([],1000,{x:30,y:17.5,height:4},.95,.2,13);}''')
  from pathlib import Path

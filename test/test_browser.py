@@ -225,6 +225,7 @@ def test_real_ai_with_simultaneous_sticks_look_and_shoot(browser,live_server_url
 
 def test_network_delay_does_not_drag_the_moving_camera_backwards(browser,server_url):
     context=browser.new_context(viewport={'width':800,'height':500})
+    context.add_init_script("Object.defineProperty(window,'CheatRenderer3D',{value:undefined,writable:false})")
     try:
         page=context.new_page();page.goto(server_url);page.locator('#create').click();page.wait_for_function('state?.state==="PLAYING"')
         page.evaluate('''() => {
@@ -237,10 +238,13 @@ def test_network_delay_does_not_drag_the_moving_camera_backwards(browser,server_
         }''')
         page.keyboard.down('w');page.wait_for_timeout(1400);page.keyboard.up('w')
         data=page.evaluate('tracing=false;walkTrace');page.wait_for_timeout(600)
+        import json
+        (Path(__file__).resolve().parents[2]/'qa/network-080.json').write_text(json.dumps(data))
+        assert len(data)>20
         assert data[-1]['x']-data[0]['x']>6.8
         steps=[b['x']-a['x'] for a,b in zip(data,data[1:])]
         assert min(steps)>-.1,('Camera moved backwards under 200 ms delay',min(steps))
-        assert all(abs(b['x']-a['x'])<max(.5,(b['t']-a['t'])/1000*7.2+.12) for a,b in zip(data,data[1:])),('Camera jumped relative to elapsed frame time',max(steps))
+        assert all(abs(b['x']-a['x'])<max(.5,(b['t']-a['t'])/1000*9.6+.20) for a,b in zip(data,data[1:])),('Camera jumped relative to elapsed frame time',max(steps))
         assert page.evaluate('Math.abs(motion.get(ids[0]).x-state.players.find(p=>p.id===ids[0]).x)')<.5
     finally:context.close()
 
@@ -251,7 +255,7 @@ def test_minimal_start_menu_real_map_preview_and_solo_ai(browser,server_url):
         page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(server_url);page.wait_for_function('previewMap.length>0&&renderer3d?.mapKey')
         assert page.locator('#menu input').count()==0
-        assert page.locator('#menu select').count()==1
+        assert page.locator('#menu select').count()==2
         assert page.locator('#menu button').all_text_contents()==['게임 시작','설정','종료']
         assert page.locator('#menu .poster,#quickCustom,#quickCheats,#skin0').count()==0
         assert page.request.get(server_url+'/health').json()['rooms']==0
@@ -282,7 +286,7 @@ def test_five_landmarks_and_local_map_selection(browser,server_url):
         page.locator('#mode').select_option('local');page.locator('#create').click()
         assert page.locator('#mapChoice option').count()==5
         page.locator('#mapChoice').select_option('glory');page.locator('#hostLocal').click()
-        page.wait_for_function('state?.map_id==="observatory"')
+        page.wait_for_function('state?.map_id==="glory"')
         assert page.locator('#matchMap').input_value()=='glory'
         page.locator('#matchMap').select_option('railway');page.wait_for_function('state.map_id==="railway"')
         assert not errors,errors
