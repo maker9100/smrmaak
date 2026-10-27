@@ -10,6 +10,7 @@ from .hazards import train_pose, train_hits, segment_box
 from .weapons import WEAPONS
 from .roles import ROLES, profile
 from .combat import bullet_impact
+from .projectiles import world_geometry, advance
 
 CHEATS = ('aim', 'esp', 'recoil', 'ammo')
 AIM_CONE = .95
@@ -109,6 +110,9 @@ class Player:
     cooldown: float = 0
     kick: float = 0
     shot_weapon: str = "rifle"
+    cooking: bool = False
+    cook_time: float = 0
+    cook_blocked: bool = False
     shots: int = 0
     hit: int = 0
     ready: bool = False
@@ -167,6 +171,7 @@ class Room:
     def remove(self, pid):
         p = self.players.get(pid)
         if not p: return
+        if p.cooking:self.release_grenade(p,drop=True)
         if self.state in ('PLAYING','COUNTDOWN','ROUND_END'):
             # Keep the match roster but never give replacement AI cheats.
             p.bot = True
@@ -220,7 +225,7 @@ class Room:
                 p.reserves = {k:v['reserve'] for k,v in WEAPONS.items()}
                 p.hazard_cooldown = p.heat_cooldown = 0
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = profile(p.skin)['hp'],WEAPONS[p.weapon]['capacity'],0,0,0
-                p.z=p.vz=0;p.crouch=p.jump_held=False
+                p.z=p.vz=0;p.crouch=p.jump_held=False;p.cooking=False;p.cook_time=0;p.cook_blocked=False
                 p.shield=0;p.shield_unlocked=False;p.damage_age=0;p.shield_regen=0
                 p.equip = 0
                 p.inp,p.route = {},[]
@@ -345,6 +350,7 @@ class Room:
     def equip_weapon(self,p,key):
         if not isinstance(key,str) or key not in WEAPONS or key == p.weapon or p.equip > 0: return
         if not self.available(p,key):return
+        if p.cooking:self.release_grenade(p,drop=True)
         p.magazines[p.weapon] = p.ammo
         p.weapon = key
         p.ammo = p.magazines[key]
@@ -355,12 +361,15 @@ class Room:
 
     def reload_weapon(self,p):
         spec = WEAPONS[p.weapon]
-        if spec['kind']=='melee' or (p.cheats.get('ammo') and not p.bot):return
+        if p.cooking or spec['kind']=='melee' or (p.cheats.get('ammo') and not p.bot):return
         if p.ammo < spec['capacity'] and p.reload == 0 and p.equip == 0 and p.reserves[p.weapon] > 0:
             p.reload = spec['reload_time']
 
     def shoot(self,p):
         spec = WEAPONS[p.weapon]
+        if p.cooking:return
+        if p.weapon=='grenade' and not p.bot and p.inp.get('fire'):
+            self.prime_grenade(p);return
         if spec['kind']=='melee':
             self.swing_axe(p);return
         infinite=p.weapon!='axe' and not p.bot and p.cheats.get('ammo',False)
@@ -437,6 +446,10 @@ class Room:
         for p in list(self.players.values()):
             if p.hp <= 0: continue
             old_position = (p.x,p.y)
+            if not p.bot:
+                p.stale += dt
+                if p.stale > .4:p.inp={}
+            if not p.inp.get('fire'):p.cook_blocked=False
             p.crouch=bool(p.inp.get("crouch"))
             jump=bool(p.inp.get("jump"))
             if jump and not p.jump_held and p.z<=0:
@@ -466,8 +479,6 @@ class Room:
                 self.ai(p,dt)
                 p.vx,p.vy = (p.x-ox)/dt,(p.y-oy)/dt
             else:
-                p.stale += dt
-                if p.stale > .4: p.inp = {}
                 p.yaw = angle(p.yaw+p.inp.get('turn',0)*3.2*dt)
                 f,s = p.inp.get('f',0),p.inp.get('s',0)
                 walk(p,f,s,dt,p.inp.get('aim'),self.map)
@@ -480,6 +491,12 @@ class Room:
                 continue
             if self.clock_hit(p,old_position,train_before,self.train_time):
                 continue
+            if p.cooking:
+                p.cook_time=min(3,p.cook_time+dt)
+                if p.cook_time>=3-1e-8:
+                    self.detonate_held(p)
+                    if p.hp<=0:continue
+                elif not p.inp.get('fire'):self.release_grenade(p)
             if p.inp.get('aim') or p.inp.get('fire') or p.tap_pending > 0:
                 self.assist_aim(p)
             if p.inp.get('reload'): self.reload_weapon(p)
@@ -565,6 +582,7 @@ class Room:
         self.apply_damage(target,amount,True)
         if attacker and attacker.id!=target.id:attacker.hit+=1
         if target.hp<=0:
+            if target.cooking:self.release_grenade(target,drop=True)
             target.deaths+=1;target.z=target.vz=0;target.vx=target.vy=0;target.inp={}
             if attacker and attacker.id!=target.id:attacker.kills+=1
             self.log.append(dict(killer=attacker.name if attacker else '수류탄',victim=target.name,team=attacker.team if attacker else None,weapon=weapon,headshot=headshot));self.log=self.log[-6:]
@@ -577,6 +595,7 @@ class Room:
         return (p.ammo if key==p.weapon else p.magazines[key])+p.reserves[key]>0
 
     def auto_weapon(self,p):
+        if p.cooking:return
         if self.available(p,p.weapon):return
         for key in ('rifle','pistol','shotgun','grenade','axe'):
             if self.available(p,key):self.equip_weapon(p,key);break
@@ -586,36 +605,59 @@ class Room:
         self.axes.append(dict(id=self.effect_serial,owner=p.id,x=p.x,y=p.y,z=p.z+(.975 if p.crouch else 1.5),vx=17*math.cos(p.yaw)*math.cos(p.pitch),vy=17*math.sin(p.yaw)*math.cos(p.pitch),vz=2+17*math.sin(p.pitch),ground=False))
 
     def update_axes(self,dt):
+        boxes=world_geometry(self)
         remaining=[]
         for a in self.axes:
             owner=self.players.get(a['owner'])
             if not owner:continue
             retrieved=False
-            if not a['ground']:
-                for _ in range(max(1,math.ceil(dt/.015))):
-                    h=dt/max(1,math.ceil(dt/.015));a['vz']-=12*h
-                    x,y,z=a['x']+a['vx']*h,a['y']+a['vy']*h,a['z']+a['vz']*h
-                    if self.projectile_blocked(x,y,z):a['vx']=a['vy']=0
-                    else:a['x'],a['y']=x,y
-                    a['z']=z
-                    for q in self.players.values():
-                        scale=.65 if q.crouch else 1
-                        if q.id!=owner.id and q.hp>0 and math.hypot(q.x-a['x'],q.y-a['y'])<.5 and q.z<a['z']<q.z+1.96*scale:
-                            if q.team!=owner.team:self.weapon_damage(owner,q,90*(2 if a['z']>q.z+1.56*scale else 1),'axe',headshot=a['z']>q.z+1.56*scale)
-                            retrieved=True;break
-                    if retrieved:break
-                    if a['z']<=.08:a['z']=.08;a['ground']=True;a['vx']=a['vy']=a['vz']=0;break
-            elif owner.hp>0 and owner.z<.5 and math.hypot(owner.x-a['x'],owner.y-a['y'])<1.25:retrieved=True
+            steps=max(1,math.ceil(dt/(1/120)))
+            for _ in range(steps):
+                advance(a,dt/steps,'axe',boxes,self.arena['grid'])
+                if a['ground']:
+                    if owner.hp>0 and owner.z<.5 and math.hypot(owner.x-a['x'],owner.y-a['y'])<1.25:retrieved=True
+                    break
+                for q in self.players.values():
+                    scale=.65 if q.crouch else 1
+                    if q.id!=owner.id and q.hp>0 and math.hypot(q.x-a['x'],q.y-a['y'])<.5 and q.z<a['z']<q.z+1.96*scale:
+                        if q.team!=owner.team:
+                            head=a['z']>q.z+1.56*scale
+                            self.weapon_damage(owner,q,90*(2 if head else 1),'axe',headshot=head)
+                        retrieved=True;break
+                if retrieved:break
             if retrieved:
                 owner.magazines['axe']=1
                 if owner.weapon=='axe':owner.ammo=1
             else:remaining.append(a)
         self.axes=remaining
 
-    def throw_grenade(self,p):
-        self.effect_serial+=1;speed=13*math.cos(p.pitch)
-        self.grenades.append(dict(id=self.effect_serial,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.9 if p.crouch else 1.35),vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=4.2+math.sin(p.pitch)*8,fuse=2.5))
-        if p.ammo==0:self.reload_weapon(p)
+    def prime_grenade(self,p):
+        infinite=not p.bot and p.cheats.get('ammo',False)
+        if p.cooking or p.cook_blocked or p.weapon!='grenade' or p.hp<=0 or self.state!='PLAYING' or p.equip>0 or p.cooldown>0 or p.reload>0:return False
+        if p.ammo<=0 and not infinite:
+            self.reload_weapon(p);return False
+        if not infinite:p.ammo-=1
+        p.magazines['grenade']=p.ammo
+        p.cooking=True;p.cook_time=0;p.cook_blocked=True;p.tap_pending=0;p.reload=0
+        return True
+
+    def release_grenade(self,p,drop=False):
+        if not p.cooking:return
+        fuse=max(0,3-p.cook_time);p.cooking=False;p.cook_time=0
+        p.shots+=1;p.shot_weapon='grenade';p.cooldown=max(p.cooldown,WEAPONS['grenade']['interval'])
+        self.throw_grenade(p,fuse=fuse,drop=drop)
+
+    def detonate_held(self,p):
+        p.cooking=False;p.cook_time=0;p.shots+=1;p.shot_weapon='grenade'
+        p.cooldown=max(p.cooldown,WEAPONS['grenade']['interval'])
+        g=dict(owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.585 if p.crouch else .9))
+        self.explode_grenade(g)
+        if p.hp>0 and p.ammo==0:self.reload_weapon(p)
+
+    def throw_grenade(self,p,fuse=None,drop=False):
+        self.effect_serial+=1;speed=0 if drop else 13*math.cos(p.pitch)
+        self.grenades.append(dict(id=self.effect_serial,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.9 if p.crouch else 1.35),vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=0 if drop else 4.2+math.sin(p.pitch)*8,fuse=3. if fuse is None else fuse))
+        if p.ammo==0 and p.hp>0:self.reload_weapon(p)
 
     def projectile_blocked(self,x,y,z):
         if not (0<=x<60 and 0<=y<35):return True
@@ -634,35 +676,35 @@ class Room:
         steps=max(1,math.ceil(math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(q.z+(.585 if q.crouch else .9)-g['z'])**2)/.15))
         return all(not self.projectile_blocked(g['x']+(q.x-g['x'])*i/steps,g['y']+(q.y-g['y'])*i/steps,g['z']+(q.z+(.585 if q.crouch else .9)-g['z'])*i/steps) for i in range(1,steps+1))
 
+    def explode_grenade(self,g):
+        self.effect_serial+=1
+        self.explosions.append(dict(id=self.effect_serial,x=g['x'],y=g['y'],z=g['z'],time=self.train_time))
+        attacker=self.players.get(g['owner'])
+        for q in self.players.values():
+            if q.hp<=0 or (q.team==g['team'] and q.id!=g['owner']):continue
+            distance=math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(q.z+(.585 if q.crouch else .9)-g['z'])**2)
+            if distance>6 or not self.blast_clear(g,q):continue
+            amount=round(160*max(.12,1-distance/6))
+            self.weapon_damage(attacker,q,amount,'grenade')
+
     def update_grenades(self,dt):
         self.explosions=[e for e in self.explosions if self.train_time-e['time']<2]
-        remaining=[]
-        for g in self.grenades:
-            steps=max(1,math.ceil(dt/.02));step=dt/steps
-            for _ in range(steps):
-                g['vz']-=9.8*step
-                for axis,vel in [('x','vx'),('y','vy')]:
-                    value=g[axis]+g[vel]*step;x=value if axis=='x' else g['x'];y=value if axis=='y' else g['y']
-                    if self.projectile_blocked(x,y,g['z']):g[vel]*=-.45
-                    else:g[axis]=value
-                g['z']+=g['vz']*step
-                if g['z']<.12:
-                    g['z']=.12;g['vz']=abs(g['vz'])*.3;g['vx']*=.77;g['vy']*=.77
-                g['fuse']-=step
-            if g['fuse']>1e-7:remaining.append(g);continue
-            self.effect_serial+=1;self.explosions.append(dict(id=self.effect_serial,x=g['x'],y=g['y'],z=g['z'],time=self.train_time))
-            attacker=self.players.get(g['owner'])
-            for q in self.players.values():
-                if q.hp<=0 or (q.team==g['team'] and q.id!=g['owner']):continue
-                distance=math.sqrt((q.x-g['x'])**2+(q.y-g['y'])**2+(q.z+(.585 if q.crouch else .9)-g['z'])**2)
-                if distance>6 or not self.blast_clear(g,q):continue
-                amount=round(160*max(.12,1-distance/6));self.weapon_damage(attacker,q,amount,'grenade')
-        self.grenades=remaining
+        boxes=world_geometry(self);remaining=[]
+        batch,self.grenades=self.grenades,[]
+        for g in batch:
+            active=min(dt,max(0,g['fuse']));steps=max(1,math.ceil(active/(1/120)))
+            for _ in range(steps):advance(g,active/steps,'grenade',boxes,self.arena['grid'])
+            g['fuse']-=dt
+            if g['fuse']>1e-7:remaining.append(g)
+            else:self.explode_grenade(g)
+        # A casualty may drop a second armed grenade while explosions resolve.
+        self.grenades=remaining+self.grenades
 
     def environment_damage(self,p,amount,name,cause):
         if p.hp<=0: return
         self.apply_damage(p,amount)
         if p.hp==0:
+            if p.cooking:self.release_grenade(p,drop=True)
             p.deaths+=1;p.z=p.vz=0;p.vx=p.vy=0;p.inp={}
             self.log.append(dict(killer=name,victim=p.name,team=None,cause=cause))
             self.log=self.log[-6:]
@@ -709,6 +751,7 @@ class Room:
             if cfg['inner']-PLAYER_RADIUS<along<cfg['length']+PLAYER_RADIUS and abs(across)<cfg['width']/2+PLAYER_RADIUS and not wall(p.x,p.y,self.map):
                 self.apply_damage(p,cfg['damage']);p.hazard_cooldown=cfg['hit_interval']
                 if p.hp==0:
+                    if p.cooking:self.release_grenade(p,drop=True)
                     p.deaths+=1;p.z=p.vz=0;p.vx=p.vy=0;p.inp={}
                     self.log.append(dict(killer='시계탑 시침',victim=p.name,team=None,cause='clock'));self.log=self.log[-6:]
                     return True
@@ -724,4 +767,4 @@ class Room:
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
         reason = self.start_error()
-        return dict(type='state',axes=self.axes,grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',projectile_boxes=world_geometry(self),axes=self.axes,grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)

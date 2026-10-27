@@ -107,7 +107,7 @@ def update_ai(room,p,dt):
         if b['target']!=target.id:p.reaction=0;b['plan']=0
         b['target']=target.id;b['memory']=(target.x,target.y);b['memory_ttl']=6
         desired=math.atan2(target.y-p.y,target.x-p.x);error=angle(desired-p.yaw)
-        p.yaw=angle(p.yaw+max(-1.7*dt,min(1.7*dt,error)));p.pitch=math.atan2(-.3,math.hypot(target.x-p.x,target.y-p.y))
+        p.yaw=angle(p.yaw+max(-1.7*dt,min(1.7*dt,error)));p.pitch=math.atan2(target.z+1.2*(.65 if target.crouch else 1)-p.z-(.975 if p.crouch else 1.5),math.hypot(target.x-p.x,target.y-p.y))
         p.reaction+=dt
         if b['rest']<=0:
             if b['burst']<=0:b['burst']=random.uniform(.45,.9)
