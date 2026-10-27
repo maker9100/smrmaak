@@ -93,6 +93,8 @@ def follow(room,p,goal,dt,look):
 
 
 def update_ai(room,p,dt):
+    if p.flash_time>.2:
+        p.inp={'fire':False};p.tap_pending=0;return
     if not p.brain:
         slot=[q.id for q in room.players.values() if q.team==p.team].index(p.id)
         p.brain=dict(style=('flank','advance','roam')[slot%3],lane=slot%3,mode='patrol',step=0,

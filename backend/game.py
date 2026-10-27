@@ -7,10 +7,10 @@ from dataclasses import dataclass, field, asdict
 
 from .arenas import ARENAS, DEFAULT_ARENA, MAP, PLAYER_RADIUS
 from .hazards import train_pose, train_hits, segment_box
-from .weapons import WEAPONS
+from .weapons import WEAPONS, GRENADE_TYPES, THROW_TYPES
 from .roles import ROLES, profile
 from .combat import bullet_impact
-from .projectiles import world_geometry, advance
+from .projectiles import world_geometry, advance, safe_floor
 
 CHEATS = ('aim', 'esp', 'recoil', 'ammo')
 AIM_CONE = .95
@@ -99,6 +99,11 @@ class Player:
     damage_seq: int = 0
     kills: int = 0
     deaths: int = 0
+    grenade_choice: str = 'grenade'
+    throw_choice: str = 'axe'
+    flash_time: float = 0
+    flash_strength: float = 0
+    burn_cooldown: float = 0
     weapon: str = 'rifle'
     magazines: dict = field(default_factory=lambda:{k:v['capacity'] for k,v in WEAPONS.items()})
     reserves: dict = field(default_factory=lambda:{k:v['reserve'] for k,v in WEAPONS.items()})
@@ -146,7 +151,7 @@ class Room:
         self.crane_state = None
         self.heat_zones = []
         self.next_heat = 4.
-        self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[];self.effect_serial=0
+        self.fires=[];self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[];self.effect_serial=0
 
     @property
     def arena(self): return ARENAS[self.map_id]
@@ -225,13 +230,14 @@ class Room:
                 p.reserves = {k:v['reserve'] for k,v in WEAPONS.items()}
                 p.hazard_cooldown = p.heat_cooldown = 0
                 p.hp,p.ammo,p.reload,p.cooldown,p.kick = profile(p.skin)['hp'],WEAPONS[p.weapon]['capacity'],0,0,0
+                p.flash_time=p.flash_strength=p.burn_cooldown=0
                 p.z=p.vz=0;p.crouch=p.jump_held=False;p.cooking=False;p.cook_time=0;p.cook_blocked=False
                 p.shield=0;p.shield_unlocked=False;p.damage_age=0;p.shield_regen=0
                 p.equip = 0
                 p.inp,p.route = {},[]
                 p.vx,p.vy,p.stale = 0,0,0
                 p.pitch,p.input_age,p.tap_pending,p.reaction = 0,0,0,0
-        self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[]
+        self.fires=[];self.grenades=[];self.explosions=[];self.impacts=[];self.axes=[]
         self.message = f'ROUND {self.round}'
 
     def finish(self, winner, reason):
@@ -281,6 +287,7 @@ class Room:
             if team in (0,1) and team != p.team and self.mode == 'local':
                 if sum(q.team == team for q in self.players.values()) >= 3: raise ValueError('그 팀은 가득 찼습니다.')
                 p.team = team
+            self.configure_loadout(p,data)
             p.ready = False
         elif op == 'map' and self.state == 'LOBBY' and self.mode == 'local' and p.id == self.host:
             if data.get('map_id') not in ARENAS: raise ValueError('존재하지 않는 맵입니다.')
@@ -347,8 +354,26 @@ class Room:
         p.yaw = math.atan2(q.y-p.y,q.x-p.x)
         p.pitch = math.atan2(q.z+1.2*(.65 if q.crouch else 1)-p.z-(.975 if p.crouch else 1.5),math.hypot(q.x-p.x,q.y-p.y))
 
+    def configure_loadout(self,p,data):
+        if self.state!='LOBBY':return
+        for field,allowed in (('grenade_choice',GRENADE_TYPES),('throw_choice',THROW_TYPES)):
+            if isinstance(data.get(field),str) and data[field] in allowed:setattr(p,field,data[field])
+        if p.weapon in GRENADE_TYPES+THROW_TYPES and not self.loadout_allows(p,p.weapon):p.weapon='rifle';p.ammo=p.magazines['rifle']
+
+    def loadout_allows(self,p,key):
+        return key in WEAPONS and (key not in GRENADE_TYPES or key==p.grenade_choice) and (key not in THROW_TYPES or key==p.throw_choice)
+
+    def swing_knife(self,p):
+        if p.cooldown>0 or p.equip>0 or p.reload>0:return
+        p.cooldown=WEAPONS['knife']['interval'];p.shots+=1;p.shot_weapon='knife'
+        targets=[]
+        for q in self.players.values():
+            d=math.hypot(q.x-p.x,q.y-p.y)
+            if q.hp>0 and q.team!=p.team and d<=2.2 and abs(angle(math.atan2(q.y-p.y,q.x-p.x)-p.yaw))<.65 and abs(q.z-p.z)<1.6 and self.sight(p.x,p.y,q.x,q.y):targets.append((d,q.id,q))
+        if targets:self.weapon_damage(p,min(targets,key=lambda v:v[:2])[2],70,'knife')
+
     def equip_weapon(self,p,key):
-        if not isinstance(key,str) or key not in WEAPONS or key == p.weapon or p.equip > 0: return
+        if not isinstance(key,str) or not self.loadout_allows(p,key) or key == p.weapon or p.equip > 0: return
         if not self.available(p,key):return
         if p.cooking:self.release_grenade(p,drop=True)
         p.magazines[p.weapon] = p.ammo
@@ -368,10 +393,10 @@ class Room:
     def shoot(self,p):
         spec = WEAPONS[p.weapon]
         if p.cooking:return
-        if p.weapon=='grenade' and not p.bot and p.inp.get('fire'):
+        if p.weapon in GRENADE_TYPES and not p.bot and p.inp.get('fire'):
             self.prime_grenade(p);return
         if spec['kind']=='melee':
-            self.swing_axe(p);return
+            self.swing_knife(p);return
         infinite=p.weapon!='axe' and not p.bot and p.cheats.get('ammo',False)
         if infinite:p.reload=0
         if p.weapon == 'shotgun' and p.ammo > 0 and p.reload > 0 and p.cooldown == 0 and p.equip == 0:
@@ -386,7 +411,7 @@ class Room:
         if not infinite:p.ammo -= 1
         p.magazines[p.weapon] = p.ammo
         self.assist_aim(p)
-        if p.weapon=='axe':
+        if spec['kind']=='throw':
             self.throw_axe(p);self.auto_weapon(p);return
         if spec['kind']=='grenade':
             p.brain['pending_grenade']=False
@@ -442,6 +467,7 @@ class Room:
         self.update_heat()
         self.update_grenades(dt)
         self.update_axes(dt)
+        self.update_fires(dt)
         train_config = self.arena.get('train')
         for p in list(self.players.values()):
             if p.hp <= 0: continue
@@ -459,6 +485,8 @@ class Room:
             if p.z>0 or p.vz>0:
                 p.z=max(0,p.z+p.vz*dt-9*dt*dt);p.vz-=18*dt
                 if p.z==0:p.vz=0
+            p.flash_time=max(0,p.flash_time-dt)
+            if p.flash_time==0:p.flash_strength=0
             p.heat_cooldown = max(0,p.heat_cooldown-dt)
             p.hazard_cooldown = max(0,p.hazard_cooldown-dt)
             p.cooldown = max(0,p.cooldown-dt)
@@ -591,18 +619,23 @@ class Room:
         self.effect_serial+=1;self.impacts.append(dict(id=self.effect_serial,time=round(self.train_time,3),**{k:round(v,4) if isinstance(v,float) else v for k,v in impact.items()}));self.impacts=self.impacts[-128:]
 
     def available(self,p,key):
+        if not self.loadout_allows(p,key):return False
+        if key=='knife':return True
         if key!='axe' and p.cheats.get('ammo') and not p.bot:return True
         return (p.ammo if key==p.weapon else p.magazines[key])+p.reserves[key]>0
 
     def auto_weapon(self,p):
         if p.cooking:return
         if self.available(p,p.weapon):return
-        for key in ('rifle','pistol','shotgun','grenade','axe'):
+        for key in ('rifle','pistol','shotgun',p.grenade_choice,p.throw_choice,'knife'):
             if self.available(p,key):self.equip_weapon(p,key);break
 
     def throw_axe(self,p):
-        self.effect_serial+=1
-        self.axes.append(dict(id=self.effect_serial,owner=p.id,x=p.x,y=p.y,z=p.z+(.975 if p.crouch else 1.5),vx=17*math.cos(p.yaw)*math.cos(p.pitch),vy=17*math.sin(p.yaw)*math.cos(p.pitch),vz=2+17*math.sin(p.pitch),ground=False))
+        self.effect_serial+=1;speed=WEAPONS[p.weapon].get('speed',17)
+        if p.weapon!='axe' and len([a for a in self.axes if a['owner']==p.id and a.get('weapon')==p.weapon])>=20:
+            old=next(a for a in self.axes if a['owner']==p.id and a.get('weapon')==p.weapon);self.axes.remove(old)
+        self.axes.append(dict(id=self.effect_serial,owner=p.id,weapon=p.weapon,x=p.x,y=p.y,z=p.z+(.975 if p.crouch else 1.5),vx=speed*math.cos(p.yaw)*math.cos(p.pitch),vy=speed*math.sin(p.yaw)*math.cos(p.pitch),vz=2+speed*math.sin(p.pitch),ground=False))
+        if p.weapon!='axe' and p.ammo==0:self.reload_weapon(p)
 
     def update_axes(self,dt):
         boxes=world_geometry(self)
@@ -610,53 +643,55 @@ class Room:
         for a in self.axes:
             owner=self.players.get(a['owner'])
             if not owner:continue
-            retrieved=False
+            retrieved=False;key=a.get('weapon','axe');recover=False
             steps=max(1,math.ceil(dt/(1/120)))
             for _ in range(steps):
                 advance(a,dt/steps,'axe',boxes,self.arena['grid'])
                 if a['ground']:
-                    if owner.hp>0 and owner.z<.5 and math.hypot(owner.x-a['x'],owner.y-a['y'])<1.25:retrieved=True
+                    if owner.hp>0 and owner.z<.5 and math.hypot(owner.x-a['x'],owner.y-a['y'])<1.25:retrieved=True;recover=True
                     break
                 for q in self.players.values():
                     scale=.65 if q.crouch else 1
                     if q.id!=owner.id and q.hp>0 and math.hypot(q.x-a['x'],q.y-a['y'])<.5 and q.z<a['z']<q.z+1.96*scale:
                         if q.team!=owner.team:
                             head=a['z']>q.z+1.56*scale
-                            self.weapon_damage(owner,q,90*(2 if head else 1),'axe',headshot=head)
+                            self.weapon_damage(owner,q,WEAPONS[key]['damage']*(2 if head else 1),key,headshot=head)
                         retrieved=True;break
                 if retrieved:break
             if retrieved:
-                owner.magazines['axe']=1
-                if owner.weapon=='axe':owner.ammo=1
+                if key=='axe' or recover:
+                    amount=min(WEAPONS[key]['capacity'],(owner.ammo if owner.weapon==key else owner.magazines[key])+1)
+                    owner.magazines[key]=amount
+                    if owner.weapon==key:owner.ammo=amount
             else:remaining.append(a)
         self.axes=remaining
 
     def prime_grenade(self,p):
         infinite=not p.bot and p.cheats.get('ammo',False)
-        if p.cooking or p.cook_blocked or p.weapon!='grenade' or p.hp<=0 or self.state!='PLAYING' or p.equip>0 or p.cooldown>0 or p.reload>0:return False
+        if p.cooking or p.cook_blocked or p.weapon not in GRENADE_TYPES or p.hp<=0 or self.state!='PLAYING' or p.equip>0 or p.cooldown>0 or p.reload>0:return False
         if p.ammo<=0 and not infinite:
             self.reload_weapon(p);return False
         if not infinite:p.ammo-=1
-        p.magazines['grenade']=p.ammo
+        p.magazines[p.weapon]=p.ammo
         p.cooking=True;p.cook_time=0;p.cook_blocked=True;p.tap_pending=0;p.reload=0
         return True
 
     def release_grenade(self,p,drop=False):
         if not p.cooking:return
         fuse=max(0,3-p.cook_time);p.cooking=False;p.cook_time=0
-        p.shots+=1;p.shot_weapon='grenade';p.cooldown=max(p.cooldown,WEAPONS['grenade']['interval'])
+        p.shots+=1;p.shot_weapon=p.weapon;p.cooldown=max(p.cooldown,WEAPONS[p.weapon]['interval'])
         self.throw_grenade(p,fuse=fuse,drop=drop)
 
     def detonate_held(self,p):
-        p.cooking=False;p.cook_time=0;p.shots+=1;p.shot_weapon='grenade'
-        p.cooldown=max(p.cooldown,WEAPONS['grenade']['interval'])
-        g=dict(owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.585 if p.crouch else .9))
+        p.cooking=False;p.cook_time=0;p.shots+=1;p.shot_weapon=p.weapon
+        p.cooldown=max(p.cooldown,WEAPONS[p.weapon]['interval'])
+        g=dict(kind=p.weapon,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.585 if p.crouch else .9))
         self.explode_grenade(g)
         if p.hp>0 and p.ammo==0:self.reload_weapon(p)
 
     def throw_grenade(self,p,fuse=None,drop=False):
         self.effect_serial+=1;speed=0 if drop else 13*math.cos(p.pitch)
-        self.grenades.append(dict(id=self.effect_serial,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.9 if p.crouch else 1.35),vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=0 if drop else 4.2+math.sin(p.pitch)*8,fuse=3. if fuse is None else fuse))
+        self.grenades.append(dict(id=self.effect_serial,kind=p.weapon,owner=p.id,team=p.team,x=p.x,y=p.y,z=p.z+(.9 if p.crouch else 1.35),vx=math.cos(p.yaw)*speed,vy=math.sin(p.yaw)*speed,vz=0 if drop else 4.2+math.sin(p.pitch)*8,fuse=3. if fuse is None else fuse))
         if p.ammo==0 and p.hp>0:self.reload_weapon(p)
 
     def projectile_blocked(self,x,y,z):
@@ -677,8 +712,18 @@ class Room:
         return all(not self.projectile_blocked(g['x']+(q.x-g['x'])*i/steps,g['y']+(q.y-g['y'])*i/steps,g['z']+(q.z+(.585 if q.crouch else .9)-g['z'])*i/steps) for i in range(1,steps+1))
 
     def explode_grenade(self,g):
-        self.effect_serial+=1
-        self.explosions.append(dict(id=self.effect_serial,x=g['x'],y=g['y'],z=g['z'],time=self.train_time))
+        self.effect_serial+=1;kind=g.get('kind','grenade')
+        self.explosions.append(dict(id=self.effect_serial,kind=kind,x=g['x'],y=g['y'],z=g['z'],time=self.train_time))
+        if kind=='flashbang':
+            for q in self.players.values():
+                d=math.hypot(q.x-g['x'],q.y-g['y'])
+                if q.hp<=0 or d>12 or (q.team==g['team'] and q.id!=g['owner']) or not self.blast_clear(g,q):continue
+                facing=(1+math.cos(angle(math.atan2(g['y']-q.y,g['x']-q.x)-q.yaw)))/2
+                strength=max(.15,(1-d/12)*(.3+.7*facing));q.flash_strength=max(q.flash_strength,strength);q.flash_time=max(q.flash_time,4*strength)
+            return
+        if kind=='molotov':
+            x,y=safe_floor(g['x'],g['y'],self.arena['grid'],world_geometry(self))
+            self.fires.append(dict(id=self.effect_serial,owner=g['owner'],team=g['team'],x=x,y=y,z=.04,radius=3.,end=self.train_time+8));return
         attacker=self.players.get(g['owner'])
         for q in self.players.values():
             if q.hp<=0 or (q.team==g['team'] and q.id!=g['owner']):continue
@@ -693,12 +738,26 @@ class Room:
         batch,self.grenades=self.grenades,[]
         for g in batch:
             active=min(dt,max(0,g['fuse']));steps=max(1,math.ceil(active/(1/120)))
-            for _ in range(steps):advance(g,active/steps,'grenade',boxes,self.arena['grid'])
+            struck=False
+            for _ in range(steps):
+                old=(g['vx'],g['vy'],g['vz'])
+                advance(g,active/steps,'grenade',boxes,self.arena['grid'])
+                if g.get('kind')=='molotov' and (g['z']<=.135 or g['vx']*old[0]+g['vy']*old[1]<-1e-6 or g['vz']>old[2]+.02):struck=True;break
             g['fuse']-=dt
-            if g['fuse']>1e-7:remaining.append(g)
+            if g['fuse']>1e-7 and not struck:remaining.append(g)
             else:self.explode_grenade(g)
         # A casualty may drop a second armed grenade while explosions resolve.
         self.grenades=remaining+self.grenades
+
+    def update_fires(self,dt):
+        self.fires=[f for f in self.fires if f['end']>self.train_time]
+        for q in list(self.players.values()):
+            q.burn_cooldown=max(0,q.burn_cooldown-dt)
+            if q.hp<=0 or q.burn_cooldown>0:continue
+            for f in self.fires:
+                if (q.team==f['team'] and q.id!=f['owner']) or abs(q.z-f['z'])>1.3:continue
+                if math.hypot(q.x-f['x'],q.y-f['y'])<f['radius'] and self.blast_clear(f,q):
+                    self.weapon_damage(self.players.get(f['owner']),q,20,'molotov');q.burn_cooldown=.4;break
 
     def environment_damage(self,p,amount,name,cause):
         if p.hp<=0: return
@@ -767,4 +826,4 @@ class Room:
             players.append(d)
         train = train_pose(self.train_time,self.arena['train']) if 'train' in self.arena else None
         reason = self.start_error()
-        return dict(type='state',projectile_boxes=world_geometry(self),axes=self.axes,grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
+        return dict(type='state',fires=self.fires,projectile_boxes=world_geometry(self),axes=self.axes,grenades=self.grenades,explosions=self.explosions,impacts=self.impacts,world_time=self.train_time,heat_zones=self.heat_zones,crane=self.crane_state,grid=self.map,weapons=WEAPONS,can_start=not reason,start_hint=reason,train=train,map_id=self.map_id,arena=self.arena,code=self.code,mode=self.mode,quick=self.quick,host=self.host,state=self.state,timer=max(0,self.timer),round=self.round,score=self.score,history=self.history,log=self.log,message=self.message,players=players)
